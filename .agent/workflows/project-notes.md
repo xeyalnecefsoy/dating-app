@@ -202,11 +202,92 @@ http://localhost:3000/admin
 
 ---
 
+## 🔴 Vercel/Next.js 16 Build Xətaları
+
+### 9. TypeScript 'never' Type Xətası
+**Problem:** `selectedConv?.participantId` - TypeScript tipi `never` kimi çıxarır.
+
+**Səbəb:** `if (selectedConv) { return ... }` bloku var, TypeScript düşünür ki, sonrakı kodda `selectedConv` heç vaxt `Conversation` ola bilməz.
+
+**Həll:** Tip casting istifadə et:
+```tsx
+// ❌ Xəta verir
+isSelected={selectedConv?.participantId === matchId}
+
+// ✅ Düzgün
+isSelected={(selectedConv as Conversation | null)?.participantId === matchId}
+```
+
+---
+
+### 10. useSearchParams Suspense Xətası (Next.js 16)
+**Problem:** `useSearchParams() should be wrapped in a suspense boundary`
+
+**Həll 1 - Komponenti Suspense ilə sar:**
+```tsx
+import { Suspense } from "react";
+
+<Suspense fallback={null}>
+  <NotificationHandler />
+</Suspense>
+```
+
+**Həll 2 - loading.tsx yarat:**
+```tsx
+// app/messages/loading.tsx
+export default function Loading() {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+```
+
+---
+
+### 11. ThemeContext toggleTheme Əksik
+**Problem:** `Property 'toggleTheme' does not exist on type 'ThemeProviderState'`
+
+**Həll:** `contexts/ThemeContext.tsx`-ə əlavə et:
+```tsx
+type ThemeProviderState = {
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
+  toggleTheme: () => void;  // ← Əlavə et
+};
+
+// Implementation
+const toggleTheme = () => {
+  const newTheme = theme === "dark" ? "light" : "dark";
+  setTheme(newTheme);
+};
+```
+
+---
+
+### 12. UserProfile Əksik Sahələr
+**Problem:** `DebugUserSwitcher.tsx`-də tip xətası - əksik properties.
+
+**Həll:** `UserProfile` tipindəki bütün sahələri doldur:
+```tsx
+const newUser: UserProfile = {
+  // ... mövcud sahələr ...
+  messageRequests: [],        // ← Əlavə et
+  sentMessageRequests: [],    // ← Əlavə et
+  seenMessageRequests: [],    // ← Əlavə et
+};
+```
+
+**Qayda:** `UserContext.tsx`-dəki `UserProfile` tipini yoxla və bütün sahələri əlavə et.
+
+---
+
 ## 📋 Gələcək İşlər (TODO)
 
+- [x] ~~Messages - `participantId` lint xətasını həll et~~ ✅
 - [ ] Admin Panel - Real Convex data ilə inteqrasiya
 - [ ] Push Notifications - Backend server qurulması
-- [ ] Messages - `participantId` lint xətasını həll et
 - [ ] UserProfile tipinə `joined`/`createdAt` əlavə et
 
 ---
@@ -218,7 +299,11 @@ http://localhost:3000/admin
 3. **Hydration xətası:** `toLocaleString('en-US')` istifadə et
 4. **z-index problemi:** Admin panel `z-50`, toggle `z-[60]`
 5. **Hot reload işləmirsə:** Brauzeri manual refresh et
+6. **Vercel build uğursuz:** Lokal `npm run build` ilə test et
+7. **TypeScript 'never' xətası:** Tip casting `as Type | null` istifadə et
+8. **useSearchParams xətası:** `Suspense` ilə sar və ya `loading.tsx` yarat
 
 ---
 
 *Son yenilənmə: 2026-01-20*
+
