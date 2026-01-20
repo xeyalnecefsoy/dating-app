@@ -758,7 +758,7 @@ export default function MessagesPage() {
                   key={matchId}
                   participantId={matchId}
                   currentUserId={user?.id || "current-user"}
-                  isSelected={selectedConv?.participantId === matchId}
+                  isSelected={(selectedConv as Conversation | null)?.participantId === matchId}
                   onSelect={() => {
                     const fakeConv: Conversation = {
                         id: `conv-${matchId}`, // Internal ID, doesn't matter much as fetching uses channelId

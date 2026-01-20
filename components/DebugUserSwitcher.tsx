@@ -30,7 +30,7 @@ export function DebugUserSwitcher() {
       values: [],
       loveLanguage: mockUser.loveLanguage,
       interests: mockUser.interests,
-      communicationStyle: mockUser.communicationStyle as any,
+      communicationStyle: mockUser.communicationStyle as "Direct" | "Empathetic" | "Analytical" | "Playful",
       avatar: mockUser.avatar,
       badges: [],
       streak: 0,
@@ -38,6 +38,9 @@ export function DebugUserSwitcher() {
       matches: [], // Start fresh or implement mock matches if needed
       likes: [],
       unreadMatches: [],
+      messageRequests: [],
+      sentMessageRequests: [],
+      seenMessageRequests: [],
     };
     
     // Save to local storage and reload to trigger proper hydration/onboarding check

@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, Suspense } from "react";
 import { UserProvider } from "@/contexts/UserContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
@@ -15,7 +15,9 @@ export function Providers({ children }: { children: ReactNode }) {
         <ThemeProvider>
           <UserProvider>
             <ToastProvider>
-              <NotificationHandler />
+              <Suspense fallback={null}>
+                <NotificationHandler />
+              </Suspense>
               {children}
             </ToastProvider>
           </UserProvider>
@@ -24,4 +26,3 @@ export function Providers({ children }: { children: ReactNode }) {
     </ConvexClientProvider>
   );
 }
-
