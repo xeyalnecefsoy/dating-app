@@ -21,9 +21,36 @@ const playfair = Playfair_Display({
 
 export const metadata: Metadata = {
   title: "Danyeri - Dating App",
-  description: "Find your perfect match with Danyeri",
+  description: "Sevgi və münasibətlər üçün tətbiq. Find your perfect match with Danyeri.",
   manifest: "/manifest.json",
-  keywords: ["dating", "relationships", "azerbaijan", "values", "connection"],
+  keywords: ["dating", "relationships", "azerbaijan", "values", "connection", "tanışlıq", "sevgi"],
+  applicationName: "Danyeri",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Danyeri",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  openGraph: {
+    type: "website",
+    siteName: "Danyeri",
+    title: "Danyeri - Dating App",
+    description: "Sevgi və münasibətlər üçün tətbiq",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512x512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/icons/icon-152x152.png", sizes: "152x152", type: "image/png" },
+    ],
+  },
 };
 
 export const viewport: Viewport = {
@@ -31,6 +58,11 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#FF4458" },
+    { media: "(prefers-color-scheme: dark)", color: "#0A0A0F" },
+  ],
+  colorScheme: "dark",
 };
 
 export default function RootLayout({

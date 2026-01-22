@@ -81,7 +81,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   // Convex Hooks
   const createMatchMutation = useMutation(api.matches.create);
+  const sendRequestMutation = useMutation(api.matches.sendRequest);
+  const acceptRequestMutation = useMutation(api.matches.acceptRequest);
+  const declineRequestMutation = useMutation(api.matches.declineRequest);
+  
   const convexMatches = useQuery(api.matches.list, user ? { userId: user.id } : "skip");
+  const convexRequests = useQuery(api.matches.getRequests, user ? { userId: user.id } : "skip");
+  
   const ping = useMutation(api.presence.ping);
 
   // Heartbeat to keep presence active
@@ -108,18 +114,24 @@ export function UserProvider({ children }: { children: ReactNode }) {
         
         const newMatches = remoteIds.filter(id => !localIds.includes(id));
         
-        console.log("Convex Sync:", { remoteIds, localIds, newMatches });
-
-        if (newMatches.length > 0) {
-            updateUser({
+        // Also check message requests synching
+        const remoteRequests = convexRequests ? convexRequests.map(id => String(id)) : [];
+        const localRequests = user.messageRequests || [];
+        const newRequests = remoteRequests.filter(id => !localRequests.includes(id));
+        
+        if (newMatches.length > 0 || (newRequests.length > 0 && convexRequests)) {
+             console.log("Convex Sync:", { newMatches, newRequests });
+             
+             updateUser({
                 ...user,
                 matches: [...user.matches, ...newMatches],
-                // Add new remote matches as unread if not mostly already there
-                unreadMatches: [...(user.unreadMatches || []), ...newMatches]
+                unreadMatches: [...(user.unreadMatches || []), ...newMatches],
+                // Add new message requests
+                messageRequests: [...localRequests, ...newRequests]
             });
         }
     }
-  }, [convexMatches, user]);
+  }, [convexMatches, convexRequests, user]);
 
   // Sync Local -> Convex (One way sync for legacy/local-first matches)
   useEffect(() => {
@@ -198,11 +210,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const gender = profile.gender || "male";
     const avatar = profile.avatar || getAvatarByGender(gender, Math.floor(Math.random() * 5));
     
+    // For testing/mock purposes, if an ID is provided use it, otherwise generate a random one
+    // We want to avoid everyone being 'current-user' so notifications work peer-to-peer
+    const id = profile.id || `user-${Math.random().toString(36).substr(2, 9)}`;
+
     const newUser: UserProfile = {
       ...defaultUser,
       ...profile,
       avatar,
-      id: "current-user",
+      id,
       streak: 1,
       lastActiveDate: new Date().toDateString(),
       badges: ["Early Adopter"],
@@ -245,19 +261,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const matchUser = React.useCallback(async (userId: string) => {
-    // We need to access the current user state for the optimistic update and check
-    // Since we are inside a callback, let's use functional state update for safety
-    // BUT we also need to trigger side effects (mutation) which shouldn't be in the setter.
-    // However, for matchUser, it seems safe to just read 'user' from closure if 'user' is in dependency?
-    // NO, if we put 'user' in dependency, this function changes every render, causing re-renders downstream if used in effects.
-    // Better pattern: use a ref for current user or just standard functional updates where possible.
-    // For the side effect (createMatchMutation), we can allow it to close over variables.
-    // Wait, createMatchMutation is stable. User ID... 
-    
-    // Let's use the functional update pattern for local state to be safe, 
-    // and for the mutation, we might need the ID. Ideally pass ID to this function or access from ref.
-    // For simplicity given the infinite loop is primarily about `markAllNotificationsAsRead`, let's just use functional updates for state.
-    
     let shouldMutate = false;
     let currentUserId = "";
 
@@ -282,7 +285,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
     if (shouldMutate && currentUserId) {
         // Sync with DB
-         await createMatchMutation({ user1Id: "current-user", user2Id: userId }); // user1Id is usually auth'd user, but using "current-user" string from context for now as per simple auth
+         await createMatchMutation({ user1Id: currentUserId, user2Id: userId }); 
     }
   }, [createMatchMutation]);
 
@@ -315,9 +318,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const sendMessageRequest = React.useCallback((userId: string) => {
+  const sendMessageRequest = React.useCallback(async (userId: string) => {
+    let currentUserId = "";
     setUser(prev => {
       if (prev && !prev.sentMessageRequests?.includes(userId)) {
+        currentUserId = prev.id;
         const updated = {
           ...prev,
           sentMessageRequests: [...(prev.sentMessageRequests || []), userId]
@@ -327,9 +332,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
       return prev;
     });
-  }, []);
+
+    if (currentUserId) {
+        await sendRequestMutation({ senderId: currentUserId, receiverId: userId });
+    }
+  }, [sendRequestMutation]);
 
   const cancelMessageRequest = React.useCallback((userId: string) => {
+     // TODO: Implement cancel implementation in backend if needed
     setUser(prev => {
       if (prev && prev.sentMessageRequests?.includes(userId)) {
         const updated = {
@@ -343,9 +353,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const acceptMessageRequest = React.useCallback((userId: string) => {
+  const acceptMessageRequest = React.useCallback(async (userId: string) => {
+    let currentUserId = "";
     setUser(prev => {
       if (prev && prev.messageRequests?.includes(userId)) {
+         currentUserId = prev.id;
          const updated = {
           ...prev,
           messageRequests: prev.messageRequests.filter(id => id !== userId),
@@ -357,11 +369,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
       return prev;
     });
-  }, []);
 
-  const declineMessageRequest = React.useCallback((userId: string) => {
+    if (currentUserId) {
+        await acceptRequestMutation({ userId: currentUserId, targetId: userId });
+    }
+  }, [acceptRequestMutation]);
+
+  const declineMessageRequest = React.useCallback(async (userId: string) => {
+    let currentUserId = "";
     setUser(prev => {
       if (prev && prev.messageRequests?.includes(userId)) {
+        currentUserId = prev.id;
         const updated = {
           ...prev,
           messageRequests: prev.messageRequests.filter(id => id !== userId)
@@ -371,7 +389,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
       return prev;
     });
-  }, []);
+
+    if (currentUserId) {
+        await declineRequestMutation({ userId: currentUserId, targetId: userId });
+    }
+  }, [declineRequestMutation]);
 
   const logout = React.useCallback(() => {
     updateUser(null);

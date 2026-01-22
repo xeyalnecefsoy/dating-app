@@ -9,35 +9,15 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getAvatarByGender, translateValue, translateInterest, translateLoveLanguage, translateStyle } from "@/lib/mock-users";
+import { MOCK_USERS, getAvatarByGender, translateValue, translateInterest, translateLoveLanguage, translateStyle } from "@/lib/mock-users";
 
-const AVAILABLE_VALUES = [
-  "Growth", "Creativity", "Authenticity", "Empathy", "Honesty", 
-  "Family", "Adventure", "Ambition", "Kindness", "Intelligence",
-  "Humor", "Loyalty", "Independence", "Health"
-];
+import { 
+  AVAILABLE_VALUES, 
+  AVAILABLE_INTERESTS, 
+  LOVE_LANGUAGES, 
+  COMM_STYLES 
+} from "@/lib/constants";
 
-const AVAILABLE_INTERESTS = [
-  "Travel", "Music", "Fitness", "Reading", "Cooking",
-  "Photography", "Movies", "Art", "Sports",
-  "Nature", "Technology", "Fashion", "Yoga",
-  "Coffee", "Hiking", "Pets"
-];
-
-const LOVE_LANGUAGES = [
-  { id: "Words of Affirmation", emoji: "💬" },
-  { id: "Quality Time", emoji: "⏰" },
-  { id: "Acts of Service", emoji: "🤝" },
-  { id: "Physical Touch", emoji: "🤗" },
-  { id: "Receiving Gifts", emoji: "🎁" }
-];
-
-const COMM_STYLES: Array<{ id: "Direct" | "Empathetic" | "Analytical" | "Playful"; emoji: string }> = [
-  { id: "Direct", emoji: "🎯" },
-  { id: "Empathetic", emoji: "💝" },
-  { id: "Analytical", emoji: "🧠" },
-  { id: "Playful", emoji: "😄" }
-];
 
 const LOCATIONS_EN = ["Baku", "Ganja", "Sumqayit", "Sheki", "Lankaran", "Mingachevir", "Other"];
 const LOCATIONS_AZ = ["Bakı", "Gəncə", "Sumqayıt", "Şəki", "Lənkəran", "Mingəçevir", "Digər"];
@@ -122,7 +102,13 @@ export default function OnboardingPage() {
 
   const handleComplete = () => {
     const gender = formData.gender as "male" | "female";
+    
+    // Check if name matches a mock user for easier testing
+    const mockUser = MOCK_USERS.find(u => u.name.toLowerCase() === formData.name.toLowerCase());
+    const userId = mockUser ? mockUser.id : undefined;
+
     completeOnboarding({
+      id: userId,
       name: formData.name,
       age: parseInt(formData.age),
       gender: gender,
@@ -133,7 +119,7 @@ export default function OnboardingPage() {
       loveLanguage: formData.loveLanguage,
       interests: formData.interests,
       communicationStyle: formData.communicationStyle as "Direct" | "Empathetic" | "Analytical" | "Playful",
-      avatar: getAvatarByGender(gender, Math.floor(Math.random() * 5)),
+      avatar: mockUser ? mockUser.avatar : getAvatarByGender(gender, Math.floor(Math.random() * 5)),
     });
     router.push("/discovery");
   };

@@ -283,12 +283,44 @@ const newUser: UserProfile = {
 
 ---
 
+### 13. Convex URL Əksik (Vercel Build)
+**Problem:** `Error: No address provided to ConvexReactClient`
+
+**Səbəb:** Vercel-də `NEXT_PUBLIC_CONVEX_URL` environment variable təyin olunmayıb.
+
+**Həll 1 - Vercel-ə env əlavə et:**
+```
+Vercel Dashboard → Settings → Environment Variables
+NEXT_PUBLIC_CONVEX_URL = https://your-deployment.convex.cloud
+```
+
+**Həll 2 - Kodu resilient et:**
+```tsx
+// components/ConvexClientProvider.tsx
+const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
+
+export default function ConvexClientProvider({ children }) {
+  if (!convex) {
+    console.warn("Convex URL not configured. Running without Convex.");
+    return <>{children}</>;
+  }
+  return <ConvexProvider client={convex}>{children}</ConvexProvider>;
+}
+```
+
+---
+
 ## 📋 Gələcək İşlər (TODO)
 
 - [x] ~~Messages - `participantId` lint xətasını həll et~~ ✅
+- [x] ~~Convex build xətasını həll et~~ ✅
+- [x] ~~PWA konfiqurasiyası~~ ✅
+- [x] ~~Mesaj istəkləri (Message Requests)~~ ✅
 - [ ] Admin Panel - Real Convex data ilə inteqrasiya
 - [ ] Push Notifications - Backend server qurulması
 - [ ] UserProfile tipinə `joined`/`createdAt` əlavə et
+- [ ] Vercel-ə NEXT_PUBLIC_CONVEX_URL əlavə et
 
 ---
 
@@ -302,8 +334,163 @@ const newUser: UserProfile = {
 6. **Vercel build uğursuz:** Lokal `npm run build` ilə test et
 7. **TypeScript 'never' xətası:** Tip casting `as Type | null` istifadə et
 8. **useSearchParams xətası:** `Suspense` ilə sar və ya `loading.tsx` yarat
+9. **Convex xətası:** `NEXT_PUBLIC_CONVEX_URL` env yoxla və ya ConvexProvider-ı conditional et
+10. **Convex funksiya tapılmır:** `npx convex dev` işə salıb funksiyaları deploy et
 
 ---
 
-*Son yenilənmə: 2026-01-20*
+## 🔑 Environment Variables
 
+| Dəyişən | Məqsəd | Harada |
+|---------|--------|--------|
+| `NEXT_PUBLIC_CONVEX_URL` | Convex backend URL | `.env.local` + Vercel |
+| `CONVEX_DEPLOYMENT` | Convex deployment ID | `.env.local` |
+
+**Vercel-ə əlavə etmək:**
+1. Vercel Dashboard → Project → Settings → Environment Variables
+2. Production, Preview, Development üçün əlavə et
+
+---
+
+## 📱 PWA Konfiqurasiyası
+
+### Lazımi Fayllar:
+```
+public/
+├── manifest.json        # App manifestu
+├── sw.js                # Service Worker
+└── icons/
+    ├── icon-72x72.png
+    ├── icon-96x96.png
+    ├── icon-128x128.png
+    ├── icon-144x144.png
+    ├── icon-152x152.png
+    ├── icon-192x192.png
+    ├── icon-384x384.png
+    └── icon-512x512.png
+```
+
+### Komponentlər:
+- `components/ServiceWorkerRegister.tsx` - SW qeydiyyatı
+- `components/PWAInstallPrompt.tsx` - Yükləmə təklifi (Android + iOS)
+
+### Layout Meta Tags:
+```tsx
+// app/layout.tsx
+export const metadata: Metadata = {
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Danyeri",
+  },
+};
+```
+
+---
+
+## 💬 Mesaj İstəkləri Sistemi
+
+### Convex Funksiyaları:
+```typescript
+// convex/matches.ts
+sendRequest     // İstək göndər
+getRequests     // Gələn istəkləri al
+acceptRequest   // İstəyi qəbul et
+declineRequest  // İstəyi rədd et
+```
+
+### UserProfile Sahələri:
+```typescript
+messageRequests: string[]       // Gələn istəklər
+sentMessageRequests: string[]   // Göndərilmiş istəklər
+seenMessageRequests: string[]   // Görülmüş istəklər
+```
+
+### Real-time Dinləmə:
+```tsx
+const convexRequests = useQuery(api.matches.getRequests, 
+  user ? { userId: user.id } : "skip"
+);
+```
+
+---
+
+## 🆔 Unikal İstifadəçi ID-ləri
+
+### Problem:
+Əvvəl bütün istifadəçilər `"current-user"` ID-sinə malik idi, bu da peer-to-peer bildirişləri qeyri-mümkün edirdi.
+
+### Həll:
+```tsx
+// Onboarding zamanı
+const id = profile.id || `user-${Math.random().toString(36).substr(2, 9)}`;
+```
+
+### Test İpucu:
+Mock user adı (Tural, Lalə və s.) ilə qeydiyyatdan keçsən, avtomatik olaraq həmin mock user-ın ID-si verilir:
+```tsx
+const mockUser = MOCK_USERS.find(u => u.name.toLowerCase() === formData.name.toLowerCase());
+const userId = mockUser ? mockUser.id : undefined;
+```
+
+---
+
+## 📐 Responsive Dizayn İpucları
+
+### Kiçik Ekranda Kart Overlay Azaltma:
+```tsx
+// Qradient daha yüngül
+className="bg-gradient-to-t from-black/90 via-black/20 to-transparent"
+
+// Responsive font ölçüsü
+className="text-2xl sm:text-3xl"
+
+// Mobile-da gizlət, desktop-da göstər
+className="hidden sm:flex"
+
+// Mobile-only göstər
+className="flex sm:hidden"
+```
+
+### Sabit Hündürlük (Layout Shift önləmək):
+```tsx
+// Tövsiyə banneri - sabit hündürlük
+className="h-[52px] flex items-center justify-center"
+
+// Mətn kəsmə
+className="line-clamp-2"
+```
+
+---
+
+## 🖱️ Kliklənən Sahələr
+
+### Kartda Profilə Keçid:
+```tsx
+<Link
+  href={`/user/${profile.id}`}
+  onClick={(e) => e.stopPropagation()}  // Drag-ı önlə
+  className="block active:opacity-80"
+>
+  <h2>{profile.name}</h2>
+  <span className="underline">Profilə bax</span>
+</Link>
+```
+
+**Qayda:** Swipe kartlarında Link istifadə edərkən `e.stopPropagation()` əlavə et, yoxsa swipe ilə toqquşur.
+
+---
+
+## 🔔 Bildiriş İkonu Qaydası
+
+**Problem:** Mobil header-da ürək ikonu bildirişlər üçün istifadə olunurdu, istifadəçilər başa düşmürdü.
+
+**Həll:** Həm desktop (sidebar) həm mobile-da **Bell** ikonu istifadə et:
+```tsx
+<Bell className="w-5 h-5" />  // Heart yox
+```
+
+---
+
+*Son yenilənmə: 2026-01-22*

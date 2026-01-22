@@ -14,11 +14,14 @@ import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { calculateCompatibility } from "@/lib/compatibility";
 
+import { useToast } from "@/components/ui/toast";
+
 export default function UserProfilePage() {
   const params = useParams();
   const router = useRouter();
   const { user: currentUser, isOnboarded, likeUser, matchUser, sendMessageRequest } = useUser();
   const { language } = useLanguage();
+  const { showToast } = useToast();
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   
   const handleNextImage = (e?: React.MouseEvent) => {
@@ -115,11 +118,19 @@ export default function UserProfilePage() {
       router.push(`/messages?chat=${profile.id}`);
     } else if (currentUser?.sentMessageRequests?.includes(profile.id)) {
       // Already sent a request
-      alert(language === 'az' ? 'Mesaj istəyiniz artıq göndərilib!' : 'Message request already sent!');
+      showToast({
+        type: "info",
+        title: language === 'az' ? 'Məlumat' : 'Information',
+        message: language === 'az' ? 'Mesaj istəyiniz artıq göndərilib!' : 'Message request already sent!'
+      });
     } else {
       // Send a message request
       sendMessageRequest(profile.id);
-      alert(language === 'az' ? 'Mesaj istəyiniz göndərildi!' : 'Message request sent!');
+      showToast({
+        type: "success",
+        title: language === 'az' ? 'Uğurlu!' : 'Success!',
+        message: language === 'az' ? 'Mesaj istəyiniz göndərildi!' : 'Message request sent!'
+      });
     }
   };
 
@@ -281,14 +292,12 @@ export default function UserProfilePage() {
               "{language === 'az' ? profile.iceBreaker.az : profile.iceBreaker.en}"
             </p>
           </section>
-        </div>
 
-        {/* Fixed Action Buttons - Inside max-w-lg container */}
-        <div className="absolute bottom-0 left-0 right-0 bg-background/95 backdrop-blur-md border-t border-border p-4 safe-bottom">
-          <div className="flex items-center justify-center gap-4">
+          {/* Action Buttons at the end of content flow */}
+          <div className="flex items-center justify-center gap-4 pt-8 pb-12">
             <button 
               onClick={() => router.push("/discovery")}
-              className="w-14 h-14 rounded-full bg-card border border-border flex items-center justify-center hover:bg-muted transition-colors"
+              className="w-14 h-14 rounded-full bg-card border border-border flex items-center justify-center hover:bg-muted transition-colors shadow-sm"
             >
               <X className="w-6 h-6 text-red-500" />
             </button>
@@ -302,14 +311,14 @@ export default function UserProfilePage() {
             
             <button 
               onClick={handleLike}
-              className="w-14 h-14 rounded-full bg-card border border-border flex items-center justify-center hover:bg-muted transition-colors"
+              className="w-14 h-14 rounded-full bg-card border border-border flex items-center justify-center hover:bg-muted transition-colors shadow-sm"
             >
               <Star className="w-6 h-6 text-yellow-500" />
             </button>
             
             <button 
               onClick={handleMessage}
-              className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${
+              className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors shadow-sm ${
                 isMatched 
                   ? 'bg-blue-500 hover:bg-blue-600' 
                   : isRequestSent 

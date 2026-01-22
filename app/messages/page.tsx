@@ -51,6 +51,7 @@ export default function MessagesPage() {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [showRequestsModal, setShowRequestsModal] = useState(false);
   
   // Mark as read when opening conversation
   useEffect(() => {
@@ -81,6 +82,11 @@ export default function MessagesPage() {
     publicChat: language === 'az' ? 'Hər kəs üçün açıq söhbət' : 'Public chat for everyone',
     matchMessage: language === 'az' ? 'Söhbətə başlayın!' : 'Start the conversation!',
     loading: language === 'az' ? 'Yüklənir...' : 'Loading...',
+    incomingRequests: language === 'az' ? 'Gələn İstəklər' : 'Incoming Requests',
+    noRequests: language === 'az' ? 'Gələn istəyiniz yoxdur' : 'No incoming requests',
+    noSentRequests: language === 'az' ? 'Göndərilmiş istəyiniz yoxdur' : 'No sent requests',
+    requestAccepted: language === 'az' ? 'İstək qəbul edildi!' : 'Request accepted!',
+    requestDeclined: language === 'az' ? 'İstək rədd edildi' : 'Request declined',
   };
 
   useEffect(() => {
@@ -131,7 +137,7 @@ export default function MessagesPage() {
 
     const message: ChatMessage = {
       id: Date.now().toString(),
-      senderId: "current-user",
+      senderId: user?.id || "current-user",
       text: newMessage,
       timestamp: new Date()
     };
@@ -376,7 +382,7 @@ export default function MessagesPage() {
              }
 
              return displayMessages.map((msg) => {
-               const isMe = msg.senderId === (user?.name || "Anonymous") || msg.senderId === "current-user";
+               const isMe = msg.senderId === user?.id || msg.senderId === "current-user" || msg.senderId === user?.name;
                // Check if message is less than 15 mins old
                const isRecent = (Date.now() - new Date(msg.timestamp).getTime() < 15 * 60 * 1000);
                const canDelete = isMe && isRecent;
@@ -608,7 +614,19 @@ export default function MessagesPage() {
           
           <h1 className="font-bold text-lg">{txt.messages}</h1>
           
-          <div className="w-10" />
+          {/* Instagram-style Requests Button */}
+          <button 
+            onClick={() => setShowRequestsModal(true)}
+            className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-card border border-border hover:bg-muted transition-colors text-sm font-medium"
+          >
+            <Mail className="w-4 h-4" />
+            <span className="hidden sm:inline">{txt.incomingRequests}</span>
+            {((user?.messageRequests?.length || 0) + (user?.sentMessageRequests?.length || 0)) > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary text-[10px] font-bold text-white flex items-center justify-center">
+                {(user?.messageRequests?.length || 0) + (user?.sentMessageRequests?.length || 0)}
+              </span>
+            )}
+          </button>
         </div>
       </header>
 
@@ -626,104 +644,6 @@ export default function MessagesPage() {
 
         {/* Stories (from all users for now) */}
         <StoriesBar />
-
-        {/* New Matches */}
-
-
-        {/* Message Requests */}
-        {user?.messageRequests && user.messageRequests.length > 0 && (
-          <div className="px-4 py-3">
-            <h2 className="text-sm text-muted-foreground mb-3 flex items-center gap-2">
-              <Mail className="w-4 h-4" />
-              {txt.messageRequests} ({user.messageRequests.length})
-            </h2>
-            <div className="space-y-2">
-              {user.messageRequests.map(requesterId => {
-                const requester = MOCK_USERS.find(u => u.id === requesterId);
-                if (!requester) return null;
-                return (
-                  <motion.div
-                    key={requesterId}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
-                    className="flex items-center gap-3 p-3 rounded-2xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20"
-                  >
-                    <img 
-                      src={requester.avatar}
-                      alt={requester.name}
-                      className="w-12 h-12 rounded-full border-2 border-blue-500/50"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold truncate">{requester.name}, {requester.age}</p>
-                      <p className="text-sm text-muted-foreground truncate">{txt.wantsToChat}</p>
-                    </div>
-                    <div className="flex gap-2 shrink-0">
-                      <button
-                        onClick={() => declineMessageRequest(requesterId)}
-                        className="w-10 h-10 rounded-full bg-red-500/10 hover:bg-red-500/20 flex items-center justify-center transition-colors"
-                        title={txt.decline}
-                      >
-                        <XIcon className="w-5 h-5 text-red-500" />
-                      </button>
-                      <button
-                        onClick={() => acceptMessageRequest(requesterId)}
-                        className="w-10 h-10 rounded-full bg-green-500/10 hover:bg-green-500/20 flex items-center justify-center transition-colors"
-                        title={txt.accept}
-                      >
-                        <Check className="w-5 h-5 text-green-500" />
-                      </button>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Sent Requests (Pending) */}
-        {user?.sentMessageRequests && user.sentMessageRequests.length > 0 && (
-          <div className="px-4 py-3">
-            <h2 className="text-sm text-muted-foreground mb-3 flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              {txt.sentRequests} ({user.sentMessageRequests.length})
-            </h2>
-            <div className="space-y-2">
-              {user.sentMessageRequests.map(targetId => {
-                const targetUser = MOCK_USERS.find(u => u.id === targetId);
-                if (!targetUser) return null;
-                return (
-                  <div
-                    key={targetId}
-                    className="flex items-center gap-3 p-3 rounded-2xl bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border border-orange-500/20"
-                  >
-                    <img 
-                      src={targetUser.avatar}
-                      alt={targetUser.name}
-                      className="w-12 h-12 rounded-full border-2 border-orange-500/50"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold truncate">{targetUser.name}, {targetUser.age}</p>
-                      <p className="text-sm text-muted-foreground truncate flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {txt.pending}
-                      </p>
-                    </div>
-                    <div className="flex gap-2 shrink-0">
-                       <button
-                         onClick={() => cancelMessageRequest(targetId)}
-                         className="w-10 h-10 rounded-full bg-black/10 hover:bg-black/20 dark:bg-white/10 dark:hover:bg-white/20 flex items-center justify-center transition-colors"
-                         title={language === "az" ? "Ləğv et" : "Cancel request"}
-                       >
-                         <XIcon className="w-5 h-5 text-muted-foreground" />
-                       </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {/* Conversations */}
         <div className="px-4">
@@ -793,6 +713,176 @@ export default function MessagesPage() {
       </main>
 
       <BottomNav />
+
+      {/* Instagram-style Message Requests Modal */}
+      <AnimatePresence>
+        {showRequestsModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowRequestsModal(false)}
+          >
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="absolute bottom-0 left-0 right-0 max-h-[85vh] bg-background rounded-t-3xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="sticky top-0 z-10 bg-background border-b border-border px-4 py-4">
+                <div className="w-12 h-1 rounded-full bg-muted mx-auto mb-3" />
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-bold">{txt.messageRequests}</h2>
+                  <button
+                    onClick={() => setShowRequestsModal(false)}
+                    className="w-8 h-8 rounded-full bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors"
+                  >
+                    <XIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Content */}
+              <div className="overflow-y-auto max-h-[calc(85vh-80px)] pb-8">
+                {/* Incoming Requests Section */}
+                <div className="px-4 py-4">
+                  <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-blue-500" />
+                    {txt.incomingRequests}
+                    {user?.messageRequests && user.messageRequests.length > 0 && (
+                      <span className="ml-auto px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-xs font-bold">
+                        {user.messageRequests.length}
+                      </span>
+                    )}
+                  </h3>
+                  
+                  {user?.messageRequests && user.messageRequests.length > 0 ? (
+                    <div className="space-y-3">
+                      {user.messageRequests.map((requesterId, index) => {
+                        const requester = MOCK_USERS.find(u => u.id === requesterId);
+                        if (!requester) return null;
+                        return (
+                          <motion.div
+                            key={requesterId}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                            className="flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-r from-blue-500/5 to-purple-500/5 border border-blue-500/20"
+                          >
+                            <img 
+                              src={requester.avatar}
+                              alt={requester.name}
+                              className="w-14 h-14 rounded-full border-2 border-blue-500/30 object-cover"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold">{requester.name}, {requester.age}</p>
+                              <p className="text-sm text-muted-foreground">{txt.wantsToChat}</p>
+                              <p className="text-xs text-muted-foreground/70 mt-0.5">{requester.location}</p>
+                            </div>
+                            <div className="flex gap-2 shrink-0">
+                              <button
+                                onClick={() => {
+                                  declineMessageRequest(requesterId);
+                                  showToast({ title: txt.requestDeclined, type: "info", duration: 2000 });
+                                }}
+                                className="w-11 h-11 rounded-full bg-red-500/10 hover:bg-red-500/20 flex items-center justify-center transition-all hover:scale-105"
+                                title={txt.decline}
+                              >
+                                <XIcon className="w-5 h-5 text-red-500" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  acceptMessageRequest(requesterId);
+                                  showToast({ title: txt.requestAccepted, type: "match", duration: 3000 });
+                                }}
+                                className="w-11 h-11 rounded-full bg-green-500/10 hover:bg-green-500/20 flex items-center justify-center transition-all hover:scale-105"
+                                title={txt.accept}
+                              >
+                                <Check className="w-5 h-5 text-green-500" />
+                              </button>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
+                        <Mail className="w-7 h-7 text-muted-foreground/50" />
+                      </div>
+                      <p className="text-muted-foreground">{txt.noRequests}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Divider */}
+                <div className="h-px bg-border mx-4" />
+
+                {/* Sent Requests Section */}
+                <div className="px-4 py-4">
+                  <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-orange-500" />
+                    {txt.sentRequests}
+                    {user?.sentMessageRequests && user.sentMessageRequests.length > 0 && (
+                      <span className="ml-auto px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-500 text-xs font-bold">
+                        {user.sentMessageRequests.length}
+                      </span>
+                    )}
+                  </h3>
+                  
+                  {user?.sentMessageRequests && user.sentMessageRequests.length > 0 ? (
+                    <div className="space-y-3">
+                      {user.sentMessageRequests.map((targetId, index) => {
+                        const targetUser = MOCK_USERS.find(u => u.id === targetId);
+                        if (!targetUser) return null;
+                        return (
+                          <motion.div
+                            key={targetId}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                            className="flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-r from-orange-500/5 to-yellow-500/5 border border-orange-500/20"
+                          >
+                            <img 
+                              src={targetUser.avatar}
+                              alt={targetUser.name}
+                              className="w-14 h-14 rounded-full border-2 border-orange-500/30 object-cover"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold">{targetUser.name}, {targetUser.age}</p>
+                              <p className="text-sm text-muted-foreground flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {txt.pending}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => cancelMessageRequest(targetId)}
+                              className="px-4 py-2 rounded-full bg-muted hover:bg-muted/80 text-sm font-medium transition-colors"
+                            >
+                              {language === "az" ? "Ləğv et" : "Cancel"}
+                            </button>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
+                        <Clock className="w-7 h-7 text-muted-foreground/50" />
+                      </div>
+                      <p className="text-muted-foreground">{txt.noSentRequests}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

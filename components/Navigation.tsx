@@ -18,7 +18,7 @@ export function BottomNav() {
     { href: "/", icon: Home, labelEn: "Home", labelAz: "Ana Səhifə" },
     { href: "/discovery", icon: Compass, labelEn: "Discover", labelAz: "Kəşf" },
     { href: "/search", icon: Search, labelEn: "Search", labelAz: "Axtar" },
-    { href: "/messages", icon: MessageCircle, labelEn: "Chat", labelAz: "Mesaj", badge: user?.unreadMatches?.length || 0 },
+    { href: "/messages", icon: MessageCircle, labelEn: "Chat", labelAz: "Mesaj", badge: (user?.unreadMatches?.length || 0) + (user?.messageRequests?.filter(id => !user?.seenMessageRequests?.includes(id)).length || 0) },
     { href: isOnboarded ? "/profile" : "/onboarding", icon: User, labelEn: "Profile", labelAz: "Profil" },
   ];
 

@@ -60,7 +60,7 @@ export default function HomePage() {
             <Link href="/notifications" className="relative mr-2">
               <div className="w-9 h-9 rounded-full bg-secondary/50 flex items-center justify-center hover:bg-secondary transition-colors">
                 <div className="relative">
-                  <Heart className="w-5 h-5 text-foreground" />
+                  <Bell className="w-5 h-5 text-foreground" />
                   {((user?.unreadMatches?.length || 0) + (user?.messageRequests?.filter(id => !user?.seenMessageRequests?.includes(id)).length || 0)) > 0 && (
                     <span className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-primary text-[10px] font-bold text-primary-foreground flex items-center justify-center border-2 border-background">
                       {((user?.unreadMatches?.length || 0) + (user?.messageRequests?.filter(id => !user?.seenMessageRequests?.includes(id)).length || 0))}

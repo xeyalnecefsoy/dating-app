@@ -132,6 +132,13 @@
   body {
     @apply bg-background text-foreground;
   }
+  
+  button, 
+  a, 
+  [role="button"],
+  .cursor-pointer {
+    cursor: pointer;
+  }
 }
 
 /* Custom Utilities */

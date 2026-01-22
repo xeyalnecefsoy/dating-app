@@ -7,7 +7,8 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import ConvexClientProvider from "./ConvexClientProvider";
 import { ToastProvider } from "./ui/toast";
 import { NotificationHandler } from "./NotificationHandler";
-
+import { ServiceWorkerRegister } from "./ServiceWorkerRegister";
+import { PWAInstallPrompt } from "./PWAInstallPrompt";
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <ConvexClientProvider>
@@ -18,6 +19,8 @@ export function Providers({ children }: { children: ReactNode }) {
               <Suspense fallback={null}>
                 <NotificationHandler />
               </Suspense>
+              <ServiceWorkerRegister />
+              <PWAInstallPrompt />
               {children}
             </ToastProvider>
           </UserProvider>

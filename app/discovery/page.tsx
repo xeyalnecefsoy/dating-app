@@ -36,6 +36,40 @@ export default function DiscoveryPage() {
     communicationStyle: "all"
   });
   
+  // Relationship tips that rotate
+  const [tipIndex, setTipIndex] = useState(0);
+  const tips = useMemo(() => language === 'az' ? [
+    "💡 Mükəmməl insan yoxdur, mükəmməl sevgi qura bilən insanlar var",
+    "❤️ Daxili gözəllik, xarici gözəllikdən daha uzun ömürlüdür",
+    "🤝 Qarşılıqlı hörmət, hər sağlam münasibətin təməlidir",
+    "🌱 Doğru insanı tapmaq üçün əvvəlcə özün doğru insan ol",
+    "💬 Açıq ünsiyyət, hər problemin həllidir",
+    "🎯 Realist gözləntilər, xoşbəxt münasibətlərin açarıdır",
+    "💕 Sevgi, verməkdən başlayır, almaqdan deyil",
+    "🌟 Status deyil, xarakter önəmlidir",
+    "🏠 Ailə qurmaq, birlikdə böyüməkdir",
+    "⚖️ Tərəfdaşını dəyişdirmək deyil, onu başa düşmək lazımdır",
+  ] : [
+    "💡 There's no perfect person, only people who build perfect love",
+    "❤️ Inner beauty lasts longer than outer beauty",
+    "🤝 Mutual respect is the foundation of every healthy relationship",
+    "🌱 To find the right person, first be the right person",
+    "💬 Open communication solves every problem",
+    "🎯 Realistic expectations are the key to happy relationships",
+    "💕 Love starts with giving, not taking",
+    "🌟 Character matters, not status",
+    "🏠 Building a family means growing together",
+    "⚖️ Understand your partner, don't try to change them",
+  ], [language]);
+
+  // Rotate tips every 10 seconds
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setTipIndex(prev => (prev + 1) % tips.length);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [tips.length]);
+  
 
 
   const availableUsers = useMemo(() => {
@@ -184,10 +218,10 @@ export default function DiscoveryPage() {
   const swipeOpacityLeft = Math.min(-dragX / 100, 1);
 
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden w-full items-center">
+    <div className="h-screen bg-background flex flex-col overflow-hidden w-full items-center pb-20">
       <Header onFilterClick={() => setShowFilters(true)} t={t} />
 
-      <main className="flex-1 w-full max-w-md flex flex-col relative h-full overflow-hidden">
+      <main className="flex-1 w-full max-w-md flex flex-col relative overflow-hidden">
         
           {/* Swipe Indicators - Absolute Positioned */}
           <div className="absolute top-24 left-6 z-20 pointer-events-none" style={{ opacity: swipeOpacityRight }}>
@@ -212,8 +246,8 @@ export default function DiscoveryPage() {
           </div>
 
           {/* Card Stack */}
-          <div className="flex-1 px-3 py-2 flex items-center justify-center relative w-full h-full">
-            <div className="relative w-full h-[calc(100%-80px)]">
+          <div className="flex-1 px-3 py-2 flex items-center justify-center relative w-full">
+            <div className="relative w-full h-[calc(100%-60px)] max-h-[500px]">
               <AnimatePresence>
                 {currentProfile && (
                 <motion.div
@@ -244,8 +278,8 @@ export default function DiscoveryPage() {
                       draggable={false}
                     />
                     
-                    {/* Gradient Overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                    {/* Gradient Overlay - Adjusted to show more of the image */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
 
                     {/* Compatibility Badge - Moved to Top Left */}
                     {compatibility && (
@@ -255,28 +289,37 @@ export default function DiscoveryPage() {
                       </div>
                     )}
 
-                    {/* Content Overlay */}
-                    <div className="absolute bottom-0 left-0 right-0 p-5 pb-20 text-white z-20">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h2 className="text-3xl font-bold shadow-black drop-shadow-md">{currentProfile.name}, {currentProfile.age}</h2>
-                        {currentProfile.isVerified && (
-                          <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
-                            <CheckCircle2 className="w-4 h-4 text-white" />
-                          </div>
-                        )}
-                        {currentProfile.isPremium && (
-                          <div className="w-6 h-6 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 flex items-center justify-center">
-                            <Crown className="w-3.5 h-3.5 text-white" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1 text-white/90 mb-3 text-sm shadow-black drop-shadow-md">
-                        <MapPin className="w-3.5 h-3.5" />
-                        <span>{currentProfile.location}</span>
-                      </div>
+                    {/* Content Overlay - Compact for mobile */}
+                    <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5 text-white z-20">
+                      {/* Clickable name/location area - taps navigate to profile */}
+                      <Link
+                        href={`/user/${currentProfile.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="block active:opacity-80 transition-opacity"
+                      >
+                        <div className="flex items-center gap-2 mb-0.5 sm:mb-1">
+                          <h2 className="text-2xl sm:text-3xl font-bold shadow-black drop-shadow-md">{currentProfile.name}, {currentProfile.age}</h2>
+                          {currentProfile.isVerified && (
+                            <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                              <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                            </div>
+                          )}
+                          {currentProfile.isPremium && (
+                            <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 flex items-center justify-center">
+                              <Crown className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 text-white/90 mb-2 sm:mb-3 text-xs sm:text-sm shadow-black drop-shadow-md">
+                          <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                          <span>{currentProfile.location}</span>
+                          <span className="ml-1 text-white/60">•</span>
+                          <span className="text-white/60 underline underline-offset-2">{language === 'az' ? 'Profilə bax' : 'View profile'}</span>
+                        </div>
+                      </Link>
 
-                      {/* Values Tags */}
-                      <div className="flex flex-wrap gap-2 mb-3">
+                      {/* Values Tags - Hidden on very small screens, shown on tap/info */}
+                      <div className="hidden sm:flex flex-wrap gap-2 mb-3">
                         {currentProfile.values.slice(0, 3).map(value => (
                           <span key={value} className="px-2.5 py-1 rounded-lg bg-[#FF4458] text-white text-xs font-semibold shadow-sm">
                             {translateValue(value, language as "en" | "az")}
@@ -284,19 +327,24 @@ export default function DiscoveryPage() {
                         ))}
                       </div>
 
-                      {/* Interests Tags */}
-                      <div className="flex flex-wrap gap-1.5 mb-2 opacity-90">
-                        {currentProfile.interests.slice(0, 3).map(interest => (
-                          <span key={interest} className="px-2.5 py-1 rounded-lg bg-white/20 backdrop-blur-sm text-white text-xs font-medium">
-                            {translateInterest(interest, language as "en" | "az")}
+                      {/* Mobile-only: Compact value indicators */}
+                      <div className="flex sm:hidden flex-wrap gap-1.5 mb-2">
+                        {currentProfile.values.slice(0, 2).map(value => (
+                          <span key={value} className="px-2 py-0.5 rounded-md bg-[#FF4458]/90 text-white text-[10px] font-semibold">
+                            {translateValue(value, language as "en" | "az")}
                           </span>
                         ))}
+                        {currentProfile.values.length > 2 && (
+                          <span className="px-2 py-0.5 rounded-md bg-white/20 text-white text-[10px] font-medium">
+                            +{currentProfile.values.length - 2}
+                          </span>
+                        )}
                       </div>
                       
                       <Link
                         href={`/user/${currentProfile.id}`}
                         onClick={(e) => e.stopPropagation()}
-                        className="absolute bottom-4 right-4 w-9 h-9 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center border border-white/20 hover:bg-white/40 transition-colors"
+                        className="absolute bottom-3 sm:bottom-4 right-3 sm:right-4 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center border border-white/20 hover:bg-white/40 transition-colors"
                       >
                         <Info className="w-4 h-4 text-white" />
                       </Link>
@@ -308,8 +356,26 @@ export default function DiscoveryPage() {
             </div>
           </div>
 
+          {/* Relationship Tips Banner - Fixed height to prevent layout shifts */}
+          <div className="px-4 pb-2 shrink-0">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={tipIndex}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 border border-primary/20 rounded-2xl px-4 py-2.5 text-center h-[52px] flex items-center justify-center"
+              >
+                <p className="text-xs sm:text-sm text-foreground/80 leading-relaxed line-clamp-2">
+                  {tips[tipIndex]}
+                </p>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
           {/* Action Buttons */}
-          <div className="flex items-center justify-center gap-6 py-3 pb-20 shrink-0">
+          <div className="flex items-center justify-center gap-6 py-3 pb-4 shrink-0 relative z-30">
             <div className="flex flex-col items-center gap-1">
               <button disabled={isSwiping} onClick={() => handleSwipe("left")} className="w-12 h-12 rounded-full bg-card border border-border flex items-center justify-center active:scale-95 transition-transform hover:bg-red-500/10 disabled:opacity-50 disabled:pointer-events-none">
                 <X className="w-5 h-5 text-red-500" />
