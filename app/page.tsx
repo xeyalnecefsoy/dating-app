@@ -306,16 +306,16 @@ function WelcomeScreen() {
       </div>
 
       {/* Content */}
-      <div className="relative z-20 px-6 pb-10">
+      <div className="relative z-20 px-6 pb-12 w-full max-w-md mx-auto">
         <motion.div
           initial={{ y: 30, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.3 }}
-          className="text-center mb-8"
+          className="text-center mb-10"
         >
-          <h1 className="text-3xl font-bold mb-2">{content.hero.title}</h1>
+          <h1 className="text-3xl font-bold mb-3">{content.hero.title}</h1>
           <p className="text-primary font-medium mb-4">{content.hero.subtitle}</p>
-          <p className="text-muted-foreground text-sm leading-relaxed">
+          <p className="text-muted-foreground text-sm leading-relaxed max-w-xs mx-auto">
             {content.desc}
           </p>
         </motion.div>
@@ -324,27 +324,30 @@ function WelcomeScreen() {
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.5 }}
-          className="space-y-3"
+          className="space-y-6"
         >
-          <Link href="/onboarding">
+          <Link href="/onboarding" className="block">
             <Button 
               size="lg" 
-              className="w-full h-14 text-lg font-bold rounded-2xl gradient-brand shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
+              className="w-full h-12 flex items-center justify-center gap-2 text-base font-bold rounded-xl gradient-brand shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
-              {content.getStarted}
-              <ChevronRight className="w-5 h-5 ml-2" />
+              <span className="mt-[-1px]">{content.getStarted}</span>
+              <ChevronRight className="w-5 h-5 shrink-0 translate-y-[0.5px]" />
             </Button>
           </Link>
           
-          <p className="text-xs text-muted-foreground text-center mt-6">
-            {content.secureSpace}
-          </p>
-          <p className="text-center text-sm text-muted-foreground">
-            {content.haveAccount}{" "}
-            <Link href="/onboarding" className="text-primary font-medium">
-              {content.signIn}
-            </Link>
-          </p>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1.5 opacity-80">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+              {content.secureSpace}
+            </p>
+            <p className="text-center text-sm text-muted-foreground">
+              {content.haveAccount}{" "}
+              <Link href="/sign-in" className="text-primary font-semibold hover:underline">
+                {content.signIn}
+              </Link>
+            </p>
+          </div>
         </motion.div>
       </div>
     </div>

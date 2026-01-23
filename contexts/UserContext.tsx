@@ -1,12 +1,14 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import { useUser as useClerkUser, useAuth } from "@clerk/nextjs";
 import { getAvatarByGender } from "@/lib/mock-users";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
 export type UserProfile = {
   id: string;
+  clerkId?: string; // Clerk user ID
   name: string;
   age: number;
   gender: "male" | "female";
@@ -34,6 +36,7 @@ type UserContextType = {
   setUser: (user: UserProfile | null) => void;
   isOnboarded: boolean;
   isLoading: boolean;
+  isAuthenticated: boolean;
   completeOnboarding: (profile: Partial<UserProfile>) => void;
   addBadge: (badge: string) => void;
   incrementStreak: () => void;
@@ -49,7 +52,8 @@ type UserContextType = {
 };
 
 const defaultUser: UserProfile = {
-  id: "current-user",
+  id: "",
+  clerkId: "",
   name: "",
   age: 0,
   gender: "male",
@@ -79,6 +83,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [isOnboarded, setIsOnboarded] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Clerk hooks
+  const { user: clerkUser, isLoaded: isClerkLoaded } = useClerkUser();
+  const { isSignedIn } = useAuth();
+
   // Convex Hooks
   const createMatchMutation = useMutation(api.matches.create);
   const sendRequestMutation = useMutation(api.matches.sendRequest);
@@ -89,6 +97,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const convexRequests = useQuery(api.matches.getRequests, user ? { userId: user.id } : "skip");
   
   const ping = useMutation(api.presence.ping);
+
+  // Generate storage key based on Clerk user ID
+  const getStorageKey = useCallback((clerkId: string) => {
+    return `danyeri-user-${clerkId}`;
+  }, []);
 
   // Heartbeat to keep presence active
   useEffect(() => {
@@ -151,116 +164,131 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }, [user, convexMatches, createMatchMutation]);
 
-  // Load from localStorage on mount
+  // Load user profile when Clerk user changes
   useEffect(() => {
-    const savedUser = localStorage.getItem("aura-user");
-    if (savedUser) {
-      const parsed = JSON.parse(savedUser);
-      setUser(parsed);
-      setIsOnboarded(true);
-      
-      // Check streak
-      const today = new Date().toDateString();
-      if (parsed.lastActiveDate !== today) {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        if (parsed.lastActiveDate === yesterday.toDateString()) {
-          // Continue streak
-          updateUser({ ...parsed, streak: parsed.streak + 1, lastActiveDate: today });
-        } else if (parsed.lastActiveDate !== today) {
-          // Reset streak
-          updateUser({ ...parsed, streak: 1, lastActiveDate: today });
-        }
-      }
-    } else if (process.env.NODE_ENV === 'development') {
-      // Auto-onboard in development
-      const devUser = {
-        ...defaultUser,
-        name: "Dev User",
-        age: 25,
-        location: "Bakı",
-        avatar: "/avatars/aidan.png",
-        bio: "Development user",
-        values: ["Growth", "Honesty"],
-        interests: ["Coding", "Coffee"],
-        badges: ["Developer"],
-        streak: 100,
-        lastActiveDate: new Date().toDateString(),
-      };
-      setUser(devUser);
-      setIsOnboarded(true);
-      localStorage.setItem("aura-user", JSON.stringify(devUser));
-    }
-    setIsLoading(false);
-  }, []);
+    if (!isClerkLoaded) return;
 
-  const updateUser = React.useCallback((newUser: UserProfile | null) => {
+    if (isSignedIn && clerkUser) {
+      const storageKey = getStorageKey(clerkUser.id);
+      const savedUser = localStorage.getItem(storageKey);
+      
+      if (savedUser) {
+        const parsed = JSON.parse(savedUser);
+        setUser(parsed);
+        setIsOnboarded(true);
+        
+        // Check streak
+        const today = new Date().toDateString();
+        if (parsed.lastActiveDate !== today) {
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          if (parsed.lastActiveDate === yesterday.toDateString()) {
+            // Continue streak
+            updateUserInternal({ ...parsed, streak: parsed.streak + 1, lastActiveDate: today }, storageKey);
+          } else if (parsed.lastActiveDate !== today) {
+            // Reset streak
+            updateUserInternal({ ...parsed, streak: 1, lastActiveDate: today }, storageKey);
+          }
+        }
+      } else {
+        // New user - not onboarded yet
+        setUser(null);
+        setIsOnboarded(false);
+      }
+    } else {
+      // Not signed in
+      setUser(null);
+      setIsOnboarded(false);
+    }
+    
+    setIsLoading(false);
+  }, [isClerkLoaded, isSignedIn, clerkUser, getStorageKey]);
+
+  const updateUserInternal = useCallback((newUser: UserProfile | null, storageKey: string) => {
     setUser(newUser);
     if (newUser) {
-      localStorage.setItem("aura-user", JSON.stringify(newUser));
-      setIsOnboarded(true); // Automatically consider onboarded if user exists
+      localStorage.setItem(storageKey, JSON.stringify(newUser));
+      setIsOnboarded(true);
     } else {
-      localStorage.removeItem("aura-user");
+      localStorage.removeItem(storageKey);
       setIsOnboarded(false);
     }
   }, []);
 
-  const completeOnboarding = React.useCallback((profile: Partial<UserProfile>) => {
+  const updateUser = useCallback((newUser: UserProfile | null) => {
+    if (!clerkUser) return;
+    const storageKey = getStorageKey(clerkUser.id);
+    updateUserInternal(newUser, storageKey);
+  }, [clerkUser, getStorageKey, updateUserInternal]);
+
+  const completeOnboarding = useCallback((profile: Partial<UserProfile>) => {
+    if (!clerkUser) return;
+    
+    const storageKey = getStorageKey(clerkUser.id);
+    
     // Generate appropriate avatar based on gender
     const gender = profile.gender || "male";
     const avatar = profile.avatar || getAvatarByGender(gender, Math.floor(Math.random() * 5));
     
-    // For testing/mock purposes, if an ID is provided use it, otherwise generate a random one
-    // We want to avoid everyone being 'current-user' so notifications work peer-to-peer
-    const id = profile.id || `user-${Math.random().toString(36).substr(2, 9)}`;
+    // Use Clerk ID as unique identifier
+    const id = clerkUser.id;
 
     const newUser: UserProfile = {
       ...defaultUser,
       ...profile,
       avatar,
       id,
+      clerkId: clerkUser.id,
+      name: profile.name || clerkUser.firstName || clerkUser.username || "",
       streak: 1,
       lastActiveDate: new Date().toDateString(),
       badges: ["Early Adopter"],
     };
-    updateUser(newUser);
+    
+    updateUserInternal(newUser, storageKey);
     setIsOnboarded(true);
-  }, [updateUser]);
+  }, [clerkUser, getStorageKey, updateUserInternal]);
 
-  const addBadge = React.useCallback((badge: string) => {
+  const addBadge = useCallback((badge: string) => {
     setUser(prev => {
       if (prev && !prev.badges.includes(badge)) {
         const updated = { ...prev, badges: [...prev.badges, badge] };
-        localStorage.setItem("aura-user", JSON.stringify(updated));
+        if (clerkUser) {
+          localStorage.setItem(getStorageKey(clerkUser.id), JSON.stringify(updated));
+        }
         return updated;
       }
       return prev;
     });
-  }, []);
+  }, [clerkUser, getStorageKey]);
 
-  const incrementStreak = React.useCallback(() => {
+  const incrementStreak = useCallback(() => {
     setUser(prev => {
       if (prev) {
         const updated = { ...prev, streak: prev.streak + 1 };
-        localStorage.setItem("aura-user", JSON.stringify(updated));
+        if (clerkUser) {
+          localStorage.setItem(getStorageKey(clerkUser.id), JSON.stringify(updated));
+        }
         return updated;
       }
       return prev;
     });
-  }, []);
+  }, [clerkUser, getStorageKey]);
 
-  const likeUser = React.useCallback((userId: string) => {
+  const likeUser = useCallback((userId: string) => {
     setUser(prev => {
       if (prev && !prev.likes.includes(userId)) {
         const updated = { ...prev, likes: [...prev.likes, userId] };
-        localStorage.setItem("aura-user", JSON.stringify(updated));
+        if (clerkUser) {
+          localStorage.setItem(getStorageKey(clerkUser.id), JSON.stringify(updated));
+        }
         return updated;
       }
       return prev;
     });
-  }, []);
+  }, [clerkUser, getStorageKey]);
 
-  const matchUser = React.useCallback(async (userId: string) => {
+  const matchUser = useCallback(async (userId: string) => {
     let shouldMutate = false;
     let currentUserId = "";
 
@@ -277,7 +305,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
           unreadMatches: [...(prev.unreadMatches || []), userId],
           badges: newBadges
         };
-        localStorage.setItem("aura-user", JSON.stringify(updated));
+        if (clerkUser) {
+          localStorage.setItem(getStorageKey(clerkUser.id), JSON.stringify(updated));
+        }
         return updated;
       }
       return prev;
@@ -287,23 +317,25 @@ export function UserProvider({ children }: { children: ReactNode }) {
         // Sync with DB
          await createMatchMutation({ user1Id: currentUserId, user2Id: userId }); 
     }
-  }, [createMatchMutation]);
+  }, [createMatchMutation, clerkUser, getStorageKey]);
 
-  const markMatchAsRead = React.useCallback((userId: string) => {
+  const markMatchAsRead = useCallback((userId: string) => {
     setUser(prev => {
       if (prev && prev.unreadMatches?.includes(userId)) {
         const updated = {
           ...prev,
           unreadMatches: prev.unreadMatches.filter(id => id !== userId)
         };
-        localStorage.setItem("aura-user", JSON.stringify(updated));
+        if (clerkUser) {
+          localStorage.setItem(getStorageKey(clerkUser.id), JSON.stringify(updated));
+        }
         return updated;
       }
       return prev;
     });
-  }, []);
+  }, [clerkUser, getStorageKey]);
 
-  const markAllNotificationsAsRead = React.useCallback(() => {
+  const markAllNotificationsAsRead = useCallback(() => {
     setUser(prev => {
       if (prev) {
         const updated = {
@@ -311,14 +343,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
           unreadMatches: [],
           seenMessageRequests: prev.messageRequests || []
         };
-        localStorage.setItem("aura-user", JSON.stringify(updated));
+        if (clerkUser) {
+          localStorage.setItem(getStorageKey(clerkUser.id), JSON.stringify(updated));
+        }
         return updated;
       }
       return prev;
     });
-  }, []);
+  }, [clerkUser, getStorageKey]);
 
-  const sendMessageRequest = React.useCallback(async (userId: string) => {
+  const sendMessageRequest = useCallback(async (userId: string) => {
     let currentUserId = "";
     setUser(prev => {
       if (prev && !prev.sentMessageRequests?.includes(userId)) {
@@ -327,7 +361,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
           ...prev,
           sentMessageRequests: [...(prev.sentMessageRequests || []), userId]
         };
-        localStorage.setItem("aura-user", JSON.stringify(updated));
+        if (clerkUser) {
+          localStorage.setItem(getStorageKey(clerkUser.id), JSON.stringify(updated));
+        }
         return updated;
       }
       return prev;
@@ -336,9 +372,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (currentUserId) {
         await sendRequestMutation({ senderId: currentUserId, receiverId: userId });
     }
-  }, [sendRequestMutation]);
+  }, [sendRequestMutation, clerkUser, getStorageKey]);
 
-  const cancelMessageRequest = React.useCallback((userId: string) => {
+  const cancelMessageRequest = useCallback((userId: string) => {
      // TODO: Implement cancel implementation in backend if needed
     setUser(prev => {
       if (prev && prev.sentMessageRequests?.includes(userId)) {
@@ -346,14 +382,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
           ...prev,
           sentMessageRequests: prev.sentMessageRequests.filter(id => id !== userId)
         };
-        localStorage.setItem("aura-user", JSON.stringify(updated));
+        if (clerkUser) {
+          localStorage.setItem(getStorageKey(clerkUser.id), JSON.stringify(updated));
+        }
         return updated;
       }
       return prev;
     });
-  }, []);
+  }, [clerkUser, getStorageKey]);
 
-  const acceptMessageRequest = React.useCallback(async (userId: string) => {
+  const acceptMessageRequest = useCallback(async (userId: string) => {
     let currentUserId = "";
     setUser(prev => {
       if (prev && prev.messageRequests?.includes(userId)) {
@@ -364,7 +402,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
           matches: [...prev.matches, userId],
           unreadMatches: [...(prev.unreadMatches || []), userId]
         };
-        localStorage.setItem("aura-user", JSON.stringify(updated));
+        if (clerkUser) {
+          localStorage.setItem(getStorageKey(clerkUser.id), JSON.stringify(updated));
+        }
         return updated;
       }
       return prev;
@@ -373,9 +413,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (currentUserId) {
         await acceptRequestMutation({ userId: currentUserId, targetId: userId });
     }
-  }, [acceptRequestMutation]);
+  }, [acceptRequestMutation, clerkUser, getStorageKey]);
 
-  const declineMessageRequest = React.useCallback(async (userId: string) => {
+  const declineMessageRequest = useCallback(async (userId: string) => {
     let currentUserId = "";
     setUser(prev => {
       if (prev && prev.messageRequests?.includes(userId)) {
@@ -384,7 +424,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
           ...prev,
           messageRequests: prev.messageRequests.filter(id => id !== userId)
         };
-        localStorage.setItem("aura-user", JSON.stringify(updated));
+        if (clerkUser) {
+          localStorage.setItem(getStorageKey(clerkUser.id), JSON.stringify(updated));
+        }
         return updated;
       }
       return prev;
@@ -393,11 +435,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (currentUserId) {
         await declineRequestMutation({ userId: currentUserId, targetId: userId });
     }
-  }, [declineRequestMutation]);
+  }, [declineRequestMutation, clerkUser, getStorageKey]);
 
-  const logout = React.useCallback(() => {
-    updateUser(null);
-  }, [updateUser]);
+  const logout = useCallback(() => {
+    // Note: This just clears local user data
+    // Actual sign out is handled by Clerk's signOut
+    if (clerkUser) {
+      localStorage.removeItem(getStorageKey(clerkUser.id));
+    }
+    setUser(null);
+    setIsOnboarded(false);
+  }, [clerkUser, getStorageKey]);
 
   return (
     <UserContext.Provider value={{
@@ -405,6 +453,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setUser: updateUser,
       isOnboarded,
       isLoading,
+      isAuthenticated: isSignedIn ?? false,
       completeOnboarding,
       addBadge,
       incrementStreak,

@@ -1,4 +1,4 @@
-// Aura Connect Service Worker
+// Danyeri Service Worker
 // This is a minimal service worker to prevent 404 errors
 
 const CACHE_NAME = 'danyeri-cache-v1';

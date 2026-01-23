@@ -493,4 +493,89 @@ className="line-clamp-2"
 
 ---
 
-*Son yenilənmə: 2026-01-22*
+## 🔐 Clerk Authentication Sistemi
+
+### Quraşdırma:
+```bash
+npm install @clerk/nextjs
+```
+
+### Lazımi Fayllar:
+| Fayl | Məqsəd |
+|------|--------|
+| `middleware.ts` | Route qorunması (public vs protected) |
+| `convex/auth.config.ts` | Convex JWT doğrulaması |
+| `app/sign-in/[[...sign-in]]/page.tsx` | Giriş səhifəsi |
+| `app/sign-up/[[...sign-up]]/page.tsx` | Qeydiyyat səhifəsi |
+| `components/auth/AuthGuard.tsx` | Auth yoxlama komponenti |
+| `components/auth/UserMenu.tsx` | İstifadəçi profil düyməsi |
+
+### Environment Variables:
+```env
+# .env.local
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/discovery
+NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/onboarding
+```
+
+### Clerk Dashboard Quraşdırması:
+1. https://dashboard.clerk.com → "Create Application"
+2. "Email" və "Google" authentication metodlarını aktivləşdir
+3. API Keys → Publishable key və Secret key kopyala
+4. JWT Templates → Convex üçün template yarat (optional)
+
+### Convex ilə İnteqrasiya:
+```tsx
+// components/ConvexClientProvider.tsx
+import { ConvexProviderWithClerk } from "convex/react-clerk";
+import { ClerkProvider, useAuth } from "@clerk/nextjs";
+
+<ClerkProvider>
+  <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+    {children}
+  </ConvexProviderWithClerk>
+</ClerkProvider>
+```
+
+### UserContext ilə Əlaqə:
+- Clerk user ID localStorage key-i kimi istifadə olunur
+- `danyeri-user-{clerkId}` formatında saxlanılır
+- Eyni cihazda fərqli Clerk hesabları fərqli profillər saxlayır
+
+### Azərbaycan Lokallaşdırması:
+```tsx
+const azLocalization = {
+  socialButtonsBlockButton: "{{provider}} ilə davam et",
+  dividerText: "və ya",
+  formFieldLabel__emailAddress: "E-poçt ünvanı",
+  formFieldLabel__password: "Şifrə",
+  // ...
+};
+
+<ClerkProvider localization={azLocalization}>
+```
+
+### Protected Routes:
+```tsx
+// middleware.ts
+const isPublicRoute = createRouteMatcher([
+  '/',
+  '/sign-in(.*)',
+  '/sign-up(.*)',
+]);
+
+// Digər bütün routes qorunur
+```
+
+### Debug:
+1. **401 xətası:** API keys-i yoxla
+2. **Redirect loop:** Public routes-u yoxla
+3. **User görünmür:** ClerkProvider-ın layout-da olduğunu yoxla
+4. **Convex auth xətası:** JWT template konfiqurasiyasını yoxla
+
+---
+
+*Son yenilənmə: 2026-01-23*

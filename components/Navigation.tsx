@@ -19,8 +19,12 @@ export function BottomNav() {
     { href: "/discovery", icon: Compass, labelEn: "Discover", labelAz: "Kəşf" },
     { href: "/search", icon: Search, labelEn: "Search", labelAz: "Axtar" },
     { href: "/messages", icon: MessageCircle, labelEn: "Chat", labelAz: "Mesaj", badge: (user?.unreadMatches?.length || 0) + (user?.messageRequests?.filter(id => !user?.seenMessageRequests?.includes(id)).length || 0) },
-    { href: isOnboarded ? "/profile" : "/onboarding", icon: User, labelEn: "Profile", labelAz: "Profil" },
   ];
+
+  // Profile item ayrı
+  const profileHref = isOnboarded ? "/profile" : "/onboarding";
+  const profileLabel = language === 'az' ? 'Profil' : 'Profile';
+  const isProfileActive = pathname === "/profile";
 
   // Don't show nav on welcome/onboarding screens
   if (pathname === "/onboarding") return null;
@@ -56,6 +60,35 @@ export function BottomNav() {
             </Link>
           );
         })}
+
+        {/* Profile Link with Avatar */}
+        <Link
+          href={profileHref}
+          className={`flex flex-col items-center justify-center gap-0.5 ${
+            isProfileActive ? "text-primary" : "text-muted-foreground"
+          }`}
+        >
+          <div className={cn(
+            "relative w-6 h-6 rounded-full overflow-hidden",
+            isProfileActive && "ring-2 ring-primary ring-offset-1 ring-offset-background"
+          )}>
+            {user?.avatar ? (
+              <img 
+                src={user.avatar} 
+                alt={user.name || "Profile"} 
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full bg-muted flex items-center justify-center">
+                <User className="w-3.5 h-3.5 text-muted-foreground" />
+              </div>
+            )}
+          </div>
+          <span className="text-[10px] font-medium">{profileLabel}</span>
+          {isProfileActive && (
+            <div className="absolute top-0 w-10 h-0.5 bg-primary rounded-b-full" />
+          )}
+        </Link>
       </div>
       {/* Safe area for iPhone */}
       <div className="h-[env(safe-area-inset-bottom)]" />
@@ -143,7 +176,7 @@ export function SideNav() {
         })}
       </nav>
 
-      {/* Footer / Toggle */}
+      {/* Footer - Collapse Toggle */}
       <div className="p-4 border-t border-white/10">
         <button 
           onClick={() => setIsCollapsed(!isCollapsed)}

@@ -8,7 +8,7 @@ import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
 import { BottomNav } from "./Navigation";
-import { DebugUserSwitcher } from "./DebugUserSwitcher"; // Added this import
+import { DebugUserSwitcher } from "./DebugUserSwitcher";
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -16,7 +16,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const { language } = useLanguage();
   const [isCollapsed, setIsCollapsed] = useState(true); // Default collapsed
 
-  const isAuthPage = pathname === "/onboarding";
+  const isAuthPage = pathname === "/onboarding" || pathname?.startsWith("/sign-in") || pathname?.startsWith("/sign-up");
   const isAdminPage = pathname?.includes("/admin");
 
   if (isAuthPage || isAdminPage) {
@@ -29,8 +29,12 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     { href: "/search", icon: Search, labelEn: "Search", labelAz: "Axtar" },
     { href: "/messages", icon: MessageCircle, labelEn: "Chat", labelAz: "Mesaj", badge: user?.unreadMatches?.length || 0 },
     { href: "/notifications", icon: Bell, labelEn: "Alerts", labelAz: "Bildiriş" },
-    { href: isOnboarded ? "/profile" : "/onboarding", icon: User, labelEn: "Profile", labelAz: "Profil" },
   ];
+
+  // Profile item ayrı - avatar şəkli üçün
+  const profileHref = isOnboarded ? "/profile" : "/onboarding";
+  const profileLabel = language === 'az' ? 'Profil' : 'Profile';
+  const isProfileActive = pathname === "/profile";
 
   return (
     <div className="min-h-screen relative bg-background flex flex-col md:flex-row">
@@ -113,6 +117,51 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
+
+          {/* Profile Link with Avatar */}
+          <Link
+            href={profileHref}
+            className={cn(
+              "flex items-center gap-4 p-3 rounded-xl transition-all duration-200 group relative",
+              isCollapsed ? "justify-center w-12" : "w-full px-3",
+              isProfileActive 
+                ? "text-primary" 
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <div className={cn(
+              "relative shrink-0 flex items-center justify-center w-10 h-10 rounded-xl transition-all overflow-hidden",
+              isProfileActive && !isCollapsed ? "ring-2 ring-primary" : "",
+              isProfileActive && isCollapsed ? "ring-2 ring-primary" : "group-hover:ring-2 group-hover:ring-muted"
+            )}>
+              {user?.avatar ? (
+                <img 
+                  src={user.avatar} 
+                  alt={user.name || "Profile"} 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-muted flex items-center justify-center">
+                  <User className="w-5 h-5 text-muted-foreground" />
+                </div>
+              )}
+            </div>
+            
+            {!isCollapsed && (
+              <span className={cn("font-medium whitespace-nowrap", isProfileActive && "font-bold")}>{profileLabel}</span>
+            )}
+
+            {/* Tooltip for collapsed mode */}
+            {isCollapsed && (
+              <div className="absolute left-full ml-4 px-3 py-1.5 bg-popover text-popover-foreground text-sm font-medium rounded-lg opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none transition-all duration-200 shadow-xl border border-border z-50 translate-x-1 group-hover:translate-x-0">
+                {profileLabel}
+              </div>
+            )}
+            
+            {isProfileActive && !isCollapsed && (
+              <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-primary" />
+            )}
+          </Link>
         </nav>
       </aside>
 

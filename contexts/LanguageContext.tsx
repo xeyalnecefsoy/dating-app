@@ -78,7 +78,7 @@ export const translations: Translations = {
   "card.message": { en: "Message", az: "Mesaj" },
   
   // Profile/Onboarding
-  "onboarding.welcome": { en: "Welcome to Aura Connect", az: "Aura Connect-ə Xoş Gəlmisiniz" },
+  "onboarding.welcome": { en: "Welcome to Danyeri", az: "Danyeri-yə Xoş Gəlmisiniz" },
   "onboarding.step1": { en: "Basic Info", az: "Əsas Məlumat" },
   "onboarding.step2": { en: "Your Values", az: "Dəyərləriniz" },
   "onboarding.step3": { en: "Interests & Style", az: "Maraqlar və Üslub" },
@@ -139,7 +139,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>("az");
 
   useEffect(() => {
-    const savedLang = localStorage.getItem("aura-language") as Language;
+    const savedLang = localStorage.getItem("danyeri-language") as Language;
     if (savedLang) {
       setLanguageState(savedLang);
     }
@@ -148,7 +148,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
-    localStorage.setItem("aura-language", lang);
+    localStorage.setItem("danyeri-language", lang);
   };
 
   const t = (key: string): string => {

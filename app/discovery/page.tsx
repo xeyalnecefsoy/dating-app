@@ -48,7 +48,7 @@ export default function DiscoveryPage() {
     "💕 Sevgi, verməkdən başlayır, almaqdan deyil",
     "🌟 Status deyil, xarakter önəmlidir",
     "🏠 Ailə qurmaq, birlikdə böyüməkdir",
-    "⚖️ Tərəfdaşını dəyişdirmək deyil, onu başa düşmək lazımdır",
+    "⚖️ Yoldaşını dəyişdirmək deyil, onu başa düşmək lazımdır",
   ] : [
     "💡 There's no perfect person, only people who build perfect love",
     "❤️ Inner beauty lasts longer than outer beauty",

@@ -20,8 +20,8 @@ export const badges: Badge[] = [
     id: "early-adopter",
     name: { en: "Early Adopter", az: "Erkən İstifadəçi" },
     description: { 
-      en: "Joined Aura Connect in its early days",
-      az: "Aura Connect-ə erkən qoşuldu"
+      en: "Joined Danyeri in its early days",
+      az: "Danyeri-yə erkən qoşuldu"
     },
     icon: "Star",
     color: "text-amber-500",

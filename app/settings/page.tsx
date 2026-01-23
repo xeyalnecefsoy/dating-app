@@ -5,13 +5,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { 
   ArrowLeft, Moon, Sun, Globe, Bell, Shield, 
-  HelpCircle, LogOut, ChevronRight, User, Trash2, Check
+  HelpCircle, LogOut, ChevronRight, User, Trash2, Check, AlertTriangle, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUser } from "@/contexts/UserContext";
+import { useClerk, useAuth } from "@clerk/nextjs";
+import { motion, AnimatePresence } from "framer-motion";
 
 type NotificationSettings = {
   pushEnabled: boolean;
@@ -22,8 +24,10 @@ type NotificationSettings = {
 export default function SettingsPage() {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
-  const { language, setLanguage, t } = useLanguage();
-  const { setUser, user, isOnboarded } = useUser();
+  const { language, setLanguage } = useLanguage();
+  const { logout: logoutUser, user, isOnboarded } = useUser();
+  const { signOut } = useClerk();
+  const { isSignedIn } = useAuth();
   
   const [notifications, setNotifications] = useState<NotificationSettings>({
     pushEnabled: true,
@@ -31,10 +35,12 @@ export default function SettingsPage() {
     messageAlerts: true,
   });
   const [saved, setSaved] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Load notification settings from localStorage
   useEffect(() => {
-    const savedNotifs = localStorage.getItem("aura-notifications");
+    const savedNotifs = localStorage.getItem("danyeri-notifications");
     if (savedNotifs) {
       setNotifications(JSON.parse(savedNotifs));
     }
@@ -44,7 +50,7 @@ export default function SettingsPage() {
   const updateNotifications = (key: keyof NotificationSettings, value: boolean) => {
     const newSettings = { ...notifications, [key]: value };
     setNotifications(newSettings);
-    localStorage.setItem("aura-notifications", JSON.stringify(newSettings));
+    localStorage.setItem("danyeri-notifications", JSON.stringify(newSettings));
     showSavedFeedback();
   };
 
@@ -53,23 +59,41 @@ export default function SettingsPage() {
     setTimeout(() => setSaved(false), 1500);
   };
 
-  const handleLogout = () => {
-    if (confirm(language === 'az' ? 'Çıxış etmək istədiyinizə əminsiniz?' : 'Are you sure you want to log out?')) {
-      localStorage.removeItem("aura-user");
-      setUser(null);
-      router.push("/");
+  const handleLogout = async () => {
+    // Clear local user data
+    logoutUser();
+    
+    // Sign out from Clerk if signed in
+    if (isSignedIn) {
+      await signOut();
     }
+    
+    router.push("/");
   };
 
-  const handleDeleteAccount = () => {
-    if (confirm(language === 'az' ? 'Hesabınızı silmək istədiyinizə əminsiniz? Bu əməliyyat geri alına bilməz.' : 'Are you sure you want to delete your account? This action cannot be undone.')) {
-      localStorage.removeItem("aura-user");
-      localStorage.removeItem("aura-notifications");
-      localStorage.removeItem("aura-theme");
-      localStorage.removeItem("aura-language");
-      setUser(null);
-      router.push("/");
+  const handleDeleteAccount = async () => {
+    // Clear all local storage data
+    localStorage.removeItem("danyeri-notifications");
+    localStorage.removeItem("danyeri-theme");
+    localStorage.removeItem("danyeri-language");
+    
+    // Get all keys that start with danyeri-user
+    const keys = Object.keys(localStorage);
+    keys.forEach(key => {
+      if (key.startsWith("danyeri-user")) {
+        localStorage.removeItem(key);
+      }
+    });
+    
+    // Clear user from context
+    logoutUser();
+    
+    // Sign out from Clerk
+    if (isSignedIn) {
+      await signOut();
     }
+    
+    router.push("/");
   };
 
   const texts = {
@@ -89,6 +113,14 @@ export default function SettingsPage() {
     logout: language === 'az' ? 'Çıxış' : 'Log Out',
     deleteAccount: language === 'az' ? 'Hesabı Sil' : 'Delete Account',
     saved: language === 'az' ? 'Saxlanıldı!' : 'Saved!',
+    // Modal texts
+    logoutTitle: language === 'az' ? 'Çıxış etmək istəyirsiniz?' : 'Log out?',
+    logoutDesc: language === 'az' ? 'Hesabınızdan çıxış edəcəksiniz.' : 'You will be logged out of your account.',
+    deleteTitle: language === 'az' ? 'Hesabı silmək istəyirsiniz?' : 'Delete account?',
+    deleteDesc: language === 'az' ? 'Bu əməliyyat geri alına bilməz. Bütün məlumatlarınız silinəcək.' : 'This action cannot be undone. All your data will be deleted.',
+    cancel: language === 'az' ? 'Ləğv et' : 'Cancel',
+    confirm: language === 'az' ? 'Təsdiqlə' : 'Confirm',
+    delete: language === 'az' ? 'Sil' : 'Delete',
   };
 
   return (
@@ -249,7 +281,7 @@ export default function SettingsPage() {
           <section>
             <div className="bg-card rounded-2xl border border-border overflow-hidden">
               <button 
-                onClick={handleLogout}
+                onClick={() => setShowLogoutModal(true)}
                 className="w-full flex items-center justify-between p-4 active:bg-muted"
               >
                 <div className="flex items-center gap-3">
@@ -259,7 +291,7 @@ export default function SettingsPage() {
               </button>
               <div className="h-px bg-border mx-4" />
               <button 
-                onClick={handleDeleteAccount}
+                onClick={() => setShowDeleteModal(true)}
                 className="w-full flex items-center justify-between p-4 active:bg-muted"
               >
                 <div className="flex items-center gap-3">
@@ -273,9 +305,122 @@ export default function SettingsPage() {
 
         {/* Version */}
         <p className="text-center text-xs text-muted-foreground pt-4">
-          Aura Connect v1.0.0
+          Danyeri v1.0.0
         </p>
       </main>
+
+      {/* Logout Modal */}
+      <AnimatePresence>
+        {showLogoutModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowLogoutModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm bg-card border border-border rounded-2xl p-6 shadow-2xl"
+            >
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <LogOut className="w-6 h-6 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-foreground">{texts.logoutTitle}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">{texts.logoutDesc}</p>
+                </div>
+                <button 
+                  onClick={() => setShowLogoutModal(false)}
+                  className="p-1 hover:bg-muted rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-muted-foreground" />
+                </button>
+              </div>
+              
+              <div className="flex gap-3 mt-6">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setShowLogoutModal(false)}
+                >
+                  {texts.cancel}
+                </Button>
+                <Button
+                  className="flex-1 gradient-brand"
+                  onClick={() => {
+                    setShowLogoutModal(false);
+                    handleLogout();
+                  }}
+                >
+                  {texts.confirm}
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Account Modal */}
+      <AnimatePresence>
+        {showDeleteModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowDeleteModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm bg-card border border-border rounded-2xl p-6 shadow-2xl"
+            >
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-6 h-6 text-destructive" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-foreground">{texts.deleteTitle}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">{texts.deleteDesc}</p>
+                </div>
+                <button 
+                  onClick={() => setShowDeleteModal(false)}
+                  className="p-1 hover:bg-muted rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-muted-foreground" />
+                </button>
+              </div>
+              
+              <div className="flex gap-3 mt-6">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setShowDeleteModal(false)}
+                >
+                  {texts.cancel}
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    handleDeleteAccount();
+                  }}
+                >
+                  {texts.delete}
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -102,8 +102,8 @@ export default function StoriesPage() {
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
             {language === 'az' 
-              ? 'Aura hər gün insanlara ortaq dəyərlər, anlayış və səmimi əlaqələrə əsaslanan mənalı münasibətlər qurmağa kömək edir.'
-              : 'Every day, Aura Connect helps Azerbaijanis find meaningful relationships based on shared values, understanding, and genuine connection.'}
+              ? 'Danyeri hər gün insanlara ortaq dəyərlər, anlayış və səmimi əlaqələrə əsaslanan mənalı münasibətlər qurmağa kömək edir.'
+              : 'Every day, Danyeri helps Azerbaijanis find meaningful relationships based on shared values, understanding, and genuine connection.'}
           </p>
         </motion.div>
 
