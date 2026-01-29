@@ -19,7 +19,7 @@ import { useToast } from "@/components/ui/toast";
 export default function UserProfilePage() {
   const params = useParams();
   const router = useRouter();
-  const { user: currentUser, isOnboarded, likeUser, matchUser, sendMessageRequest } = useUser();
+  const { user: currentUser, isOnboarded, isLoading, likeUser, matchUser, sendMessageRequest } = useUser();
   const { language } = useLanguage();
   const { showToast } = useToast();
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
@@ -57,6 +57,14 @@ export default function UserProfilePage() {
   const userId = params.id as string;
   const profile = MOCK_USERS.find(u => u.id === userId);
 
+  // Authentication Check
+  React.useEffect(() => {
+    if (!isLoading && !currentUser) {
+      // Save current URL to return after login? For now just redirect to sign-in
+       router.push("/sign-in");
+    }
+  }, [isLoading, currentUser, router]);
+
   const txt = {
     back: language === 'az' ? 'Geri' : 'Back',
     about: language === 'az' ? 'Haqqında' : 'About',
@@ -89,6 +97,17 @@ export default function UserProfilePage() {
       profile
     );
   }, [currentUser, isOnboarded, profile]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // If not logged in (and not loading), don't render content (useEffect will redirect)
+  if (!currentUser) return null;
 
   if (!profile) {
     return (
@@ -134,6 +153,37 @@ export default function UserProfilePage() {
     }
   };
 
+  const handleShare = async () => {
+    if (!profile) return;
+    
+    // Construct share URL - ensuring it's the full URL
+    const shareUrl = window.location.href; // or `${window.location.origin}/user/${profile.id}`
+    const shareText = language === 'az' 
+      ? `${profile.name} yalnız Danyeri-də! Sən də qoşul.`
+      : `Check out ${profile.name} on Danyeri!`;
+
+    const shareData = {
+      title: 'Danyeri',
+      text: shareText,
+      url: shareUrl,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        showToast({
+          type: "success",
+          title: language === 'az' ? 'Kopyalandı' : 'Copied',
+          message: language === 'az' ? 'Link mübadilə buferinə kopyalandı' : 'Link copied to clipboard'
+        });
+      }
+    } catch (err) {
+      console.error('Share failed:', err);
+    }
+  };
+
   const isMatched = currentUser?.matches.includes(profile.id);
   const isRequestSent = currentUser?.sentMessageRequests?.includes(profile.id);
 
@@ -158,7 +208,10 @@ export default function UserProfilePage() {
           </button>
 
           {/* Share Button */}
-          <button className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center hover:bg-black/60 transition-colors">
+          <button 
+            onClick={handleShare}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center hover:bg-black/60 transition-colors z-20"
+          >
             <Share2 className="w-5 h-5 text-white" />
           </button>
 

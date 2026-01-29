@@ -121,7 +121,7 @@ export const MOCK_USERS: UserProfile[] = [
       az: "Olduğunuz ən yaxşı konsert hansı olub?"
     },
     avatar: "/avatars/selcan.png",
-    gallery: ["/gallery/selcan_1.png"],
+    gallery: ["/avatars/selcan.png", "/gallery/selcan_1.png"],
     isVerified: true,
   },
   {
@@ -212,7 +212,7 @@ export const MOCK_USERS: UserProfile[] = [
       az: "Bu gün əhvalını hansı rəng ifadə edir?"
     },
     avatar: "/avatars/banu.png",
-    gallery: ["/gallery/banu_1.png"],
+    gallery: ["/avatars/banu.png", "/gallery/banu_1.png"],
   },
   {
     id: "6",
@@ -257,7 +257,7 @@ export const MOCK_USERS: UserProfile[] = [
       az: "Olduğun ən dəbli məkan haradır?"
     },
     avatar: "/avatars/lala.png",
-    gallery: ["/gallery/lala_1.png"],
+    gallery: ["/avatars/lala.png", "/gallery/lala_1.png"],
     isPremium: true,
   },
   {
@@ -280,6 +280,7 @@ export const MOCK_USERS: UserProfile[] = [
       az: "Ən sevdiyin az tanınan qrup hansıdır?"
     },
     avatar: "/avatars/orxan.png",
+    gallery: ["/avatars/orxan.png", "/gallery/orxan_1.png"],
   },
   {
     id: "9",
@@ -301,7 +302,7 @@ export const MOCK_USERS: UserProfile[] = [
       az: "Sənin imza içkin nədir?"
     },
     avatar: "/avatars/aylin.png",
-    gallery: ["/avatars/aylin.png"],
+    gallery: ["/avatars/aylin.png", "/gallery/aylin_1.png"],
     isPremium: true,
   },
   {
@@ -324,7 +325,7 @@ export const MOCK_USERS: UserProfile[] = [
       az: "Hovuz partisi yoxsa sahildə tonqal?"
     },
     avatar: "/avatars/nigar.png",
-    gallery: ["/avatars/nigar.png"],
+    gallery: ["/avatars/nigar.png", "/gallery/nigar_1.png"],
   },
   {
     id: "11",
@@ -346,7 +347,7 @@ export const MOCK_USERS: UserProfile[] = [
       az: "Etdiyin ən romantik şey nə olub?"
     },
     avatar: "/avatars/fidan.png",
-    gallery: ["/avatars/fidan.png"],
+    gallery: ["/avatars/fidan.png", "/gallery/fidan_1.png"],
     isVerified: true,
   },
   {
@@ -369,7 +370,7 @@ export const MOCK_USERS: UserProfile[] = [
       az: "Məndə ilk diqqətini çəkən nə oldu?"
     },
     avatar: "/avatars/sevda.png",
-    gallery: ["/avatars/sevda.png"],
+    gallery: ["/avatars/sevda.png", "/gallery/sevda_1.png"],
     isPremium: true,
   },
   {
@@ -414,7 +415,7 @@ export const MOCK_USERS: UserProfile[] = [
       az: "Ən çılğın macəran nə olub?"
     },
     avatar: "/avatars/jale.png",
-    gallery: ["/avatars/jale.png"],
+    gallery: ["/avatars/jale.png", "/gallery/jale_1.png"],
     isVerified: true,
   },
 ];

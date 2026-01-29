@@ -5,7 +5,14 @@ import { v } from "convex/values";
 export const list = query({
   args: { channelId: v.optional(v.string()) },
   handler: async (ctx, args) => {
+    // Authenticated users only
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
     const channelId = args.channelId || "general";
+    
+    // TODO: Verify if user is part of this channel (match)
+    
     const messages = await ctx.db
       .query("messages")
       .withIndex("by_channel", (q) => q.eq("channelId", channelId))
@@ -19,6 +26,14 @@ export const list = query({
 export const last = query({
   args: { channelId: v.string() },
   handler: async (ctx, args) => {
+    // Authenticated users only
+    const identity = await ctx.auth.getUserIdentity();
+    /*
+      It is okay to let this fail silently or return null if unauthenticated, 
+      but for UI rendering it is better to be safe.
+    */
+    if (!identity) return null;
+
     const message = await ctx.db
       .query("messages")
       .withIndex("by_channel", (q) => q.eq("channelId", args.channelId))
@@ -31,12 +46,16 @@ export const last = query({
 
 // Send a new message
 export const send = mutation({
-  args: { body: v.string(), userId: v.string(), channelId: v.optional(v.string()) },
+  args: { body: v.string(), userId: v.string(), channelId: v.optional(v.string()) }, // userId kept for signature but ignored
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthenticated");
+    const userId = identity.subject;
+
     const channelId = args.channelId || "general";
     await ctx.db.insert("messages", {
       body: args.body,
-      userId: args.userId,
+      userId: userId, // Enforced
       channelId: channelId,
       format: "text",
     });
@@ -47,6 +66,10 @@ export const send = mutation({
 export const deleteMessage = mutation({
   args: { id: v.id("messages"), userId: v.string() }, // userId verification
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthenticated");
+    const userId = identity.subject;
+
     const message = await ctx.db.get(args.id);
     
     if (!message) {
@@ -55,8 +78,7 @@ export const deleteMessage = mutation({
     }
 
     // Verify ownership
-    // Note: In a real app with Auth, we would check ctx.auth.getUserIdentity()
-    if (message.userId !== args.userId) {
+    if (message.userId !== userId) {
       throw new Error("You can only delete your own messages");
     }
 
@@ -76,6 +98,10 @@ export const deleteMessage = mutation({
 export const editMessage = mutation({
   args: { id: v.id("messages"), userId: v.string(), newBody: v.string() },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthenticated");
+    const userId = identity.subject;
+
     const message = await ctx.db.get(args.id);
     
     if (!message) {
@@ -83,7 +109,7 @@ export const editMessage = mutation({
     }
 
     // Verify ownership
-    if (message.userId !== args.userId) {
+    if (message.userId !== userId) {
       throw new Error("You can only edit your own messages");
     }
 

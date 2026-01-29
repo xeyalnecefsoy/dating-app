@@ -56,3 +56,56 @@ Users could not see each other's messages because they were writing to different
 ## 8. General Best Practices for this Project
 *   **Mock Data:** Continue using `MOCK_USERS` for static profile data (names, avatars) to avoid seeding a complex database for now, but use Convex for **all interactions** (messages, matches, pings, *story replies*).
 *   **Convex Queries:** When adding new features, prefer creating specific queries (e.g., `api.messages.last`) rather than filtering large datasets on the client.
+
+## 9. UI/UX & Branding Overhaul (Jan 23)
+### Branding
+*   **Rebranding:** Renamed application from "Aura Connect" to **"Danyeri"**. Updated all strings, constants, and UI elements.
+*   **Visual Alignment:** Fixed alignment issues on "Start" (Başla) buttons and Sign In/Sign Up logos using precise flexbox and optical alignment techniques.
+
+### Onboarding Flow
+*   **Enhanced Data Collection:**
+    *   Split Name into First/Last Name for better profile verification readiness.
+    *   Replaced simple Age input with a full **Date of Birth picker** (Day/Month/Year).
+    *   Expanded Location selection to include **all Azerbaijan regions** with a searchable dropdown.
+*   **UX Improvements:**
+    *   Increased selection limits: Interests (up to 7), Values (up to 5).
+    *   Integrated **Clerk Profile Image**: Automatically uses the Google/Clerk avatar if available, falling back to gender-based defaults.
+    *   Improved mobile bottom sheet/button spacing (`pb-8`).
+
+### Navigation & Settings
+*   **Simplified Navigation:**
+    *   Removed redundant Clerk `UserButton` from Sidebar and BottomNav to avoid duplicate profile pictures.
+    *   Implemented a custom **Profile Button** that shows the user's avatar with a active ring state.
+*   **Settings Page:**
+    *   Replaced native browser `confirm()` alerts with custom **Modals** for "Logout" and "Delete Account" actions.
+    *   Added proper `Clerk.signOut()` integration to ensure complete session cleanup upon logout/deletion.
+
+### Landing Page
+*   **Optimization:**
+    *   Refined the Hero section "Başla" button to be more compact (`max-w-md`) and optically aligned.
+    *   Improved Sign In/Sign Up page layouts for better vertical rhythm and centering.
+
+## 10. Security & Privacy Hardening (Jan 26)
+### Backend Security (Convex)
+*   **Authentication Enforcement:** Moved from client-side trust to strict server-side verification using `ctx.auth.getUserIdentity()` in all mutations/queries.
+    *   `likes.ts`: Verified `likerId` matches authenticated user.
+    *   `matches.ts`: Verified `senderId`/`userId` in match creation and request handling.
+    *   `messages.ts`: Enforced `userId` on message sending, editing, and deleting. Confirmed users can only delete/edit *their own* messages.
+    *   `presence.ts`: Ensured users can only update their own online status.
+*   **Data Access Control:** Updated queries to return only data relevant to the authenticated user (e.g., `getRequests`, `list` matches).
+
+### Data Privacy (GDPR Compliance)
+*   **Account Deletion:** Implemented `deleteAccount` mutation in `users.ts` that performs a cascading delete of all user data:
+    *   Matches (both directions).
+    *   Likes (given and received).
+    *   Messages.
+    *   Presence records.
+    *   This ensures "Right to be Forgotten" compliance.
+
+### Frontend Security (Next.js)
+*   **headers:** Added security headers to `next.config.ts`:
+    *   `X-Frame-Options: DENY`: Prevents Clickjacking.
+    *   `X-Content-Type-Options: nosniff`: Prevents MIME sniffing.
+    *   `Strict-Transport-Security` (HSTS): Enforces HTTPS.
+    *   `Permissions-Policy`: Restricts access to sensitive browser features (camera, mic) unless explicitly needed.
+*   **Middleware:** Verified `middleware.ts` correctly segments Public vs. Private routes using Clerk, ensuring unauthorized access is blocked at the edge.

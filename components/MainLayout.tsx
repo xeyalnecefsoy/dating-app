@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Home, Compass, MessageCircle, User, Menu, ChevronLeft, Flame, ChevronRight, Search, Bell } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -12,12 +12,22 @@ import { DebugUserSwitcher } from "./DebugUserSwitcher";
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { user, isOnboarded } = useUser();
+  const router = useRouter();
+  const { user, isOnboarded, isAuthenticated, isLoading } = useUser();
   const { language } = useLanguage();
   const [isCollapsed, setIsCollapsed] = useState(true); // Default collapsed
 
   const isAuthPage = pathname === "/onboarding" || pathname?.startsWith("/sign-in") || pathname?.startsWith("/sign-up");
   const isAdminPage = pathname?.includes("/admin");
+
+  // Force onboarding redirect
+  useEffect(() => {
+    if (isLoading) return;
+
+    if (isAuthenticated && !isOnboarded && !isAuthPage && !isAdminPage) {
+      router.replace("/onboarding");
+    }
+  }, [isLoading, isAuthenticated, isOnboarded, isAuthPage, isAdminPage, router]);
 
   if (isAuthPage || isAdminPage) {
     return <>{children}</>;

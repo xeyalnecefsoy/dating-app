@@ -18,7 +18,6 @@ const azLocalization = {
   formFieldLabel__password: "Şifrə",
   formFieldLabel__confirmPassword: "Şifrəni təsdiqlə",
   formFieldLabel__firstName: "Ad",
-  formFieldLabel__lastName: "Soyad",
   formButtonPrimary: "Davam et",
   signIn: {
     start: {
@@ -79,7 +78,7 @@ export default function ConvexClientProvider({
             colorBackground: "#0a0a0f",
             colorText: "#ffffff",
             colorTextSecondary: "#a1a1aa",
-            borderRadius: "0.75rem",
+            borderRadius: "1rem",
           },
         }}
       >
@@ -97,7 +96,7 @@ export default function ConvexClientProvider({
           colorBackground: "#0a0a0f",
           colorText: "#ffffff",
           colorTextSecondary: "#a1a1aa",
-          borderRadius: "0.75rem",
+          borderRadius: "1rem",
         },
       }}
     >

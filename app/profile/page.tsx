@@ -445,39 +445,44 @@ export default function ProfilePage() {
         </section>
 
         {/* Badges */}
-        <section className="bg-card rounded-2xl border border-border p-4 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold">{txt.badges}</h3>
-            <span className="text-sm text-muted-foreground">{user.badges.length} {txt.earned}</span>
-          </div>
-          
-          {user.badges.length > 0 ? (
-            <div className="grid grid-cols-4 gap-4">
-              {user.badges.map(badgeId => {
-                const badge = getBadgeById(badgeId.toLowerCase().replace(/ /g, "-"));
-                if (!badge) return null;
-                const IconComponent = getBadgeIcon(badge.icon);
-                return (
-                  <div 
-                    key={badgeId}
-                    className="flex flex-col items-center text-center"
-                  >
-                    <div className={`w-12 h-12 rounded-full bg-secondary flex items-center justify-center mb-1 ${badge.color}`}>
-                      <IconComponent className="w-6 h-6" />
-                    </div>
-                    <span className="text-[10px] text-muted-foreground">
-                      {language === 'az' ? badge.name.az : badge.name.en}
-                    </span>
-                  </div>
-                );
-              })}
+        <Link href="/badges" className="block">
+          <section className="bg-card rounded-2xl border border-border p-4 mb-6 transition-all hover:bg-muted/50 cursor-pointer group">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold">{txt.badges}</h3>
+              <div className="flex items-center gap-1">
+                <span className="text-sm text-muted-foreground">{user.badges.length} {txt.earned}</span>
+                <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+              </div>
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              {txt.startEarning}
-            </p>
-          )}
-        </section>
+            
+            {user.badges.length > 0 ? (
+              <div className="grid grid-cols-4 gap-4">
+                {user.badges.map(badgeId => {
+                  const badge = getBadgeById(badgeId.toLowerCase().replace(/ /g, "-"));
+                  if (!badge) return null;
+                  const IconComponent = getBadgeIcon(badge.icon);
+                  return (
+                    <div 
+                      key={badgeId}
+                      className="flex flex-col items-center text-center"
+                    >
+                      <div className={`w-12 h-12 rounded-full bg-secondary flex items-center justify-center mb-1 ${badge.color}`}>
+                        <IconComponent className="w-6 h-6" />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground">
+                        {language === 'az' ? badge.name.az : badge.name.en}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                {txt.startEarning}
+              </p>
+            )}
+          </section>
+        </Link>
 
         {/* Menu Items */}
         <section className="space-y-2">

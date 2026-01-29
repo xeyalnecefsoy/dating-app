@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Flame, Heart, MessageCircle, User, Compass, Sparkles, ChevronRight, Star, Bell } from "lucide-react";
+import { Flame, Heart, MessageCircle, User, Compass, Sparkles, ChevronRight, Star, Bell, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -42,8 +42,8 @@ export default function HomePage() {
       <header className="sticky top-0 z-40 glass border-b border-border/50">
         <div className="w-full max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="md:hidden flex items-center gap-2"> {/* Only show logo strictly on mobile if sidebar is hidden, or show always but hide on desktop if sidebar handles it? Sidebar handles it on desktop. */}
-             <div className="w-8 h-8 rounded-lg gradient-brand flex items-center justify-center">
-               <Flame className="w-5 h-5 text-white" />
+             <div className="w-8 h-8 flex items-center justify-center">
+               <img src="/logo.jpg" className="w-full h-full object-contain rounded-full" alt="Danyeri Logo" />
              </div>
              <span className="font-bold text-lg">Danyeri</span>
           </div>
@@ -282,8 +282,8 @@ function WelcomeScreen() {
             className="relative"
           >
             {/* Main logo */}
-            <div className="w-32 h-32 rounded-full gradient-brand flex items-center justify-center shadow-2xl shadow-primary/30">
-              <Flame className="w-16 h-16 text-white" />
+            <div className="w-32 h-32 rounded-full flex items-center justify-center shadow-2xl shadow-primary/30 bg-background/50 backdrop-blur-md overflow-hidden">
+              <img src="/logo.jpg" className="w-full h-full object-cover" alt="Danyeri Logo" />
             </div>
             
             {/* Floating icons */}
@@ -338,7 +338,7 @@ function WelcomeScreen() {
           
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1.5 opacity-80">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+              <ShieldCheck className="w-3.5 h-3.5 text-green-500" />
               {content.secureSpace}
             </p>
             <p className="text-center text-sm text-muted-foreground">

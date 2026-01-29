@@ -2,16 +2,25 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
 // Add a like
+// Add a like
 export const like = mutation({
   args: {
-    likerId: v.string(),
+    likerId: v.string(), // We keep this for now to match signature, but verify it
     likedId: v.string(),
   },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthenticated call to like");
+    }
+
+    // Securely use the authenticated user's ID
+    const likerId = identity.subject;
+
     // Check if already liked
     const existing = await ctx.db
       .query("likes")
-      .withIndex("by_pair", q => q.eq("likerId", args.likerId).eq("likedId", args.likedId))
+      .withIndex("by_pair", q => q.eq("likerId", likerId).eq("likedId", args.likedId))
       .first();
     
     if (existing) {
@@ -20,7 +29,7 @@ export const like = mutation({
 
     // Add the like
     await ctx.db.insert("likes", {
-      likerId: args.likerId,
+      likerId: likerId,
       likedId: args.likedId,
       createdAt: Date.now(),
     });
@@ -28,13 +37,13 @@ export const like = mutation({
     // Check for mutual like (did the other person like us?)
     const mutualLike = await ctx.db
       .query("likes")
-      .withIndex("by_pair", q => q.eq("likerId", args.likedId).eq("likedId", args.likerId))
+      .withIndex("by_pair", q => q.eq("likerId", args.likedId).eq("likedId", likerId))
       .first();
 
     if (mutualLike) {
       // It's a match! Create match record
       await ctx.db.insert("matches", {
-        user1Id: args.likerId,
+        user1Id: likerId,
         user2Id: args.likedId,
         status: "accepted",
       });

@@ -35,6 +35,32 @@ export default function DiscoveryPage() {
     location: "all",
     communicationStyle: "all"
   });
+
+  // Restore state from sessionStorage on mount
+  React.useEffect(() => {
+    const savedIndex = sessionStorage.getItem("discovery_currentIndex");
+    const savedFilters = sessionStorage.getItem("discovery_filters");
+
+    if (savedIndex) {
+      setCurrentIndex(parseInt(savedIndex, 10));
+    }
+    if (savedFilters) {
+      try {
+        setFilters(JSON.parse(savedFilters));
+      } catch (e) {
+        console.error("Failed to parse saved filters", e);
+      }
+    }
+  }, []);
+
+  // Save state to sessionStorage when changed
+  React.useEffect(() => {
+    sessionStorage.setItem("discovery_currentIndex", currentIndex.toString());
+  }, [currentIndex]);
+
+  React.useEffect(() => {
+    sessionStorage.setItem("discovery_filters", JSON.stringify(filters));
+  }, [filters]);
   
   // Relationship tips that rotate
   const [tipIndex, setTipIndex] = useState(0);
@@ -203,7 +229,10 @@ export default function DiscoveryPage() {
           {showFilters && (
             <FilterModal 
               filters={filters} 
-              onFiltersChange={setFilters} 
+              onFiltersChange={(newFilters: any) => {
+                setFilters(newFilters);
+                setCurrentIndex(0); // Reset stack when filters change manually
+              }} 
               onClose={() => setShowFilters(false)} 
               language={language}
             />
@@ -403,7 +432,10 @@ export default function DiscoveryPage() {
         {showFilters && (
           <FilterModal 
             filters={filters} 
-            onFiltersChange={setFilters} 
+            onFiltersChange={(newFilters: any) => {
+              setFilters(newFilters);
+              setCurrentIndex(0); // Reset stack when filters change manually
+            }} 
             onClose={() => setShowFilters(false)} 
             language={language}
           />

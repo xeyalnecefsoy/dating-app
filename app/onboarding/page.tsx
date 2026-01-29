@@ -18,80 +18,7 @@ import {
   LOVE_LANGUAGES, 
   COMM_STYLES 
 } from "@/lib/constants";
-
-// Azərbaycanın bütün rayonları və şəhərləri (əlifba sırası ilə)
-const AZERBAIJAN_REGIONS = [
-  // Şəhərlər
-  "Bakı",
-  "Gəncə",
-  "Sumqayıt",
-  "Mingəçevir",
-  "Şirvan",
-  "Naxçıvan",
-  "Şəki",
-  "Lənkəran",
-  "Yevlax",
-  // Rayonlar (əlifba sırası ilə)
-  "Abşeron",
-  "Ağcabədi",
-  "Ağdam",
-  "Ağdaş",
-  "Ağstafa",
-  "Ağsu",
-  "Astara",
-  "Babək",
-  "Balakən",
-  "Bərdə",
-  "Beyləqan",
-  "Biləsuvar",
-  "Cəbrayıl",
-  "Cəlilabad",
-  "Culfa",
-  "Daşkəsən",
-  "Füzuli",
-  "Gədəbəy",
-  "Goranboy",
-  "Göyçay",
-  "Göygöl",
-  "Hacıqabul",
-  "İmişli",
-  "İsmayıllı",
-  "Kəlbəcər",
-  "Kürdəmir",
-  "Laçın",
-  "Lerik",
-  "Masallı",
-  "Neftçala",
-  "Oğuz",
-  "Ordubad",
-  "Qax",
-  "Qazax",
-  "Qəbələ",
-  "Qobustan",
-  "Quba",
-  "Qubadlı",
-  "Qusar",
-  "Saatlı",
-  "Sabirabad",
-  "Şabran",
-  "Şahbuz",
-  "Şamaxı",
-  "Şəmkir",
-  "Şərur",
-  "Siyəzən",
-  "Susa (Xankəndi)",
-  "Tərtər",
-  "Tovuz",
-  "Ucar",
-  "Xaçmaz",
-  "Xızı",
-  "Xocavənd",
-  "Yardımlı",
-  "Zaqatala",
-  "Zəngilan",
-  "Zərdab",
-  "Digər",
-];
+import { AZERBAIJAN_REGIONS } from "@/lib/locations";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -276,7 +203,9 @@ export default function OnboardingPage() {
   const years = Array.from({ length: 82 }, (_, i) => currentYear - 18 - i);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col items-center">
+      {/* Container for max width */}
+      <div className="w-full max-w-lg flex flex-col min-h-screen relative">
       {/* Header */}
       <header className="px-4 py-4 flex items-center justify-between shrink-0">
         {step > 1 ? (
@@ -288,7 +217,7 @@ export default function OnboardingPage() {
         )}
         
         <div className="flex items-center gap-2">
-          <Heart className="w-5 h-5 text-primary fill-primary" />
+          <img src="/logo.jpg" className="w-8 h-8 object-contain rounded-full" alt="Danyeri" />
           <span className="font-bold bg-gradient-to-r from-rose-400 to-pink-500 bg-clip-text text-transparent">Danyeri</span>
         </div>
         
@@ -402,36 +331,29 @@ export default function OnboardingPage() {
                     {txt.birthDate}
                   </label>
                   <div className="grid grid-cols-3 gap-2">
-                    <select
+                    <SearchableSelect
+                      options={days.map(d => ({ value: String(d), label: String(d) }))}
                       value={formData.birthDay}
-                      onChange={(e) => setFormData({ ...formData, birthDay: e.target.value })}
-                      className="h-12 px-3 rounded-lg bg-card border border-border text-foreground focus:border-primary focus:outline-none"
-                    >
-                      <option value="">{txt.day}</option>
-                      {days.map(d => (
-                        <option key={d} value={d}>{d}</option>
-                      ))}
-                    </select>
-                    <select
+                      onChange={(val) => setFormData({ ...formData, birthDay: val })}
+                      placeholder={txt.day}
+                      searchPlaceholder="Gün..."
+                    />
+                    
+                    <SearchableSelect
+                      options={months.map(m => ({ value: String(m.value), label: m.label }))}
                       value={formData.birthMonth}
-                      onChange={(e) => setFormData({ ...formData, birthMonth: e.target.value })}
-                      className="h-12 px-3 rounded-lg bg-card border border-border text-foreground focus:border-primary focus:outline-none"
-                    >
-                      <option value="">{txt.month}</option>
-                      {months.map(m => (
-                        <option key={m.value} value={m.value}>{m.label}</option>
-                      ))}
-                    </select>
-                    <select
+                      onChange={(val) => setFormData({ ...formData, birthMonth: val })}
+                      placeholder={txt.month}
+                      searchPlaceholder="Ay..."
+                    />
+
+                    <SearchableSelect
+                      options={years.map(y => ({ value: String(y), label: String(y) }))}
                       value={formData.birthYear}
-                      onChange={(e) => setFormData({ ...formData, birthYear: e.target.value })}
-                      className="h-12 px-3 rounded-lg bg-card border border-border text-foreground focus:border-primary focus:outline-none"
-                    >
-                      <option value="">{txt.year}</option>
-                      {years.map(y => (
-                        <option key={y} value={y}>{y}</option>
-                      ))}
-                    </select>
+                      onChange={(val) => setFormData({ ...formData, birthYear: val })}
+                      placeholder={txt.year}
+                      searchPlaceholder="İl..."
+                    />
                   </div>
                 </div>
 
@@ -550,7 +472,7 @@ export default function OnboardingPage() {
                       formData.values.includes(value)
                         ? "bg-primary text-white"
                         : "bg-card border border-border hover:border-primary/50"
-                    }`}
+                      }`}
                   >
                     {translateValue(value, language as "en" | "az")}
                   </button>
@@ -625,14 +547,14 @@ export default function OnboardingPage() {
         </AnimatePresence>
       </main>
 
-      {/* Bottom Button - Fixed */}
-      <div className="px-6 py-4 pb-8 shrink-0 bg-background">
+      {/* Bottom Button - Sticky */}
+      <div className="px-6 py-4 pb-8 shrink-0 bg-gradient-to-t from-background via-background to-transparent sticky bottom-0">
         {step < totalSteps ? (
           <Button
             onClick={() => setStep(step + 1)}
             disabled={!canProceed()}
             size="lg"
-            className="w-full h-12 text-base rounded-xl gradient-brand border-0 font-semibold disabled:opacity-50"
+            className="w-full h-12 text-base rounded-xl gradient-brand border-0 font-semibold disabled:opacity-50 shadow-lg"
           >
             {txt.continue}
           </Button>
@@ -641,7 +563,7 @@ export default function OnboardingPage() {
             onClick={handleComplete}
             disabled={!canProceed()}
             size="lg"
-            className="w-full h-12 text-base rounded-xl gradient-brand border-0 font-semibold disabled:opacity-50"
+            className="w-full h-12 text-base rounded-xl gradient-brand border-0 font-semibold disabled:opacity-50 shadow-lg"
           >
             {txt.startMatching}
           </Button>
@@ -655,6 +577,7 @@ export default function OnboardingPage() {
           onClick={() => setShowLocationDropdown(false)}
         />
       )}
+      </div>
     </div>
   );
 }
@@ -670,5 +593,109 @@ function StepContainer({ children }: { children: React.ReactNode }) {
     >
       {children}
     </motion.div>
+  );
+}
+
+function SearchableSelect({ 
+  options, 
+  value, 
+  onChange, 
+  placeholder,
+  searchPlaceholder 
+}: { 
+  options: { value: string, label: string }[], 
+  value: string, 
+  onChange: (val: string) => void,
+  placeholder: string,
+  searchPlaceholder?: string
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredOptions = options.filter(opt => 
+    opt.label.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const selectedLabel = options.find(opt => opt.value === value)?.label || placeholder;
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <div 
+        onClick={() => {
+          setIsOpen(!isOpen);
+          // if opening, focus search input shortly after
+        }}
+        className={`h-12 px-3 flex items-center justify-between rounded-lg cursor-pointer transition-all border ${
+          value || isOpen
+            ? "bg-card border-primary/50 text-foreground"
+            : "bg-card border-border text-muted-foreground"
+        }`}
+      >
+        <span className="truncate text-sm">{selectedLabel}</span>
+        <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+      </div>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div 
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 5 }}
+            className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-xl z-50 overflow-hidden"
+          >
+            <div className="p-2 border-b border-border bg-muted/20">
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                <input
+                  autoFocus
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full bg-background border border-border rounded-md pl-7 pr-2 py-1.5 text-xs focus:outline-none focus:border-primary"
+                  placeholder={searchPlaceholder || "Search..."}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+            </div>
+            
+            <div className="max-h-[200px] overflow-y-auto">
+              {filteredOptions.length > 0 ? (
+                filteredOptions.map(opt => (
+                  <div
+                    key={opt.value}
+                    onClick={() => {
+                      onChange(opt.value);
+                      setIsOpen(false);
+                      setSearch("");
+                    }}
+                    className={`px-3 py-2 text-sm cursor-pointer transition-colors ${
+                      value === opt.value 
+                        ? "bg-primary/10 text-primary font-medium" 
+                        : "hover:bg-muted"
+                    }`}
+                  >
+                    {opt.label}
+                  </div>
+                ))
+              ) : (
+                <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                  Nəticə yoxdur
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

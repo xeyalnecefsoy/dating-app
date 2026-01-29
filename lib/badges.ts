@@ -15,7 +15,7 @@ export type Badge = {
   requirement: string;
 };
 
-export const badges: Badge[] = [
+export const BADGES: Badge[] = [
   {
     id: "early-adopter",
     name: { en: "Early Adopter", az: "Erkən İstifadəçi" },
@@ -129,7 +129,7 @@ export const badges: Badge[] = [
 ];
 
 export function getBadgeById(id: string): Badge | undefined {
-  return badges.find(b => b.id === id);
+  return BADGES.find(b => b.id === id);
 }
 
 export function getBadgeIcon(iconName: string) {
