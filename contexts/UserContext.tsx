@@ -10,6 +10,7 @@ export type UserProfile = {
   id: string;
   clerkId?: string; // Clerk user ID
   name: string;
+  email?: string;
   age: number;
   gender: "male" | "female";
   lookingFor: "female" | "male";
