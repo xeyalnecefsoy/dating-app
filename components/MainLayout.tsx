@@ -29,6 +29,17 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     }
   }, [isLoading, isAuthenticated, isOnboarded, isAuthPage, isAdminPage, router]);
 
+  // Waitlist access control - only allow home and profile
+  const isWaitlisted = user?.status === 'waitlist';
+  const allowedForWaitlist = ['/', '/profile', '/settings'];
+  const isRestrictedForWaitlist = isWaitlisted && pathname && !allowedForWaitlist.includes(pathname);
+
+  useEffect(() => {
+    if (isRestrictedForWaitlist) {
+      router.replace('/');
+    }
+  }, [isRestrictedForWaitlist, router]);
+
   if (isAuthPage || isAdminPage) {
     return <>{children}</>;
   }
@@ -181,7 +192,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           When sidebar expands (w-64), it will overlay the content instead of pushing it.
       */}
       <div 
-         className="flex-1 flex flex-col min-h-screen md:pl-20 transition-all duration-300 ease-in-out"
+         className="flex-1 flex flex-col min-h-screen md:pl-20 pb-20 md:pb-0 transition-all duration-300 ease-in-out"
       >
         {children}
       </div>

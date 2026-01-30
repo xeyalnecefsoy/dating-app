@@ -29,6 +29,10 @@ export function BottomNav() {
   // Don't show nav on welcome/onboarding screens
   if (pathname === "/onboarding") return null;
 
+  // Waitlist: only allow home and profile
+  const isWaitlisted = user?.status === 'waitlist';
+  const allowedForWaitlist = ['/', '/profile'];
+
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-md border-t border-border">
       <div className="h-16 grid grid-cols-5">
@@ -36,6 +40,21 @@ export function BottomNav() {
           const isActive = pathname === item.href;
           const Icon = item.icon;
           const label = language === 'az' ? item.labelAz : item.labelEn;
+          const isDisabled = isWaitlisted && !allowedForWaitlist.includes(item.href);
+          
+          if (isDisabled) {
+            return (
+              <div
+                key={item.href}
+                className="flex flex-col items-center justify-center gap-0.5 text-muted-foreground/40 cursor-not-allowed"
+              >
+                <div className="relative">
+                  <Icon className="w-5 h-5" strokeWidth={2} />
+                </div>
+                <span className="text-[10px] font-medium">{label}</span>
+              </div>
+            );
+          }
           
           return (
             <Link
