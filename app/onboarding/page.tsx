@@ -53,6 +53,35 @@ export default function OnboardingPage() {
     message: string;
   }>({ isValidating: false, isValid: null, message: "" });
 
+  // Persist step and formData to sessionStorage to survive camera reload
+  useEffect(() => {
+    const savedStep = sessionStorage.getItem('onboarding-step');
+    const savedFormData = sessionStorage.getItem('onboarding-formData');
+    if (savedStep) {
+      setStep(parseInt(savedStep, 10));
+    }
+    if (savedFormData) {
+      try {
+        const parsed = JSON.parse(savedFormData);
+        // Don't restore File object, only preview
+        setFormData(prev => ({ ...prev, ...parsed, profilePhoto: null }));
+      } catch (e) {
+        console.error('Failed to parse saved formData', e);
+      }
+    }
+  }, []);
+
+  // Save step changes
+  useEffect(() => {
+    sessionStorage.setItem('onboarding-step', String(step));
+  }, [step]);
+
+  // Save formData changes (without File object)
+  useEffect(() => {
+    const toSave = { ...formData, profilePhoto: null };
+    sessionStorage.setItem('onboarding-formData', JSON.stringify(toSave));
+  }, [formData]);
+
   // Pre-fill name from Clerk user (Google account)
   useEffect(() => {
     if (clerkUser) {
@@ -183,6 +212,11 @@ export default function OnboardingPage() {
       communicationStyle: formData.communicationStyle as "Direct" | "Empathetic" | "Analytical" | "Playful",
       avatar: avatarUrl,
     });
+    
+    // Clear onboarding session data
+    sessionStorage.removeItem('onboarding-step');
+    sessionStorage.removeItem('onboarding-formData');
+    
     router.push("/discovery");
   };
 
@@ -211,9 +245,9 @@ export default function OnboardingPage() {
   const years = Array.from({ length: 82 }, (_, i) => currentYear - 18 - i);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center">
+    <div className="h-screen bg-background flex flex-col items-center overflow-hidden">
       {/* Container for max width */}
-      <div className="w-full max-w-lg flex flex-col min-h-screen relative">
+      <div className="w-full max-w-lg flex flex-col h-full relative">
       {/* Header */}
       <header className="px-4 py-4 flex items-center justify-between shrink-0">
         {step > 1 ? (
