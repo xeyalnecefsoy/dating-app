@@ -118,3 +118,29 @@ Users could not see each other's messages because they were writing to different
     *   *Technical:* Sends `format: 'invite'` with `venueId`. Frontend renders a rich "Invitation Card" using the `venueId` data.
 *   **Schema Update:** Updated `convex/schema.ts` `messages` table to include `venueId`, `icebreakerId`, and expanded `format` usage.
 
+## 12. Safety, Quality & SEO (Jan 30)
+### Waitlist System (Gender Balancing)
+*   **Goal:** Address male/female imbalance and create exclusivity.
+*   **Logic:**
+    *   **Females:** Immediately `active` status upon onboarding.
+    *   **Males:** Automatically assigned `waitlist` status.
+    *   **UI:** Implemented `WaitlistScreen` in `page.tsx` that blocks access for waitlisted users, showing their "position" and explaining the quality standards.
+*   **Data:** Added `status: 'active' | 'waitlist' | 'banned'` to `users` schema.
+
+### Photo Verification (AI-Powered)
+*   **Problem:** Users uploading fake, dark, or no-face photos due to privacy fears.
+*   **Solution:** Integrated **Client-Side AI Verification**.
+    *   *Library:* `face-api.js` (using `tiny_face_detector` model loaded from CDN).
+    *   *Checks:*
+        1.  **Face Detection:** Ensures at least one human face is present.
+        2.  **Brightness:** Checks average pixel brightness to reject dark/unclear photos.
+    *   *UX:* Real-time feedback ("Checking...", "Photo accepted", "Too dark"). Users cannot proceed in onboarding without a valid photo.
+
+### Azerbaijan SEO Strategy
+*   **Technical SEO:**
+    *   **Metadata:** Fully localized titles and descriptions (`danyeri.az`, "Tanışlıq tətbiqi", "Evlilik").
+    *   **Open Graph:** Created custom OG Image and Twitter Card metadata for social sharing.
+    *   **Crawling:** Added `robots.txt` and comprehensive `sitemap.xml`.
+    *   **Structured Data:** Added JSON-LD for `MobileApplication` and `Organization` to boost rich search results.
+    *   **Domain:** Configured logic to prioritize `.az` domain signaling in Google.
+
