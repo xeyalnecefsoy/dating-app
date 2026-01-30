@@ -144,3 +144,31 @@ Users could not see each other's messages because they were writing to different
     *   **Structured Data:** Added JSON-LD for `MobileApplication` and `Organization` to boost rich search results.
     *   **Domain:** Configured logic to prioritize `.az` domain signaling in Google.
 
+## 13. Admin System & Founder Perks (Jan 30)
+### Admin Panel Refactor
+*   **Real Data Integration:**
+    *   Replaced all mock data in `app/admin` with real-time **Convex Queries** (`getPlatformStats`, `getAllUsers`).
+    *   Now tracks actual User Count, Active Users, Message Volume, and Pending Queues.
+*   **Role-Based Access Control (RBAC):**
+    *   Implemented strict role checking (`user`, `moderator`, `admin`, `superadmin`).
+    *   **Frontend:** `admin/page.tsx` automatically redirects unauthorized users to home.
+    *   **Backend:** `convex/admin.ts` functions verify checks before executing mutations.
+*   **Management Actions:**
+    *   **Ban User:** Admins can now instantly ban users, preventing login/access.
+    *   **Role Management:** Superadmin (`xeyalnecefsoy@gmail.com`) can promote/demote users via the Admin UI.
+
+### Founder Status
+*   **"Qurucu" Badge:**
+    *   Implemented a visually distinct badge (Crown icon + Gradient) for the founder.
+    *   Visible on **Profile Page** and **Discovery Cards** to establish trust and authority.
+    *   **Logic:** Checks if role is `superadmin` OR email matches the founder's email.
+*   **Security:**
+    *   Hardcoded `matches('xeyalnecefsoy@gmail.com')` check in critical admin functions effectively creates a "God Mode" that cannot be usurped even if database roles are manipulated.
+
+### Technical & Build Fixes
+*   **Type Safety:**
+    *   Fixed build errors by ensuring `convex/_generated/api.d.ts` is committed to git (resolving missing `api.admin` module on Vercel).
+    *   Unified `UserProfile` types across `UserContext` and UI components to include optional `email` and `role` fields.
+*   **Redirect Logic:**
+    *   Fixed `Logout` / `Delete Account` flash-onboarding bug by ensuring `router.push('/')` happens *before* clearing state.
+
