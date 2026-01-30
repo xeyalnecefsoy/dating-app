@@ -452,41 +452,49 @@ export default function AdminPage() {
                         <th className="text-left px-4 py-3 text-sm font-medium">İstifadəçi</th>
                         <th className="text-left px-4 py-3 text-sm font-medium">Status</th>
                         <th className="text-left px-4 py-3 text-sm font-medium">Qoşulma</th>
-                        <th className="text-left px-4 py-3 text-sm font-medium">Uyğunluqlar</th>
+                        <th className="text-left px-4 py-3 text-sm font-medium">Rol</th>
                         <th className="text-left px-4 py-3 text-sm font-medium">Əməliyyatlar</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {filteredUsers.map((user) => (
-                        <tr key={user.id} className="hover:bg-muted/30 transition-colors">
+                      {filteredUsers.map((user: any) => (
+                        <tr key={user._id} className="hover:bg-muted/30 transition-colors">
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-3">
                               <img
-                                src={user.avatar}
+                                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}`}
                                 alt={user.name}
                                 className="w-10 h-10 rounded-full object-cover"
                               />
                               <div>
                                 <p className="font-medium flex items-center gap-2">
                                   {user.name}
-                                  {user.isVerified && <ShieldCheck className="w-4 h-4 text-blue-500" />}
-                                  {user.isPremium && <Crown className="w-4 h-4 text-yellow-500" />}
+                                  {user.role === 'admin' && <ShieldCheck className="w-4 h-4 text-blue-500" />}
+                                  {user.role === 'superadmin' && <Crown className="w-4 h-4 text-yellow-500" />}
                                 </p>
-                                <p className="text-xs text-muted-foreground">{user.location}</p>
+                                <p className="text-xs text-muted-foreground">{user.email || "No email"}</p>
                               </div>
                             </div>
                           </td>
                           <td className="px-4 py-3">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-500">
-                              <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                              Aktiv
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+                              user.status === 'banned' ? 'bg-red-500/10 text-red-500' :
+                              user.status === 'waitlist' ? 'bg-yellow-500/10 text-yellow-500' :
+                              'bg-green-500/10 text-green-500'
+                            }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${
+                                user.status === 'banned' ? 'bg-red-500' :
+                                user.status === 'waitlist' ? 'bg-yellow-500' :
+                                'bg-green-500'
+                              }`} />
+                              {user.status === 'banned' ? 'Bloklu' : user.status === 'waitlist' ? 'Gözləmədə' : 'Aktiv'}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-sm text-muted-foreground">
-                            {"2025-12-15"}
+                            {user.createdAt ? new Date(user.createdAt).toLocaleDateString('az-AZ') : "N/A"}
                           </td>
                           <td className="px-4 py-3 text-sm">
-                            {Math.floor(Math.random() * 20)}
+                            <Badge variant="outline">{user.role || "user"}</Badge>
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
@@ -502,6 +510,7 @@ export default function AdminPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 text-red-500 hover:text-red-600"
+                                onClick={() => handleBanUser(user._id)}
                               >
                                 <Ban className="w-4 h-4" />
                               </Button>
