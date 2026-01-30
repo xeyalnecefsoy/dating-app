@@ -247,7 +247,7 @@ export default function OnboardingPage() {
   return (
     <div className="h-screen bg-background flex flex-col items-center overflow-hidden">
       {/* Container for max width */}
-      <div className="w-full max-w-lg flex flex-col h-full relative">
+      <div className="w-full max-w-lg flex flex-col h-full relative pb-24">
       {/* Header */}
       <header className="px-4 py-4 flex items-center justify-between shrink-0">
         {step > 1 ? (

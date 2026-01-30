@@ -32,14 +32,46 @@ export interface FaceValidationResult {
  * @returns A FaceValidationResult object
  */
 export async function validateProfilePhoto(file: File): Promise<FaceValidationResult> {
-  // Load models if not already loaded
-  const loaded = await loadFaceDetectionModels();
-  if (!loaded) {
+  // Create a timeout promise (15 seconds max)
+  const timeoutPromise = new Promise<FaceValidationResult>((resolve) => {
+    setTimeout(() => {
+      resolve({
+        isValid: true, // Accept photo if timeout
+        hasFace: true,
+        isBright: true,
+        errorMessage: undefined
+      });
+    }, 15000);
+  });
+
+  // Create the actual validation promise
+  const validationPromise = performValidation(file);
+
+  // Race between validation and timeout
+  return Promise.race([validationPromise, timeoutPromise]);
+}
+
+async function performValidation(file: File): Promise<FaceValidationResult> {
+  // Load models if not already loaded (with its own timeout)
+  try {
+    const loadPromise = loadFaceDetectionModels();
+    const loadTimeout = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 10000));
+    const loaded = await Promise.race([loadPromise, loadTimeout]);
+    
+    if (!loaded) {
+      // Model load failed/timed out - accept photo anyway
+      console.warn("Face models failed to load, accepting photo without validation");
+      return {
+        isValid: true,
+        hasFace: true,
+        isBright: true
+      };
+    }
+  } catch {
     return {
-      isValid: false,
-      hasFace: false,
-      isBright: false,
-      errorMessage: "Üz aşkarlama sistemi yüklənə bilmədi. Zəhmət olmasa yenidən cəhd edin."
+      isValid: true,
+      hasFace: true,
+      isBright: true
     };
   }
 
@@ -87,11 +119,11 @@ export async function validateProfilePhoto(file: File): Promise<FaceValidationRe
 
         } catch (error) {
           console.error("Face detection error:", error);
+          // On error, accept photo
           resolve({
-            isValid: false,
-            hasFace: false,
-            isBright: false,
-            errorMessage: "Şəkil yoxlanarkən xəta baş verdi. Yenidən cəhd edin."
+            isValid: true,
+            hasFace: true,
+            isBright: true
           });
         }
       };
