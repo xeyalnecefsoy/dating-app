@@ -43,6 +43,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MOCK_USERS } from "@/lib/mock-users";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { useUser } from "@/contexts/UserContext";
+import { Badge } from "@/components/ui/badge";
 
 // Admin sidebar items
 const sidebarItems = [
@@ -83,17 +88,48 @@ const mockVerificationQueue = [
 ];
 
 export default function AdminPage() {
+
+  const { user, isLoading: isUserLoading } = useUser();
+  const router = useRouter();
+
+  // Redirect if not admin
+  React.useEffect(() => {
+    if (!isUserLoading && (!user || (user.role !== 'admin' && user.role !== 'superadmin'))) {
+        // Allow access for specific email fallback
+        if (user?.email !== 'xeyalnecefsoy@gmail.com') {
+             router.replace("/");
+        }
+    }
+  }, [user, isUserLoading, router]);
+
+  // Convex Queries
+  const stats = useQuery(api.admin.getPlatformStats, { adminEmail: user?.email || "" });
+  const allUsers = useQuery(api.admin.getAllUsers, { adminEmail: user?.email || "" });
+
   const [activeSection, setActiveSection] = useState("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedUser, setSelectedUser] = useState<typeof MOCK_USERS[0] | null>(null);
+  const [selectedUser, setSelectedUser] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
+  // Use real data or fall back to safe defaults (not mocks since we want real view)
+  const displayStats = stats || {
+    totalUsers: 0,
+    activeUsers: 0,
+    messagesPerDay: 0,
+    matchRate: 0,
+    pendingReports: 0,
+    pendingVerifications: 0,
+    premiumUsers: 0,
+    totalMessages: 0
+  };
+
   // Filter users based on search
-  const filteredUsers = MOCK_USERS.filter(user => 
-    user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.id.toLowerCase().includes(searchQuery.toLowerCase())
+  const userList = allUsers || [];
+  const filteredUsers = userList.filter((u: any) => 
+    u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (u.email && u.email.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const simulateAction = (callback: () => void) => {
@@ -103,6 +139,51 @@ export default function AdminPage() {
       setIsLoading(false);
     }, 800);
   };
+
+  // Mutations
+  const banUserMutation = useMutation(api.admin.banUser);
+  const setRoleMutation = useMutation(api.admin.setUserRole);
+
+  const handleBanUser = async (userId: string) => {
+    if (!confirm("Are you sure you want to ban this user?")) return;
+    
+    setIsLoading(true);
+    try {
+        await banUserMutation({ 
+            targetUserId: userId as any, 
+            adminEmail: user?.email || "",
+            reason: "Admin action"
+        });
+        setSelectedUser(null);
+    } catch (e) {
+        console.error("Failed to ban:", e);
+        alert("Failed to ban user");
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  const handleChangeRole = async (userId: string, newRole: string) => {
+    if (!confirm(`Change role to ${newRole}?`)) return;
+
+    setIsLoading(true);
+    try {
+        await setRoleMutation({
+            targetUserId: userId as any,
+            adminEmail: user?.email || "",
+            newRole
+        });
+        // Close modal after success
+        setSelectedUser(null);
+    } catch (e) {
+        console.error("Failed to change role:", e);
+        alert("Failed to change role. Make sure you are superadmin.");
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  if (isUserLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin" /></div>;
 
   return (
     <div className="min-h-screen bg-background flex overflow-hidden">
@@ -162,12 +243,12 @@ export default function AdminPage() {
               {!isCollapsed && <span>{item.label}</span>}
               {!isCollapsed && item.id === "reports" && mockStats.pendingReports > 0 && (
                 <span className="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
-                  {mockStats.pendingReports}
+                  {displayStats.pendingReports}
                 </span>
               )}
-              {!isCollapsed && item.id === "verification" && mockStats.pendingVerifications > 0 && (
+              {!isCollapsed && item.id === "verification" && (displayStats.pendingVerifications || 0) > 0 && (
                 <span className="ml-auto bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full">
-                  {mockStats.pendingVerifications}
+                  {displayStats.pendingVerifications}
                 </span>
               )}
               {isCollapsed && (item.id === "reports" || item.id === "verification") && (
@@ -230,28 +311,28 @@ export default function AdminPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <StatCard
                     title="Ümumi İstifadəçilər"
-                    value={mockStats.totalUsers.toLocaleString('en-US')}
+                    value={displayStats.totalUsers.toLocaleString('en-US')}
                     change={+12.5}
                     icon={Users}
                     color="blue"
                   />
                   <StatCard
                     title="Aktiv İstifadəçilər"
-                    value={mockStats.activeUsers.toLocaleString('en-US')}
+                    value={displayStats.activeUsers.toLocaleString('en-US')}
                     change={+8.3}
                     icon={UserCheck}
                     color="green"
                   />
                   <StatCard
                     title="Bugünkü Mesajlar"
-                    value={mockStats.messagesPerDay.toLocaleString('en-US')}
+                    value={displayStats.totalMessages.toLocaleString('en-US')} // Using total for now
                     change={-2.1}
                     icon={MessageSquare}
                     color="purple"
                   />
                   <StatCard
-                    title="Uyğunluq Nisbəti"
-                    value={`${mockStats.matchRate}%`}
+                    title="Uyğunluq Sayı"
+                    value={displayStats.totalMatches?.toString() || "0"}
                     change={+5.7}
                     icon={Heart}
                     color="pink"
@@ -263,7 +344,7 @@ export default function AdminPage() {
                   <div className="bg-card border border-border rounded-2xl p-5">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="font-semibold">Gözləyən Şikayətlər</h3>
-                      <span className="text-2xl font-bold text-red-500">{mockStats.pendingReports}</span>
+                      <span className="text-2xl font-bold text-red-500">{displayStats.pendingReports || 0}</span>
                     </div>
                     <Button 
                       variant="outline" 
@@ -277,7 +358,7 @@ export default function AdminPage() {
                   <div className="bg-card border border-border rounded-2xl p-5">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="font-semibold">Təsdiq Növbəsi</h3>
-                      <span className="text-2xl font-bold text-orange-500">{mockStats.pendingVerifications}</span>
+                      <span className="text-2xl font-bold text-orange-500">{displayStats.pendingVerifications || 0}</span>
                     </div>
                     <Button 
                       variant="outline" 
@@ -290,8 +371,8 @@ export default function AdminPage() {
 
                   <div className="bg-card border border-border rounded-2xl p-5">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-semibold">Premium İstifadəçilər</h3>
-                      <span className="text-2xl font-bold text-yellow-500">{mockStats.premiumUsers}</span>
+                      <h3 className="font-semibold">Ban Edilənlər</h3>
+                      <span className="text-2xl font-bold text-yellow-500">{displayStats.bannedUsers || 0}</span>
                     </div>
                     <Button 
                       variant="outline" 
@@ -677,11 +758,11 @@ export default function AdminPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="p-4 bg-muted/30 rounded-xl text-center">
-                      <p className="text-3xl font-bold">{mockStats.totalMessages.toLocaleString('en-US')}</p>
+                      <p className="text-3xl font-bold">{displayStats.totalMessages.toLocaleString('en-US')}</p>
                       <p className="text-sm text-muted-foreground mt-1">Ümumi Mesajlar</p>
                     </div>
                     <div className="p-4 bg-muted/30 rounded-xl text-center">
-                      <p className="text-3xl font-bold">{mockStats.messagesPerDay.toLocaleString('en-US')}</p>
+                      <p className="text-3xl font-bold">{Math.round((displayStats.totalMessages || 0) / 30).toLocaleString('en-US')}</p>
                       <p className="text-sm text-muted-foreground mt-1">Günlük Ortalama</p>
                     </div>
                     <div className="p-4 bg-muted/30 rounded-xl text-center">
@@ -713,10 +794,9 @@ export default function AdminPage() {
               className="w-full max-w-lg bg-background border border-border rounded-2xl overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Header */}
               <div className="relative h-32 bg-gradient-to-br from-pink-500 to-purple-600">
                 <img
-                  src={selectedUser.avatar}
+                  src={selectedUser.avatar || selectedUser.image || `https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedUser.name}`}
                   alt={selectedUser.name}
                   className="absolute -bottom-12 left-6 w-24 h-24 rounded-2xl border-4 border-background object-cover"
                 />
@@ -726,39 +806,45 @@ export default function AdminPage() {
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="text-xl font-bold flex items-center gap-2">
-                      {selectedUser.name}, {selectedUser.age}
-                      {selectedUser.isVerified && <ShieldCheck className="w-5 h-5 text-blue-500" />}
+                      {selectedUser.name}
+                      {/* {selectedUser.age && `, ${selectedUser.age}`} */} 
+                      {/* Age might not be directly available in user list depending on schema sync */}
+                      <Badge variant="outline" className="ml-2">{selectedUser.role || "User"}</Badge>
                     </h3>
                     <p className="text-muted-foreground flex items-center gap-1 mt-1">
-                      <MapPin className="w-4 h-4" />
-                      {selectedUser.location}
+                      <Mail className="w-4 h-4" />
+                      {selectedUser.email || "No email"}
                     </p>
                   </div>
                   <Button variant="ghost" size="icon" onClick={() => setSelectedUser(null)}>
                     <XCircle className="w-5 h-5" />
                   </Button>
                 </div>
-
-                <div className="mt-6 space-y-4">
-                  <div className="flex items-center gap-3 text-sm">
-                    <Mail className="w-4 h-4 text-muted-foreground" />
-                    <span>{selectedUser.id}@danyeri.az</span>
+                
+                <div className="mt-6 pt-6 border-t border-border flex flex-col gap-3">
+                  <div className="flex gap-3">
+                    <Button className="flex-1" variant="outline" onClick={() => window.open(`/users/${selectedUser._id}`, '_blank')}>
+                        <Eye className="w-4 h-4 mr-2" />
+                        Profili Gör
+                    </Button>
+                    <Button 
+                        className="flex-1" 
+                        variant="destructive"
+                        onClick={() => handleBanUser(selectedUser._id)}
+                    >
+                        <Ban className="w-4 h-4 mr-2" />
+                        Blokla
+                    </Button>
                   </div>
-                  <div className="flex items-center gap-3 text-sm">
-                    <Calendar className="w-4 h-4 text-muted-foreground" />
-                    <span>Qoşuldu: {"2025-12-15"}</span>
-                  </div>
-                </div>
-
-                <div className="mt-6 pt-6 border-t border-border flex gap-3">
-                  <Button className="flex-1" variant="outline">
-                    <Eye className="w-4 h-4 mr-2" />
-                    Profili Gör
-                  </Button>
-                  <Button className="flex-1" variant="destructive">
-                    <Ban className="w-4 h-4 mr-2" />
-                    Blokla
-                  </Button>
+                  
+                  {/* Superadmin Actions */}
+                  {user?.role === 'superadmin' && (user as any).email === 'xeyalnecefsoy@gmail.com' && (
+                      <div className="flex gap-2 justify-center pt-2">
+                          <Button size="sm" variant="ghost" onClick={() => handleChangeRole(selectedUser._id, 'user')}>User</Button>
+                          <Button size="sm" variant="ghost" onClick={() => handleChangeRole(selectedUser._id, 'moderator')}>Mod</Button>
+                          <Button size="sm" variant="ghost" onClick={() => handleChangeRole(selectedUser._id, 'admin')}>Admin</Button>
+                      </div>
+                  )}
                 </div>
               </div>
             </motion.div>

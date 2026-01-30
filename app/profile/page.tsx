@@ -189,7 +189,15 @@ export default function ProfilePage() {
           </div>
           
           <div className="flex-1">
-            <h2 className="text-2xl font-bold mb-1">{user.name}, {user.age}</h2>
+            <h2 className="text-2xl font-bold mb-1 flex items-center gap-2">
+              {user.name}, {user.age}
+              {(user.role === 'superadmin' || user.role === 'admin' || (user as any).email === 'xeyalnecefsoy@gmail.com') && (
+                 <div className="bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-full px-2 py-0.5 flex items-center gap-1 shadow-sm">
+                   <Crown className="w-3.5 h-3.5 fill-current" />
+                   <span className="text-[10px] uppercase font-bold tracking-wide">Qurucu</span>
+                 </div>
+              )}
+            </h2>
             <div className="flex items-center gap-1 text-muted-foreground">
               <MapPin className="w-4 h-4" />
               <span>{user.location}</span>

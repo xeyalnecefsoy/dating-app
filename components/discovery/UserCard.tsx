@@ -24,6 +24,9 @@ export function UserCard({ user }: UserCardProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [showMatchAnimation, setShowMatchAnimation] = useState(false);
 
+  // Check for Founder/Superadmin
+  const isFounder = user.role === 'superadmin' || user.role === 'admin' || (user as any).email === 'xeyalnecefsoy@gmail.com';
+
   // Calculate compatibility if user is onboarded
   const compatibility = useMemo(() => {
     if (!currentUser || !isOnboarded) return null;
@@ -128,7 +131,15 @@ export function UserCard({ user }: UserCardProps) {
         <div className="p-6 pb-2">
             <div className="flex justify-between items-start mb-4">
                 <div>
-                   <h3 className="text-xl font-bold text-charcoal dark:text-white">{user.name}, {user.age}</h3>
+                   <h3 className="text-xl font-bold text-charcoal dark:text-white flex items-center gap-2">
+                     {user.name}, {user.age}
+                     {isFounder && (
+                       <Badge variant="outline" className="bg-gradient-to-r from-amber-400 to-orange-500 text-white border-none gap-1 px-1.5 py-0">
+                         <Crown className="w-3 h-3 fill-current" />
+                         <span className="text-[10px] uppercase font-bold tracking-wide">Qurucu</span>
+                       </Badge>
+                     )}
+                   </h3>
                    <div className="flex items-center text-xs text-slate-500 dark:text-slate-400 mt-1">
                       <MapPin className="w-3 h-3 mr-1" />
                       {user.location}
