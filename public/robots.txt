@@ -1,0 +1,24 @@
+# Danyeri - Azerbaijan Dating App
+# https://danyeri.az
+
+User-agent: *
+Allow: /
+
+# Sitemaps
+Sitemap: https://danyeri.az/sitemap.xml
+
+# Block API and internal routes
+Disallow: /api/
+Disallow: /_next/
+Disallow: /convex-test/
+Disallow: /admin/
+
+# Allow social crawlers
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: LinkedInBot
+Allow: /

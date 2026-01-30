@@ -18,7 +18,10 @@ import { ConversationRow } from "@/components/messages/ConversationRow";
 import { GiftModal } from "@/components/messages/GiftModal";
 import { VirtualGift } from "@/lib/virtual-gifts";
 import { StoriesBar } from "@/components/stories";
+import { PARTNER_VENUES } from "@/lib/partner-venues";
+import { ICEBREAKERS } from "@/lib/icebreakers";
 import { useToast } from "@/components/ui/toast";
+import { Sparkles, Calendar, MapPin } from "lucide-react";
 
 type ChatMessage = {
   id: string;
@@ -52,6 +55,8 @@ export default function MessagesPage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [showRequestsModal, setShowRequestsModal] = useState(false);
+  const [showIcebreakerModal, setShowIcebreakerModal] = useState(false);
+  const [showVenueModal, setShowVenueModal] = useState(false);
   
   // Mark as read when opening conversation
   useEffect(() => {
@@ -273,7 +278,8 @@ export default function MessagesPage() {
     await sendMessageMutation({
       body: newMessage,
       userId: user?.name || "Anonymous", // Sending NAME for display, usually better to send ID and resolve name, but schema uses userId string
-      channelId: activeChannelId
+      channelId: activeChannelId,
+      format: "text"
     });
     
     setNewMessage("");
@@ -367,7 +373,10 @@ export default function MessagesPage() {
                id: msg._id,
                senderId: msg.userId,
                text: msg.body,
-               timestamp: new Date(msg._creationTime)
+               timestamp: new Date(msg._creationTime),
+               format: msg.format,
+               venueId: msg.venueId,
+               icebreakerId: msg.icebreakerId
              })) || [];
 
              // If we have remote messages, prefer them. If not, and it's a new private match, show the local intro message.
@@ -457,6 +466,41 @@ export default function MessagesPage() {
                               </div>
                               <p>{cleanText}</p>
                             </div>
+                          ) : (msg as any).format === 'invite' && (msg as any).venueId ? (
+                              // Venue Invite Card
+                              <div className="w-64">
+                                {(() => {
+                                  const venue = PARTNER_VENUES.find(v => v.id === (msg as any).venueId);
+                                  if (!venue) return <p>{msg.text}</p>;
+                                  return (
+                                    <div className="flex flex-col overflow-hidden">
+                                      <div className="relative h-32 -mx-4 -mt-2.5 mb-2">
+                                        <img src={venue.image} className="w-full h-full object-cover" />
+                                        <div className="absolute inset-0 bg-black/20" />
+                                        <div className="absolute bottom-2 left-2 bg-white/90 text-black text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                          {venue.name}
+                                        </div>
+                                      </div>
+                                      <p className="font-semibold text-sm mb-1">{language === 'az' ? 'Gəl burada görüşək! 🥂' : 'Let\'s meet here! 🥂'}</p>
+                                      <p className="text-xs opacity-90 mb-2">{venue.address}</p>
+                                      <Link href="/venues">
+                                        <div className="text-[10px] bg-white/20 hover:bg-white/30 transition-colors py-1.5 text-center rounded cursor-pointer font-medium">
+                                          {language === 'az' ? 'Məkana bax' : 'View Venue'}
+                                        </div>
+                                      </Link>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                          ) : (msg as any).format === 'icebreaker' ? (
+                              // Icebreaker Card
+                              <div className="flex flex-col gap-1">
+                                <span className="text-[10px] opacity-70 uppercase tracking-wider font-bold flex items-center gap-1">
+                                  <Sparkles className="w-3 h-3" />
+                                  Icebreaker
+                                </span>
+                                <p className="font-medium text-lg leading-snug">{msg.text}</p>
+                              </div>
                           ) : (
                             <p>{msg.text}</p>
                           )}
@@ -526,6 +570,24 @@ export default function MessagesPage() {
             >
               <Gift className="w-5 h-5 text-primary" />
             </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="rounded-full shrink-0"
+              onClick={() => setShowIcebreakerModal(true)}
+              title="Icebreaker"
+            >
+              <Sparkles className="w-5 h-5 text-blue-500" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="rounded-full shrink-0"
+              onClick={() => setShowVenueModal(true)}
+              title="Invite to Date"
+            >
+              <Calendar className="w-5 h-5 text-rose-500" />
+            </Button>
             <Input 
               placeholder={txt.messagePlaceholder}
               value={newMessage}
@@ -557,6 +619,124 @@ export default function MessagesPage() {
           recipientName={participant?.name || ""}
           language={language as "en" | "az"}
         />
+
+        {/* Icebreaker Modal */}
+        <AnimatePresence>
+          {showIcebreakerModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+              onClick={() => setShowIcebreakerModal(false)}
+            >
+               <motion.div
+                  initial={{ y: 100, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: 100, opacity: 0 }}
+                  className="w-full max-w-sm bg-background border border-border rounded-3xl p-6 shadow-xl max-h-[80vh] overflow-hidden flex flex-col"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-blue-500" />
+                      Icebreakers
+                    </h3>
+                    <button onClick={() => setShowIcebreakerModal(false)} className="p-1 rounded-full hover:bg-muted"><XIcon className="w-5 h-5" /></button>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                    {ICEBREAKERS.map((ib: any) => (
+                      <button
+                        key={ib.id}
+                        onClick={async () => {
+                          const text = language === 'az' ? ib.textAz : ib.textEn;
+                          await sendMessageMutation({
+                            body: text,
+                            userId: user?.name || "Anonymous",
+                            channelId: activeChannelId!,
+                            format: 'icebreaker',
+                            icebreakerId: ib.id
+                          });
+                          setShowIcebreakerModal(false);
+                        }}
+                        className="w-full text-left p-3 rounded-xl bg-card border border-border hover:border-blue-500 hover:bg-blue-500/5 transition-all group"
+                      >
+                         <div className="flex items-start gap-3">
+                           <span className="text-xl shrink-0 group-hover:scale-110 transition-transform">
+                             {ib.category === 'fun' ? '🎢' : ib.category === 'deep' ? '🤔' : '🔥'}
+                           </span>
+                           <span className="text-sm font-medium">{language === 'az' ? ib.textAz : ib.textEn}</span>
+                         </div>
+                      </button>
+                    ))}
+                  </div>
+               </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Venue Modal */}
+        <AnimatePresence>
+          {showVenueModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+              onClick={() => setShowVenueModal(false)}
+            >
+               <motion.div
+                  initial={{ y: 100, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: 100, opacity: 0 }}
+                  className="w-full max-w-md bg-background border border-border rounded-3xl p-6 shadow-xl max-h-[80vh] overflow-hidden flex flex-col"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold flex items-center gap-2">
+                       <Calendar className="w-5 h-5 text-rose-500" />
+                       {language === 'az' ? 'Görüşə Dəvət Et' : 'Invite to Date'}
+                    </h3>
+                    <button onClick={() => setShowVenueModal(false)} className="p-1 rounded-full hover:bg-muted"><XIcon className="w-5 h-5" /></button>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                    {PARTNER_VENUES.map((venue: any) => (
+                      <button
+                        key={venue.id}
+                        onClick={async () => {
+                          const text = language === 'az' 
+                            ? `Gəl ${venue.name} məkanında görüşək! 🥂` 
+                            : `Let's meet at ${venue.name}! 🥂`;
+                          
+                          await sendMessageMutation({
+                            body: text,
+                            userId: user?.name || "Anonymous",
+                            channelId: activeChannelId!,
+                            format: 'invite',
+                            venueId: venue.id
+                          });
+                          setShowVenueModal(false);
+                        }}
+                        className="w-full text-left p-0 rounded-xl bg-card border border-border hover:border-rose-500 transition-all overflow-hidden group relative h-24"
+                      >
+                         <img src={venue.image} className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-40 transition-opacity" />
+                         <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-transparent" />
+                         <div className="absolute inset-0 p-4 flex flex-col justify-center">
+                            <h4 className="text-white font-bold text-lg">{venue.name}</h4>
+                            <div className="flex items-center gap-1 text-white/80 text-xs">
+                              <MapPin className="w-3 h-3" />
+                              {venue.address}
+                            </div>
+                         </div>
+                      </button>
+                    ))}
+                  </div>
+               </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         
         {/* Confirmation Modal */}
         <AnimatePresence>

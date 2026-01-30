@@ -12,6 +12,8 @@ import type * as likes from "../likes.js";
 import type * as matches from "../matches.js";
 import type * as messages from "../messages.js";
 import type * as presence from "../presence.js";
+import type * as push from "../push.js";
+import type * as subscriptions from "../subscriptions.js";
 import type * as users from "../users.js";
 
 import type {
@@ -25,6 +27,8 @@ declare const fullApi: ApiFromModules<{
   matches: typeof matches;
   messages: typeof messages;
   presence: typeof presence;
+  push: typeof push;
+  subscriptions: typeof subscriptions;
   users: typeof users;
 }>;
 

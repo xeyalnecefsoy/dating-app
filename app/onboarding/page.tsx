@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Heart, User, Users, Calendar, Search, ChevronDown } from "lucide-react";
+import { ArrowLeft, Heart, User, Users, Calendar, Search, ChevronDown, Camera, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -43,7 +43,15 @@ export default function OnboardingPage() {
     loveLanguage: "",
     interests: [] as string[],
     communicationStyle: "" as "Direct" | "Empathetic" | "Analytical" | "Playful" | "",
+    profilePhoto: null as File | null,
+    profilePhotoPreview: "" as string,
   });
+
+  const [photoValidation, setPhotoValidation] = useState<{
+    isValidating: boolean;
+    isValid: boolean | null;
+    message: string;
+  }>({ isValidating: false, isValid: null, message: "" });
 
   // Pre-fill name from Clerk user (Google account)
   useEffect(() => {
@@ -57,7 +65,7 @@ export default function OnboardingPage() {
     }
   }, [clerkUser, formData.firstName, formData.lastName]);
 
-  const totalSteps = 5;
+  const totalSteps = 6;
 
   // Calculate age from birthdate
   const calculateAge = () => {
@@ -149,6 +157,7 @@ export default function OnboardingPage() {
       case 3: return formData.location && formData.bio;
       case 4: return formData.values.length >= 1 && formData.loveLanguage;
       case 5: return formData.interests.length >= 1 && formData.communicationStyle;
+      case 6: return formData.profilePhoto && photoValidation.isValid;
       default: return false;
     }
   };
@@ -156,9 +165,8 @@ export default function OnboardingPage() {
   const handleComplete = () => {
     const gender = formData.gender as "male" | "female";
     
-    // Use Clerk profile image if available, otherwise use gender-based avatar
-    const clerkImageUrl = clerkUser?.imageUrl;
-    const avatarUrl = clerkImageUrl || getAvatarByGender(gender, Math.floor(Math.random() * 5));
+    // Use uploaded profile photo, or Clerk image, or fallback to gender-based avatar
+    const avatarUrl = formData.profilePhotoPreview || clerkUser?.imageUrl || getAvatarByGender(gender, Math.floor(Math.random() * 5));
     
     const fullName = `${formData.firstName} ${formData.lastName}`.trim();
 
@@ -544,6 +552,47 @@ export default function OnboardingPage() {
               </div>
             </StepContainer>
           )}
+
+          {/* Step 6: Profile Photo Upload */}
+          {step === 6 && (
+            <StepContainer key="step6">
+              <h1 className="text-2xl font-bold mb-2">
+                {language === 'az' ? 'Profil Şəkliniz' : 'Your Profile Photo'}
+              </h1>
+              <p className="text-muted-foreground mb-6">
+                {language === 'az' 
+                  ? 'Üzünüz aydın görünən bir şəkil yükləyin. Bu, digər istifadəçilərə sizi tanımağa kömək edəcək.' 
+                  : 'Upload a clear photo showing your face. This helps others recognize you.'}
+              </p>
+              
+              <PhotoUploader 
+                onPhotoChange={async (file, preview) => {
+                  if (!file) {
+                    setFormData(prev => ({ ...prev, profilePhoto: null, profilePhotoPreview: '' }));
+                    setPhotoValidation({ isValidating: false, isValid: null, message: '' });
+                    return;
+                  }
+                  
+                  setPhotoValidation({ isValidating: true, isValid: null, message: '' });
+                  
+                  // Dynamic import to avoid SSR issues
+                  const { validateProfilePhoto } = await import('@/lib/face-detection');
+                  const result = await validateProfilePhoto(file);
+                  
+                  if (result.isValid) {
+                    setFormData(prev => ({ ...prev, profilePhoto: file, profilePhotoPreview: preview }));
+                    setPhotoValidation({ isValidating: false, isValid: true, message: language === 'az' ? 'Şəkil qəbul olundu!' : 'Photo accepted!' });
+                  } else {
+                    setFormData(prev => ({ ...prev, profilePhoto: null, profilePhotoPreview: '' }));
+                    setPhotoValidation({ isValidating: false, isValid: false, message: result.errorMessage || '' });
+                  }
+                }}
+                preview={formData.profilePhotoPreview}
+                validation={photoValidation}
+                language={language}
+              />
+            </StepContainer>
+          )}
         </AnimatePresence>
       </main>
 
@@ -696,6 +745,110 @@ function SearchableSelect({
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function PhotoUploader({ 
+  onPhotoChange, 
+  preview, 
+  validation,
+  language 
+}: { 
+  onPhotoChange: (file: File | null, preview: string) => void;
+  preview: string;
+  validation: { isValidating: boolean; isValid: boolean | null; message: string };
+  language: string;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const preview = event.target?.result as string;
+      onPhotoChange(file, preview);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemove = () => {
+    onPhotoChange(null, '');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-4">
+      <input 
+        ref={fileInputRef}
+        type="file" 
+        accept="image/*"
+        onChange={handleFileSelect}
+        className="hidden"
+      />
+      
+      {/* Photo Preview / Upload Button */}
+      <div 
+        onClick={() => fileInputRef.current?.click()}
+        className={`w-40 h-40 rounded-full flex items-center justify-center cursor-pointer transition-all border-2 border-dashed overflow-hidden ${
+          preview 
+            ? 'border-transparent' 
+            : 'border-border hover:border-primary/50 bg-card'
+        }`}
+      >
+        {preview ? (
+          <img src={preview} alt="Profile" className="w-full h-full object-cover" />
+        ) : (
+          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+            <Camera className="w-8 h-8" />
+            <span className="text-sm">{language === 'az' ? 'Şəkil Seç' : 'Select Photo'}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Validation Status */}
+      {validation.isValidating && (
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span className="text-sm">{language === 'az' ? 'Üz yoxlanılır...' : 'Checking for face...'}</span>
+        </div>
+      )}
+
+      {validation.isValid === true && (
+        <div className="flex items-center gap-2 text-green-500">
+          <CheckCircle2 className="w-4 h-4" />
+          <span className="text-sm">{validation.message}</span>
+        </div>
+      )}
+
+      {validation.isValid === false && (
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex items-center gap-2 text-destructive">
+            <AlertCircle className="w-4 h-4" />
+            <span className="text-sm">{validation.message}</span>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+            {language === 'az' ? 'Başqa Şəkil Seç' : 'Choose Another Photo'}
+          </Button>
+        </div>
+      )}
+
+      {/* Remove button */}
+      {preview && !validation.isValidating && (
+        <Button variant="ghost" size="sm" onClick={handleRemove} className="text-muted-foreground">
+          {language === 'az' ? 'Şəkli Sil' : 'Remove Photo'}
+        </Button>
+      )}
+
+      {/* Info */}
+      <p className="text-xs text-muted-foreground text-center max-w-xs">
+        {language === 'az' 
+          ? '📸 İpucu: Yaxşı işıqlandırılmış, üzünüz aydın görünən bir şəkil seçin.' 
+          : '📸 Tip: Choose a well-lit photo where your face is clearly visible.'}
+      </p>
     </div>
   );
 }

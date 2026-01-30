@@ -10,7 +10,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { BottomNav } from "@/components/Navigation";
 
 export default function HomePage() {
-  const { user, isOnboarded } = useUser();
+  const { user, isOnboarded, isLoading } = useUser();
   const { t, language } = useLanguage();
 
   // Text translations
@@ -31,9 +31,25 @@ export default function HomePage() {
     dailyTitle: language === 'az' ? 'Günün Sualı' : 'Question of the Day',
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-pulse flex flex-col items-center gap-4">
+          <div className="w-16 h-16 rounded-full bg-muted"></div>
+          <div className="h-4 w-32 bg-muted rounded"></div>
+        </div>
+      </div>
+    );
+  }
+
   // If not onboarded, show welcome screen
   if (!isOnboarded) {
     return <WelcomeScreen />;
+  }
+
+  // Check for Waitlist Status
+  if (user?.status === 'waitlist') {
+    return <WaitlistScreen user={user} />;
   }
 
   return (
@@ -381,5 +397,47 @@ function DailyQuestionMini({ language }: { language: string }) {
         </div>
       </div>
     </motion.div>
+  );
+}
+
+function WaitlistScreen({ user }: { user: any }) {
+  const { language } = useLanguage();
+  
+  return (
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500">
+      <div className="w-20 h-20 rounded-full bg-secondary/50 flex items-center justify-center mb-6 relative">
+        <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-[spin_10s_linear_infinite]" />
+        <span className="text-3xl">⏳</span>
+      </div>
+      
+      <h1 className="text-2xl font-bold mb-3">
+        {language === 'az' ? 'Siz Növbədəsiniz' : "You're on the Waitlist"}
+      </h1>
+      
+      <p className="text-muted-foreground mb-8 max-w-md">
+        {language === 'az' 
+          ? 'Danyeri-də gender balansını qorumaq üçün bəyləri hissə-hissə qəbul edirik. Hazırda çox sayda müraciət var.' 
+          : 'To maintain a healthy gender balance on Danyeri, we accept gentlemen in batches. Demand is currently very high.'}
+      </p>
+
+      <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-sm mb-6">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-sm text-muted-foreground">{language === 'az' ? 'Sizin Sıranız' : 'Your Position'}</span>
+          <span className="font-bold font-mono text-primary">#1,428</span>
+        </div>
+        <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
+          <div className="bg-primary h-full w-[15%] animate-pulse" />
+        </div>
+        <p className="text-xs text-muted-foreground mt-3 text-left">
+          {language === 'az' 
+            ? '🚀 İpucu: Profil şəkliniz və məlumatlarınız tam olarsa, növbədə irəli keçə bilərsiniz.' 
+            : '🚀 Tip: Complete profile with high quality photos to move up the list.'}
+        </p>
+      </div>
+
+      <Button variant="outline" className="gap-2" onClick={() => window.location.reload()}>
+         {language === 'az' ? 'Statusu Yoxla' : 'Check Status'}
+      </Button>
+    </div>
   );
 }

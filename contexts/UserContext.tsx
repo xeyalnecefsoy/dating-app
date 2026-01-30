@@ -29,6 +29,7 @@ export type UserProfile = {
   messageRequests: string[]; // Incoming message requests from other users
   sentMessageRequests: string[]; // Sent message requests to other users
   seenMessageRequests: string[]; // Track seen message requests
+  status?: "active" | "waitlist" | "banned"; // Waitlist status
 };
 
 type UserContextType = {
@@ -74,6 +75,7 @@ const defaultUser: UserProfile = {
   messageRequests: [],
   sentMessageRequests: [],
   seenMessageRequests: [],
+  status: "active",
 };
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -102,6 +104,24 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const getStorageKey = useCallback((clerkId: string) => {
     return `danyeri-user-${clerkId}`;
   }, []);
+
+  const storeSubscription = useMutation(api.subscriptions.store);
+
+  // Auto-subscribe to push on mount/login (only when fully authenticated)
+  useEffect(() => {
+    // Only subscribe when user is loaded AND signed in with Clerk
+    if (user && isSignedIn && "serviceWorker" in navigator) {
+       // Longer delay to ensure Convex auth is fully propagated
+       const timer = setTimeout(() => {
+          import("@/lib/push-notifications").then(({ subscribeToPushNotifications }) => {
+             subscribeToPushNotifications(storeSubscription).catch((err) => {
+               console.log("Push subscription skipped (auth may not be ready):", err);
+             });
+          });
+       }, 8000); // 8 seconds to ensure auth is ready
+       return () => clearTimeout(timer);
+    }
+  }, [user, isSignedIn, storeSubscription]);
 
   // Heartbeat to keep presence active
   useEffect(() => {
@@ -230,6 +250,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const gender = profile.gender || "male";
     const avatar = profile.avatar || getAvatarByGender(gender, Math.floor(Math.random() * 5));
     
+    // WAITLIST LOGIC:
+    // Females are instantly active.
+    // Males go to waitlist to ensure gender balance.
+    const status = gender === "female" ? "active" : "waitlist";
+    
     // Use Clerk ID as unique identifier
     const id = clerkUser.id;
 
@@ -243,6 +268,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       streak: 1,
       lastActiveDate: new Date().toDateString(),
       badges: ["Early Adopter"],
+      status: status
     };
     
     updateUserInternal(newUser, storageKey);

@@ -17,7 +17,9 @@ export default defineSchema({
     matchId: v.optional(v.id("matches")), // Which conversation does it belong to?
     // For general chat simply use channelId or similar if not a match
     channelId: v.optional(v.string()), 
-    format: v.optional(v.string()), // 'text' | 'image' etc
+    format: v.optional(v.string()), // 'text' | 'image' | 'invite' | 'icebreaker'
+    venueId: v.optional(v.string()), // For venue invites
+    icebreakerId: v.optional(v.string()), // For icebreakers
   }).index("by_channel", ["channelId"]),
 
   matches: defineTable({
@@ -31,11 +33,19 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
 
-  likes: defineTable({
+   likes: defineTable({
     likerId: v.string(),   // Who liked
     likedId: v.string(),   // Who was liked
     createdAt: v.number(),
   }).index("by_liker", ["likerId"])
    .index("by_liked", ["likedId"])
    .index("by_pair", ["likerId", "likedId"]),
+
+  subscriptions: defineTable({
+    userId: v.string(),
+    endpoint: v.string(),
+    p256dh: v.string(),
+    auth: v.string(),
+  }).index("by_user", ["userId"])
+    .index("by_endpoint", ["endpoint"]),
 });

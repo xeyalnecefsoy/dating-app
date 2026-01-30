@@ -1,4 +1,5 @@
 import { query, mutation } from "./_generated/server";
+import { api } from "./_generated/api";
 import { v } from "convex/values";
 
 // List all messages in a specific channel
@@ -46,7 +47,14 @@ export const last = query({
 
 // Send a new message
 export const send = mutation({
-  args: { body: v.string(), userId: v.string(), channelId: v.optional(v.string()) }, // userId kept for signature but ignored
+  args: { 
+    body: v.string(), 
+    userId: v.string(), 
+    channelId: v.optional(v.string()),
+    format: v.optional(v.string()),
+    venueId: v.optional(v.string()),
+    icebreakerId: v.optional(v.string()),
+  }, 
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthenticated");
@@ -56,9 +64,34 @@ export const send = mutation({
     await ctx.db.insert("messages", {
       body: args.body,
       userId: userId, // Enforced
-      channelId: channelId,
-      format: "text",
+      format: args.format || "text",
+      venueId: args.venueId,
+      icebreakerId: args.icebreakerId,
     });
+
+    // Notify the recipient (if it's a match/private chat)
+    if (channelId.startsWith("match-")) {
+       // channelId format: match-userId1-userId2 (sorted)
+       // We need to find the OTHER user.
+       const parts = channelId.split("-");
+       // parts[0] is match, parts[1] is id1, parts[2] is id2
+       const otherUserId = parts[1] === userId ? parts[2] : parts[1];
+       
+       if (otherUserId) {
+          // Schedule the push notification
+          // We truncate body for privacy/length
+          const notificationBody = args.format === 'invite' ? '📅 Yeni görüş dəvəti!' : 
+                                   args.format === 'icebreaker' ? '✨ Yeni buzqıran sual!' :
+                                   args.body.substring(0, 100);
+
+          await ctx.scheduler.runAfter(0, api.push.sendPush, {
+             userId: otherUserId,
+             title: `Yeni Mesaj`, // In real app, fetch sender name
+             body: notificationBody,
+             url: `/messages?userId=${userId}`
+          });
+       }
+    }
   },
 });
 

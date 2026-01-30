@@ -109,3 +109,12 @@ Users could not see each other's messages because they were writing to different
     *   `Strict-Transport-Security` (HSTS): Enforces HTTPS.
     *   `Permissions-Policy`: Restricts access to sensitive browser features (camera, mic) unless explicitly needed.
 *   **Middleware:** Verified `middleware.ts` correctly segments Public vs. Private routes using Clerk, ensuring unauthorized access is blocked at the edge.
+
+## 11. Communication Enhancements (Jan 30)
+### Safe & Rich Messages (No-Cost)
+*   **Icebreakers:** Implemented a list of curated questions (Fun, Deep, Flirty) that users can send to start a conversation. 
+    *   *Technical:* Stored as static constant `lib/icebreakers.ts`. Sent as `format: 'icebreaker'`.
+*   **Venue Invites:** Integrated `venues` catalog into the chat. Users can tap the Calendar icon to invite matches to specific "Date Spots".
+    *   *Technical:* Sends `format: 'invite'` with `venueId`. Frontend renders a rich "Invitation Card" using the `venueId` data.
+*   **Schema Update:** Updated `convex/schema.ts` `messages` table to include `venueId`, `icebreakerId`, and expanded `format` usage.
+
