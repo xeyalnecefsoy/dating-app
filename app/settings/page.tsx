@@ -60,40 +60,45 @@ export default function SettingsPage() {
   };
 
   const handleLogout = async () => {
-    // Clear local user data
-    logoutUser();
-    
-    // Sign out from Clerk if signed in
-    if (isSignedIn) {
-      await signOut();
-    }
-    
+    // Navigate first to avoid onboarding flash
     router.push("/");
+    
+    // Then clear state and sign out
+    setTimeout(async () => {
+      logoutUser();
+      if (isSignedIn) {
+        await signOut();
+      }
+    }, 100);
   };
 
   const handleDeleteAccount = async () => {
-    // Clear all local storage data
-    localStorage.removeItem("danyeri-notifications");
-    localStorage.removeItem("danyeri-theme");
-    localStorage.removeItem("danyeri-language");
-    
-    // Get all keys that start with danyeri-user
-    const keys = Object.keys(localStorage);
-    keys.forEach(key => {
-      if (key.startsWith("danyeri-user")) {
-        localStorage.removeItem(key);
-      }
-    });
-    
-    // Clear user from context
-    logoutUser();
-    
-    // Sign out from Clerk
-    if (isSignedIn) {
-      await signOut();
-    }
-    
+    // Navigate first to avoid onboarding flash
     router.push("/");
+    
+    // Then clear all data asynchronously
+    setTimeout(async () => {
+      // Clear all local storage data
+      localStorage.removeItem("danyeri-notifications");
+      localStorage.removeItem("danyeri-theme");
+      localStorage.removeItem("danyeri-language");
+      
+      // Get all keys that start with danyeri-user
+      const keys = Object.keys(localStorage);
+      keys.forEach(key => {
+        if (key.startsWith("danyeri-user")) {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      // Clear user from context
+      logoutUser();
+      
+      // Sign out from Clerk
+      if (isSignedIn) {
+        await signOut();
+      }
+    }, 100);
   };
 
   const texts = {

@@ -3,13 +3,18 @@ import { v } from "convex/values";
 
 export default defineSchema({
   users: defineTable({
+    clerkId: v.optional(v.string()), // Clerk user ID for auth
     name: v.string(),
-    email: v.optional(v.string()), // Optional for now
+    email: v.optional(v.string()),
     image: v.optional(v.string()),
     bio: v.optional(v.string()),
     interests: v.optional(v.array(v.string())),
-    // We can add more fields later as needed
-  }),
+    gender: v.optional(v.string()),
+    status: v.optional(v.string()), // 'active', 'waitlist', 'banned'
+    role: v.optional(v.string()), // 'user', 'moderator', 'admin', 'superadmin'
+    createdAt: v.optional(v.number()),
+  }).index("by_clerk_id", ["clerkId"])
+    .index("by_email", ["email"]),
   
   messages: defineTable({
     body: v.string(),

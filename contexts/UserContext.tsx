@@ -30,6 +30,7 @@ export type UserProfile = {
   sentMessageRequests: string[]; // Sent message requests to other users
   seenMessageRequests: string[]; // Track seen message requests
   status?: "active" | "waitlist" | "banned"; // Waitlist status
+  role?: "user" | "moderator" | "admin" | "superadmin"; // Admin role
 };
 
 type UserContextType = {
