@@ -6,7 +6,7 @@ import { UserProfile } from "@/lib/mock-users";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Heart, MessageCircle, MapPin, Wind, Sparkles, TrendingUp, Check } from "lucide-react";
+import { Heart, MessageCircle, MapPin, Wind, Sparkles, TrendingUp, Check, Crown } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { calculateCompatibility, getCompatibilityLabel } from "@/lib/compatibility";
@@ -25,7 +25,7 @@ export function UserCard({ user }: UserCardProps) {
   const [showMatchAnimation, setShowMatchAnimation] = useState(false);
 
   // Check for Founder/Superadmin
-  const isFounder = user.role === 'superadmin' || user.role === 'admin' || (user as any).email === 'xeyalnecefsoy@gmail.com';
+  const isFounder = (user as any).role === 'superadmin' || (user as any).role === 'admin' || (user as any).email === 'xeyalnecefsoy@gmail.com';
 
   // Calculate compatibility if user is onboarded
   const compatibility = useMemo(() => {
