@@ -1,11 +1,9 @@
-"use node";
-
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
-// SUPERADMIN email - configured in environment
-// Set SUPERADMIN_EMAIL in Convex dashboard
-const SUPERADMIN_EMAIL = process.env.SUPERADMIN_EMAIL || "xeyalnecefsoy@gmail.com";
+// SUPERADMIN email - hardcoded for security
+// Only this email has full platform control
+const SUPERADMIN_EMAIL = "xeyalnecefsoy@gmail.com";
 
 /**
  * Check if user is superadmin by email
