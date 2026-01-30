@@ -158,13 +158,17 @@ export const getPlatformStats = query({
     
     return {
       totalUsers: users.length,
+      activeUsers: users.filter(u => u.status !== "banned" && u.status !== "waitlist").length,
       maleUsers,
       femaleUsers,
       waitlistUsers,
       bannedUsers,
       totalMatches: matches.length,
       totalMessages: messages.length,
-      genderRatio: femaleUsers > 0 ? (maleUsers / femaleUsers).toFixed(2) : "N/A"
+      genderRatio: femaleUsers > 0 ? (maleUsers / femaleUsers).toFixed(2) : "N/A",
+      pendingReports: 0, // TODO: Add reports table
+      pendingVerifications: 0, // TODO: Add verification queue
+      premiumUsers: 0, // TODO: Add premium tracking
     };
   },
 });

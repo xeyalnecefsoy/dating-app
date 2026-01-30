@@ -113,16 +113,20 @@ export default function AdminPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  // Use real data or fall back to safe defaults (not mocks since we want real view)
+  // Use real data or fall back to safe defaults
   const displayStats = stats || {
     totalUsers: 0,
     activeUsers: 0,
-    messagesPerDay: 0,
-    matchRate: 0,
+    maleUsers: 0,
+    femaleUsers: 0,
+    waitlistUsers: 0,
+    bannedUsers: 0,
+    totalMatches: 0,
+    totalMessages: 0,
+    genderRatio: "N/A",
     pendingReports: 0,
     pendingVerifications: 0,
     premiumUsers: 0,
-    totalMessages: 0
   };
 
   // Filter users based on search
