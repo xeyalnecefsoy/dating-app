@@ -283,7 +283,7 @@ function WelcomeScreen() {
   };
 
   return (
-    <div className="h-[100dvh] bg-background flex flex-col items-center justify-between py-6 overflow-hidden relative">
+    <div className="h-[100dvh] bg-background flex flex-col items-center justify-between pt-10 pb-32 overflow-hidden relative">
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background/50 z-0 pointer-events-none" />
 
       {/* Top Graphic Section (Logo) - Flex grow to push content down but keep centered */}
