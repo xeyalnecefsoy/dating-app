@@ -283,22 +283,19 @@ function WelcomeScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Hero Image Area */}
-      <div className="flex-1 relative overflow-hidden">
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background z-10" />
-        
-        {/* Decorative elements */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <motion.div
+    <div className="h-[100dvh] bg-background flex flex-col items-center justify-between py-6 overflow-hidden relative">
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background/50 z-0 pointer-events-none" />
+
+      {/* Top Graphic Section (Logo) - Flex grow to push content down but keep centered */}
+      <div className="flex-1 flex items-center justify-center relative w-full">
+         <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.8 }}
             className="relative"
           >
-            {/* Main logo */}
-            <div className="w-32 h-32 rounded-full flex items-center justify-center shadow-2xl shadow-primary/30 bg-background/50 backdrop-blur-md overflow-hidden">
+            {/* Main logo - slightly smaller for mobile fit */}
+            <div className="w-28 h-28 rounded-full flex items-center justify-center shadow-2xl shadow-primary/30 bg-background/50 backdrop-blur-md overflow-hidden z-10 relative">
               <img src="/logo.jpg" className="w-full h-full object-cover" alt="Danyeri Logo" />
             </div>
             
@@ -306,55 +303,54 @@ function WelcomeScreen() {
             <motion.div 
               animate={{ y: [-5, 5, -5] }}
               transition={{ duration: 3, repeat: Infinity }}
-              className="absolute -top-4 -right-4 w-12 h-12 rounded-full bg-[#20D5A0] flex items-center justify-center shadow-lg"
+              className="absolute -top-3 -right-3 w-10 h-10 rounded-full bg-[#20D5A0] flex items-center justify-center shadow-lg z-20"
             >
-              <Heart className="w-6 h-6 text-white" />
+              <Heart className="w-5 h-5 text-white" />
             </motion.div>
             <motion.div 
               animate={{ y: [5, -5, 5] }}
               transition={{ duration: 3.5, repeat: Infinity }}
-              className="absolute -bottom-2 -left-6 w-10 h-10 rounded-full bg-[#FFB800] flex items-center justify-center shadow-lg"
+              className="absolute -bottom-1 -left-5 w-9 h-9 rounded-full bg-[#FFB800] flex items-center justify-center shadow-lg z-20"
             >
-              <Sparkles className="w-5 h-5 text-white" />
+              <Sparkles className="w-4 h-4 text-white" />
             </motion.div>
           </motion.div>
-        </div>
       </div>
 
-      {/* Content */}
-      <div className="relative z-20 px-6 pb-12 w-full max-w-md mx-auto">
+      {/* Bottom Content Section - Fixed at bottom */}
+      <div className="w-full max-w-md px-6 z-10 flex flex-col gap-6">
         <motion.div
-          initial={{ y: 30, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="text-center mb-10"
-        >
-          <h1 className="text-3xl font-bold mb-3">{content.hero.title}</h1>
-          <p className="text-primary font-medium mb-4">{content.hero.subtitle}</p>
-          <p className="text-muted-foreground text-sm leading-relaxed max-w-xs mx-auto">
-            {content.desc}
-          </p>
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="text-center space-y-2"
+          >
+            <h1 className="text-2xl font-bold">{content.hero.title}</h1>
+            <p className="text-primary font-medium">{content.hero.subtitle}</p>
+            <p className="text-muted-foreground text-xs leading-relaxed max-w-xs mx-auto opacity-90">
+              {content.desc}
+            </p>
         </motion.div>
 
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.5 }}
-          className="space-y-6"
+          className="space-y-4"
         >
-          <Link href="/onboarding" className="block">
+          <Link href="/onboarding" className="block w-full">
             <Button 
               size="lg" 
-              className="w-full h-12 flex items-center justify-center gap-2 text-base font-bold rounded-xl gradient-brand shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
+              className="w-full h-12 flex items-center justify-center gap-2 text-base font-bold rounded-xl gradient-brand shadow-lg hover:shadow-xl transition-all active:scale-[0.98]"
             >
               <span className="mt-[-1px]">{content.getStarted}</span>
               <ChevronRight className="w-5 h-5 shrink-0 translate-y-[0.5px]" />
             </Button>
           </Link>
           
-          <div className="space-y-3">
-            <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1.5 opacity-80">
-              <ShieldCheck className="w-3.5 h-3.5 text-green-500" />
+          <div className="space-y-3 pb-2">
+            <p className="text-[10px] text-muted-foreground text-center flex items-center justify-center gap-1.5 opacity-70 uppercase tracking-wide">
+              <ShieldCheck className="w-3 h-3 text-green-500" />
               {content.secureSpace}
             </p>
             <p className="text-center text-sm text-muted-foreground">
