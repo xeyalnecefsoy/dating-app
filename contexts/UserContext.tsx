@@ -6,6 +6,9 @@ import { getAvatarByGender } from "@/lib/mock-users";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
+// Superadmin email - bypasses onboarding
+const SUPERADMIN_EMAIL = "xeyalnecefsoy@gmail.com";
+
 export type UserProfile = {
   id: string;
   clerkId?: string; // Clerk user ID
@@ -200,10 +203,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (isSignedIn && clerkUser) {
       const storageKey = getStorageKey(clerkUser.id);
       const savedUser = localStorage.getItem(storageKey);
+      const clerkEmail = clerkUser.emailAddresses?.[0]?.emailAddress?.toLowerCase();
+      const isSuperadmin = clerkEmail === SUPERADMIN_EMAIL.toLowerCase();
       
       if (savedUser) {
         const parsed = JSON.parse(savedUser);
-        setUser(parsed);
+        
+        // Merge Convex user data (email, role) with local user for Qurucu badge
+        const mergedUser = {
+          ...parsed,
+          email: clerkEmail || parsed.email,
+          role: convexUser?.role || (isSuperadmin ? 'superadmin' : parsed.role),
+        };
+        
+        setUser(mergedUser);
         setIsOnboarded(true);
         
         // Check streak
@@ -213,12 +226,53 @@ export function UserProvider({ children }: { children: ReactNode }) {
           yesterday.setDate(yesterday.getDate() - 1);
           if (parsed.lastActiveDate === yesterday.toDateString()) {
             // Continue streak
-            updateUserInternal({ ...parsed, streak: parsed.streak + 1, lastActiveDate: today }, storageKey);
+            updateUserInternal({ ...mergedUser, streak: mergedUser.streak + 1, lastActiveDate: today }, storageKey);
           } else if (parsed.lastActiveDate !== today) {
             // Reset streak
-            updateUserInternal({ ...parsed, streak: 1, lastActiveDate: today }, storageKey);
+            updateUserInternal({ ...mergedUser, streak: 1, lastActiveDate: today }, storageKey);
           }
         }
+      } else if (isSuperadmin && convexUser) {
+        // Superadmin with no localStorage but has Convex data - auto-onboard
+        const autoUser: UserProfile = {
+          ...defaultUser,
+          id: clerkUser.id,
+          clerkId: clerkUser.id,
+          email: clerkEmail,
+          name: convexUser.name || clerkUser.firstName || clerkUser.username || "Superadmin",
+          age: convexUser.age || 25,
+          gender: (convexUser.gender as "male" | "female") || "male",
+          lookingFor: convexUser.lookingFor as "male" | "female" || "female",
+          location: convexUser.location || "Bakı",
+          bio: convexUser.bio || "",
+          avatar: convexUser.avatar || clerkUser.imageUrl || getAvatarByGender("male"),
+          role: "superadmin",
+          status: "active",
+          streak: 1,
+          lastActiveDate: new Date().toDateString(),
+        };
+        updateUserInternal(autoUser, storageKey);
+        setIsOnboarded(true);
+      } else if (isSuperadmin) {
+        // Superadmin with no data at all - create minimal profile
+        const autoUser: UserProfile = {
+          ...defaultUser,
+          id: clerkUser.id,
+          clerkId: clerkUser.id,
+          email: clerkEmail,
+          name: clerkUser.firstName || clerkUser.username || "Xəyal",
+          age: 25,
+          gender: "male",
+          lookingFor: "female",
+          location: "Bakı",
+          avatar: clerkUser.imageUrl || getAvatarByGender("male"),
+          role: "superadmin",
+          status: "active",
+          streak: 1,
+          lastActiveDate: new Date().toDateString(),
+        };
+        updateUserInternal(autoUser, storageKey);
+        setIsOnboarded(true);
       } else {
         // New user - not onboarded yet
         setUser(null);
@@ -231,7 +285,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
     
     setIsLoading(false);
-  }, [isClerkLoaded, isSignedIn, clerkUser, getStorageKey]);
+  }, [isClerkLoaded, isSignedIn, clerkUser, getStorageKey, convexUser]);
 
   const updateUserInternal = useCallback((newUser: UserProfile | null, storageKey: string) => {
     setUser(newUser);
