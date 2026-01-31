@@ -10,11 +10,21 @@ export default defineSchema({
     bio: v.optional(v.string()),
     interests: v.optional(v.array(v.string())),
     gender: v.optional(v.string()),
-    status: v.optional(v.string()), // 'active', 'waitlist', 'banned'
+    status: v.optional(v.string()), // 'active', 'waitlist', 'banned', 'rejected'
     role: v.optional(v.string()), // 'user', 'moderator', 'admin', 'superadmin'
     createdAt: v.optional(v.number()),
+    // Extended profile fields
+    age: v.optional(v.number()),
+    location: v.optional(v.string()),
+    values: v.optional(v.array(v.string())),
+    loveLanguage: v.optional(v.string()),
+    communicationStyle: v.optional(v.string()),
+    avatar: v.optional(v.string()),
+    lookingFor: v.optional(v.string()), // 'male' or 'female'
   }).index("by_clerk_id", ["clerkId"])
-    .index("by_email", ["email"]),
+    .index("by_email", ["email"])
+    .index("by_status", ["status"])
+    .index("by_gender", ["gender"]),
   
   messages: defineTable({
     body: v.string(),

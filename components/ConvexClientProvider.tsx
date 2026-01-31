@@ -72,6 +72,10 @@ export default function ConvexClientProvider({
     return (
       <ClerkProvider
         localization={azLocalization}
+        signInUrl="/sign-in"
+        signUpUrl="/sign-up"
+        signInFallbackRedirectUrl="/discovery"
+        signUpFallbackRedirectUrl="/onboarding"
         appearance={{
           variables: {
             colorPrimary: "#f43f5e",
@@ -90,6 +94,10 @@ export default function ConvexClientProvider({
   return (
     <ClerkProvider
       localization={azLocalization}
+      signInUrl="/sign-in"
+      signUpUrl="/sign-up"
+      signInFallbackRedirectUrl="/discovery"
+      signUpFallbackRedirectUrl="/onboarding"
       appearance={{
         variables: {
           colorPrimary: "#f43f5e",

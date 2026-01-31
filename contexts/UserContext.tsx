@@ -96,6 +96,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const sendRequestMutation = useMutation(api.matches.sendRequest);
   const acceptRequestMutation = useMutation(api.matches.acceptRequest);
   const declineRequestMutation = useMutation(api.matches.declineRequest);
+  const createOrUpdateUserMutation = useMutation(api.users.createOrUpdateUser);
+  
+  // Query to get user from Convex DB
+  const convexUser = useQuery(
+    api.users.getUser, 
+    isSignedIn && clerkUser ? { clerkId: clerkUser.id } : "skip"
+  );
   
   const convexMatches = useQuery(api.matches.list, user ? { userId: user.id } : "skip");
   const convexRequests = useQuery(api.matches.getRequests, user ? { userId: user.id } : "skip");
@@ -243,7 +250,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     updateUserInternal(newUser, storageKey);
   }, [clerkUser, getStorageKey, updateUserInternal]);
 
-  const completeOnboarding = useCallback((profile: Partial<UserProfile>) => {
+  const completeOnboarding = useCallback(async (profile: Partial<UserProfile>) => {
     if (!clerkUser) return;
     
     const storageKey = getStorageKey(clerkUser.id);
@@ -252,30 +259,67 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const gender = profile.gender || "male";
     const avatar = profile.avatar || getAvatarByGender(gender, Math.floor(Math.random() * 5));
     
-    // WAITLIST LOGIC:
-    // Females are instantly active.
-    // Males go to waitlist to ensure gender balance.
-    const status = gender === "female" ? "active" : "waitlist";
-    
     // Use Clerk ID as unique identifier
     const id = clerkUser.id;
+    const email = clerkUser.emailAddresses?.[0]?.emailAddress;
 
-    const newUser: UserProfile = {
-      ...defaultUser,
-      ...profile,
-      avatar,
-      id,
-      clerkId: clerkUser.id,
-      name: profile.name || clerkUser.firstName || clerkUser.username || "",
-      streak: 1,
-      lastActiveDate: new Date().toDateString(),
-      badges: ["Early Adopter"],
-      status: status
-    };
-    
-    updateUserInternal(newUser, storageKey);
-    setIsOnboarded(true);
-  }, [clerkUser, getStorageKey, updateUserInternal]);
+    // Save to Convex DB first - it handles waitlist logic including staff bypass
+    try {
+      const result = await createOrUpdateUserMutation({
+        clerkId: clerkUser.id,
+        email: email,
+        name: profile.name || clerkUser.firstName || clerkUser.username || "",
+        gender: gender,
+        age: profile.age,
+        location: profile.location || "",
+        bio: profile.bio || "",
+        values: profile.values || [],
+        loveLanguage: profile.loveLanguage || "",
+        interests: profile.interests || [],
+        communicationStyle: profile.communicationStyle || "Empathetic",
+        avatar: avatar,
+        lookingFor: gender === "male" ? "female" : "male",
+      });
+      
+      // Use the status returned from Convex (handles staff bypass)
+      const status = result.status as "active" | "waitlist" | "banned";
+      
+      const newUser: UserProfile = {
+        ...defaultUser,
+        ...profile,
+        avatar,
+        id,
+        clerkId: clerkUser.id,
+        email: email,
+        name: profile.name || clerkUser.firstName || clerkUser.username || "",
+        streak: 1,
+        lastActiveDate: new Date().toDateString(),
+        badges: ["Early Adopter"],
+        status: status,
+      };
+      
+      updateUserInternal(newUser, storageKey);
+      setIsOnboarded(true);
+    } catch (error) {
+      console.error("Failed to save user to Convex:", error);
+      // Fall back to local-only (old behavior)
+      const status = gender === "female" ? "active" : "waitlist";
+      const newUser: UserProfile = {
+        ...defaultUser,
+        ...profile,
+        avatar,
+        id,
+        clerkId: clerkUser.id,
+        name: profile.name || clerkUser.firstName || clerkUser.username || "",
+        streak: 1,
+        lastActiveDate: new Date().toDateString(),
+        badges: ["Early Adopter"],
+        status: status as "active" | "waitlist",
+      };
+      updateUserInternal(newUser, storageKey);
+      setIsOnboarded(true);
+    }
+  }, [clerkUser, getStorageKey, updateUserInternal, createOrUpdateUserMutation]);
 
   const addBadge = useCallback((badge: string) => {
     setUser(prev => {

@@ -105,6 +105,7 @@ export default function AdminPage() {
   // Convex Queries
   const stats = useQuery(api.admin.getPlatformStats, { adminEmail: user?.email || "" });
   const allUsers = useQuery(api.admin.getAllUsers, { adminEmail: user?.email || "" });
+  const waitlistUsers = useQuery(api.admin.getWaitlistUsers, { adminEmail: user?.email || "" });
 
   const [activeSection, setActiveSection] = useState("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
@@ -147,6 +148,8 @@ export default function AdminPage() {
   // Mutations
   const banUserMutation = useMutation(api.admin.banUser);
   const setRoleMutation = useMutation(api.admin.setUserRole);
+  const approveUserMutation = useMutation(api.admin.approveUser);
+  const rejectUserMutation = useMutation(api.admin.rejectUser);
 
   const handleBanUser = async (userId: string) => {
     if (!confirm("Are you sure you want to ban this user?")) return;
@@ -615,20 +618,27 @@ export default function AdminPage() {
               >
                 <div className="flex items-center justify-between">
                   <p className="text-muted-foreground">
-                    {mockVerificationQueue.length} gözləyən təsdiq
+                    {waitlistUsers?.length || 0} gözləyən təsdiq
                   </p>
                 </div>
 
+                {(!waitlistUsers || waitlistUsers.length === 0) && (
+                  <div className="bg-card border border-border rounded-2xl p-8 text-center">
+                    <CheckCircle className="w-12 h-12 mx-auto mb-4 text-green-500 opacity-50" />
+                    <p className="text-muted-foreground">Gözləyən istifadəçi yoxdur</p>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {mockVerificationQueue.map((item) => (
+                  {waitlistUsers?.map((item: any) => (
                     <div
-                      key={item.id}
+                      key={item._id}
                       className="bg-card border border-border rounded-2xl overflow-hidden"
                     >
                       <div className="aspect-square bg-muted relative">
                         <img
-                          src={item.photo}
-                          alt={item.userName}
+                          src={item.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.name}`}
+                          alt={item.name}
                           className="w-full h-full object-cover"
                         />
                         <div className="absolute top-3 right-3">
@@ -638,15 +648,32 @@ export default function AdminPage() {
                         </div>
                       </div>
                       <div className="p-4">
-                        <h4 className="font-semibold">{item.userName}</h4>
+                        <h4 className="font-semibold">{item.name}</h4>
+                        <p className="text-xs text-muted-foreground">{item.email}</p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Göndərildi: {item.submittedAt}
+                          {item.location} • {item.age} yaş
                         </p>
+                        {item.bio && (
+                          <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{item.bio}</p>
+                        )}
                         <div className="flex flex-col sm:flex-row gap-2 mt-4">
                           <Button
                             size="sm"
                             className="flex-1 gap-1 bg-green-500 hover:bg-green-600"
-                            onClick={() => simulateAction(() => {})}
+                            onClick={async () => {
+                              setIsLoading(true);
+                              try {
+                                await approveUserMutation({ 
+                                  targetUserId: item._id, 
+                                  adminEmail: user?.email || "" 
+                                });
+                              } catch (e) {
+                                console.error("Approve failed:", e);
+                                alert("Təsdiq uğursuz oldu");
+                              } finally {
+                                setIsLoading(false);
+                              }
+                            }}
                             disabled={isLoading}
                           >
                             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
@@ -656,7 +683,21 @@ export default function AdminPage() {
                             size="sm"
                             variant="outline"
                             className="flex-1 gap-1 text-red-500 hover:text-red-600"
-                            onClick={() => simulateAction(() => {})}
+                            onClick={async () => {
+                              setIsLoading(true);
+                              try {
+                                await rejectUserMutation({ 
+                                  targetUserId: item._id, 
+                                  adminEmail: user?.email || "",
+                                  reason: "Admin rədd etdi"
+                                });
+                              } catch (e) {
+                                console.error("Reject failed:", e);
+                                alert("Rədd uğursuz oldu");
+                              } finally {
+                                setIsLoading(false);
+                              }
+                            }}
                             disabled={isLoading}
                           >
                             <XCircle className="w-4 h-4" />

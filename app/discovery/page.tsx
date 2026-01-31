@@ -4,8 +4,7 @@ import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, PanInfo } from "framer-motion";
-import { 
-  ArrowLeft, X, Heart, Star, 
+import { ArrowLeft, X, Heart, Star, 
   MapPin, Sparkles, SlidersHorizontal, RotateCcw, Info, Search, CheckCircle2, Crown, MessageCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,7 +12,7 @@ import { MOCK_USERS, UserProfile, translateValue, translateLoveLanguage, transla
 import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { calculateCompatibility } from "@/lib/compatibility";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
 
@@ -98,8 +97,48 @@ export default function DiscoveryPage() {
   
 
 
+  // Fetch real users from Convex
+  const convexUsers = useQuery(
+    api.users.getActiveUsers,
+    currentUser && isOnboarded ? { 
+      currentUserGender: currentUser.gender,
+      currentUserId: currentUser.id 
+    } : "skip"
+  );
+
   const availableUsers = useMemo(() => {
-    return MOCK_USERS.filter(u => {
+    // Convert Convex users to UserProfile format
+    const realUsers: UserProfile[] = (convexUsers || []).map((u: any) => ({
+      id: u.clerkId || u._id,
+      name: u.name,
+      age: u.age || 25,
+      gender: u.gender as "male" | "female",
+      lookingFor: u.lookingFor as "male" | "female",
+      location: u.location || "Bakı",
+      bio: u.bio || "",
+      values: u.values || [],
+      loveLanguage: u.loveLanguage || "Quality Time",
+      interests: u.interests || [],
+      communicationStyle: (u.communicationStyle || "Empathetic") as "Direct" | "Empathetic" | "Analytical" | "Playful",
+      avatar: u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.name}`,
+      badges: [],
+      isVerified: true,
+      isPremium: false,
+      iceBreaker: { en: "", az: "" },
+    }));
+
+    // Combine real users first, then mock users as fallback
+    const allPotentialUsers = [...realUsers, ...MOCK_USERS];
+    
+    // Remove duplicates by id
+    const seen = new Set<string>();
+    const uniqueUsers = allPotentialUsers.filter(u => {
+      if (seen.has(u.id)) return false;
+      seen.add(u.id);
+      return true;
+    });
+
+    return uniqueUsers.filter(u => {
       if (currentUser?.likes.includes(u.id)) return false;
       if (currentUser && isOnboarded && u.gender !== currentUser.lookingFor) return false;
       if (u.age < filters.minAge || u.age > filters.maxAge) return false;
@@ -108,7 +147,7 @@ export default function DiscoveryPage() {
       return true;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, isOnboarded, currentUser?.lookingFor]);
+  }, [filters, isOnboarded, currentUser?.lookingFor, convexUsers]);
 
   const currentProfile = availableUsers[currentIndex];
 
