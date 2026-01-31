@@ -106,6 +106,7 @@ export default function AdminPage() {
   const stats = useQuery(api.admin.getPlatformStats, { adminEmail: user?.email || "" });
   const allUsers = useQuery(api.admin.getAllUsers, { adminEmail: user?.email || "" });
   const waitlistUsers = useQuery(api.admin.getWaitlistUsers, { adminEmail: user?.email || "" });
+  const recentActivity = useQuery(api.admin.getRecentActivity, { adminEmail: user?.email || "" });
 
   const [activeSection, setActiveSection] = useState("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
@@ -295,9 +296,13 @@ export default function AdminPage() {
               </Button>
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
-                  A
+                  {user?.name?.charAt(0)?.toUpperCase() || 'S'}
                 </div>
-                <span className="text-sm font-medium">Admin</span>
+                <span className="text-sm font-medium">
+                  {user?.role === 'superadmin' || user?.email?.toLowerCase() === 'xeyalnecefsoy@gmail.com' 
+                    ? 'Super Admin' 
+                    : user?.role === 'admin' ? 'Admin' : 'Moderator'}
+                </span>
               </div>
             </div>
           </div>
@@ -395,23 +400,33 @@ export default function AdminPage() {
                 <div className="bg-card border border-border rounded-2xl p-5">
                   <h3 className="font-semibold mb-4">Son Fəaliyyətlər</h3>
                   <div className="space-y-3">
-                    {[
-                      { action: "Yeni istifadəçi qeydiyyatdan keçdi", user: "Aynur", time: "2 dəq əvvəl", icon: Users, color: "text-blue-500" },
-                      { action: "Profil təsdiqləndi", user: "Kamran", time: "15 dəq əvvəl", icon: CheckCircle, color: "text-green-500" },
-                      { action: "Şikayət göndərildi", user: "Anonim", time: "32 dəq əvvəl", icon: Flag, color: "text-red-500" },
-                      { action: "Premium abunəlik alındı", user: "Nigar", time: "1 saat əvvəl", icon: Crown, color: "text-yellow-500" },
-                    ].map((activity, i) => (
-                      <div key={i} className="flex items-center gap-3 py-2">
-                        <div className={`w-9 h-9 rounded-full bg-muted flex items-center justify-center ${activity.color}`}>
-                          <activity.icon className="w-4 h-4" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm">{activity.action}</p>
-                          <p className="text-xs text-muted-foreground">{activity.user}</p>
-                        </div>
-                        <span className="text-xs text-muted-foreground">{activity.time}</span>
-                      </div>
-                    ))}
+                    {recentActivity && recentActivity.length > 0 ? (
+                      recentActivity.slice(0, 6).map((activity: any) => {
+                        const getIcon = () => {
+                          switch(activity.actionType) {
+                            case 'banned': return { icon: Ban, color: 'text-red-500' };
+                            case 'verified': return { icon: CheckCircle, color: 'text-green-500' };
+                            case 'waitlist': return { icon: Clock, color: 'text-orange-500' };
+                            default: return { icon: Users, color: 'text-blue-500' };
+                          }
+                        };
+                        const { icon: Icon, color } = getIcon();
+                        return (
+                          <div key={activity.id} className="flex items-center gap-3 py-2">
+                            <div className={`w-9 h-9 rounded-full bg-muted flex items-center justify-center ${color}`}>
+                              <Icon className="w-4 h-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm">{activity.actionText}</p>
+                              <p className="text-xs text-muted-foreground">{activity.userName}</p>
+                            </div>
+                            <span className="text-xs text-muted-foreground">{activity.timeAgo}</span>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-4">Hələlik fəaliyyət yoxdur</p>
+                    )}
                   </div>
                 </div>
               </motion.div>

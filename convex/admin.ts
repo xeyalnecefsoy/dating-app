@@ -313,3 +313,69 @@ export const getConversationMessages = query({
     return messages;
   },
 });
+
+/**
+ * Get recent activity for admin dashboard
+ */
+export const getRecentActivity = query({
+  args: { adminEmail: v.string() },
+  handler: async (ctx, args) => {
+    const isAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
+    if (!isAdmin) {
+      throw new Error("Unauthorized: Admin access required");
+    }
+    
+    // Get recently registered users (last 10)
+    const recentUsers = await ctx.db
+      .query("users")
+      .order("desc")
+      .take(10);
+    
+    // Transform to activity items
+    const activities = recentUsers.map(user => {
+      const createdAt = user._creationTime;
+      const now = Date.now();
+      const diffMs = now - createdAt;
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMins / 60);
+      const diffDays = Math.floor(diffHours / 24);
+      
+      let timeAgo = '';
+      if (diffDays > 0) {
+        timeAgo = `${diffDays} gün əvvəl`;
+      } else if (diffHours > 0) {
+        timeAgo = `${diffHours} saat əvvəl`;
+      } else if (diffMins > 0) {
+        timeAgo = `${diffMins} dəq əvvəl`;
+      } else {
+        timeAgo = 'İndicə';
+      }
+      
+      let actionType = 'registration';
+      let actionText = 'Yeni istifadəçi qeydiyyatdan keçdi';
+      
+      if (user.status === 'banned') {
+        actionType = 'banned';
+        actionText = 'İstifadəçi ban edildi';
+      } else if (user.status === 'waitlist') {
+        actionType = 'waitlist';
+        actionText = 'Waitlist-ə əlavə edildi';
+      } else if (user.status === 'active' && user.gender === 'female') {
+        actionType = 'verified';
+        actionText = 'Profil avtomatik təsdiqləndi';
+      }
+      
+      return {
+        id: user._id,
+        actionType,
+        actionText,
+        userName: user.name,
+        userAvatar: user.avatar,
+        timeAgo,
+        createdAt,
+      };
+    });
+    
+    return activities;
+  },
+});
