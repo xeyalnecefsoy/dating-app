@@ -74,8 +74,8 @@ export default function ConvexClientProvider({
         localization={azLocalization}
         signInUrl="/sign-in"
         signUpUrl="/sign-up"
-        signInFallbackRedirectUrl="/discovery"
-        signUpFallbackRedirectUrl="/onboarding"
+        signInFallbackRedirectUrl="/"
+        signUpFallbackRedirectUrl="/"
         appearance={{
           variables: {
             colorPrimary: "#f43f5e",
@@ -96,8 +96,8 @@ export default function ConvexClientProvider({
       localization={azLocalization}
       signInUrl="/sign-in"
       signUpUrl="/sign-up"
-      signInFallbackRedirectUrl="/discovery"
-      signUpFallbackRedirectUrl="/onboarding"
+      signInFallbackRedirectUrl="/"
+      signUpFallbackRedirectUrl="/"
       appearance={{
         variables: {
           colorPrimary: "#f43f5e",

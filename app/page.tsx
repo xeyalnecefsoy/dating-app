@@ -10,7 +10,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { BottomNav } from "@/components/Navigation";
 
 export default function HomePage() {
-  const { user, isOnboarded, isLoading } = useUser();
+  const { user, isOnboarded, isLoading, isAuthenticated } = useUser();
   const { t, language } = useLanguage();
 
   // Text translations
@@ -42,8 +42,16 @@ export default function HomePage() {
     );
   }
 
-  // If not onboarded, show welcome screen
-  if (!isOnboarded) {
+  // If authenticated but not onboarded, redirect to onboarding
+  if (isAuthenticated && !isOnboarded) {
+    if (typeof window !== 'undefined') {
+      window.location.href = '/onboarding';
+    }
+    return null;
+  }
+
+  // If not authenticated, show welcome screen
+  if (!isAuthenticated) {
     return <WelcomeScreen />;
   }
 
@@ -265,10 +273,6 @@ export default function HomePage() {
 
 function WelcomeScreen() {
   const { language } = useLanguage();
-  const { isAuthenticated } = useUser();
-  
-  // If already authenticated, go to onboarding; otherwise go to sign-up
-  const getStartedHref = isAuthenticated ? "/onboarding" : "/sign-up";
   
   const content = {
     hero: {
@@ -342,7 +346,7 @@ function WelcomeScreen() {
           transition={{ delay: 0.5 }}
           className="space-y-4"
         >
-          <Link href={getStartedHref} className="block w-full">
+          <Link href="/sign-up" className="block w-full">
             <Button 
               size="lg" 
               className="w-full h-12 flex items-center justify-center gap-2 text-base font-bold rounded-xl gradient-brand shadow-lg hover:shadow-xl transition-all active:scale-[0.98]"
