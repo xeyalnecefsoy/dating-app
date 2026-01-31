@@ -338,7 +338,7 @@ function WelcomeScreen() {
           transition={{ delay: 0.5 }}
           className="space-y-4"
         >
-          <Link href="/onboarding" className="block w-full">
+          <Link href="/sign-up" className="block w-full">
             <Button 
               size="lg" 
               className="w-full h-12 flex items-center justify-center gap-2 text-base font-bold rounded-xl gradient-brand shadow-lg hover:shadow-xl transition-all active:scale-[0.98]"
