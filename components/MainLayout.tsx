@@ -20,14 +20,17 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const isAuthPage = pathname === "/onboarding" || pathname?.startsWith("/sign-in") || pathname?.startsWith("/sign-up");
   const isAdminPage = pathname?.includes("/admin");
 
-  // Force onboarding redirect
+  // Force onboarding redirect (except for home page which shows WelcomeScreen)
   useEffect(() => {
     if (isLoading) return;
 
-    if (isAuthenticated && !isOnboarded && !isAuthPage && !isAdminPage) {
+    // Don't redirect if on home page - it handles its own display logic with WelcomeScreen
+    const isHomePage = pathname === '/';
+    
+    if (isAuthenticated && !isOnboarded && !isAuthPage && !isAdminPage && !isHomePage) {
       router.replace("/onboarding");
     }
-  }, [isLoading, isAuthenticated, isOnboarded, isAuthPage, isAdminPage, router]);
+  }, [isLoading, isAuthenticated, isOnboarded, isAuthPage, isAdminPage, pathname, router]);
 
   // Waitlist access control - only allow home and profile
   const isWaitlisted = user?.status === 'waitlist';
