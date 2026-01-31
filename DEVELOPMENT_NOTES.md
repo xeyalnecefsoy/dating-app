@@ -172,3 +172,33 @@ Users could not see each other's messages because they were writing to different
 *   **Redirect Logic:**
     *   Fixed `Logout` / `Delete Account` flash-onboarding bug by ensuring `router.push('/')` happens *before* clearing state.
 
+## 14. Deployment & Infrastructure Improvements (Jan 31)
+### Sitemap & Robots.txt Visibility
+*   **Problem:** Google Search Console reported "Could not fetch" (Getirilemedi) for `sitemap.xml` despite the file existing in `public/`.
+*   **Cause:** Clerk's `middleware.ts` was configured to protect routes by default, and the matcher regex did not explicitly exclude `.xml` and `.txt` files, causing them to be treated as private routes (redirecting to sign-in).
+*   **Solution:** Updated `middleware.ts` matcher to exclude `xml` and `txt` extensions:
+    ```typescript
+    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest|xml|txt)).*)'
+    ```
+
+### PowerShell & Git Best Practices
+*   **Command Chaining:** In Windows PowerShell, the `&&` operator (common in Bash) often fails or behaves unexpectedly in some environments.
+*   **Recommendation:**
+    *   Use `;` to separate commands (e.g., `git add . ; git commit -m "msg"`).
+    *   Or better, run commands **separately** (one by one) to handle errors explicitly at each step.
+    *   Use `git add -A` to ensure all changes (including deletions) are staged.
+
+## 15. Superadmin & Admin Experience Polish (Jan 31)
+### Improved Superadmin Flow
+*   **Onboarding Bypass:** Hardcoded check for `SUPERADMIN_EMAIL` (`xeyalnecefsoy@gmail.com`) in `UserContext.tsx`.
+    *   *Logic:* If superadmin logs in, `isOnboarded` is forced to `true`, and a profile is auto-created from Convex data if needed. This prevents the "Founder" from ever seeing the onboarding screen.
+    *   **Data Merge:** Manually merges Convex `role` and `email` into the local user object on load to ensure "Qurucu" (Founder) badge appears immediately.
+
+### Admin Panel Real-Time Data
+*   **Dynamic Labels:** Dashboard header now correctly identifies logical roles based on role/email check.
+    *   "Super Admin" for the founder.
+    *   "Admin" / "Moderator" for others.
+*   **Activity Feed:** Replaced hardcoded mock data with `getRecentActivity` Convex query.
+    *   *Features:* Tracks Registrations, Waitlist additions, Bans, and Auto-verifications (females).
+    *   *Visuals:* Color-coded icons (Orange for waitlist, Green for verified, Red for ban).
+
