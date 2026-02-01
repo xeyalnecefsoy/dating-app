@@ -21,7 +21,7 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://danyeri.az"),
+  metadataBase: new URL("https://www.danyeri.az"),
   title: {
     default: "Danyeri - Azərbaycanda Ciddi Tanışlıq və Evlilik Tətbiqi",
     template: "%s | Danyeri",
@@ -57,7 +57,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "az_AZ",
-    url: "https://danyeri.az",
+    url: "https://www.danyeri.az",
     siteName: "Danyeri",
     title: "Danyeri - Azərbaycanda Ciddi Tanışlıq və Evlilik",
     description: "Həyat yoldaşınızı Danyeri-də tapın! Azərbaycanda ən etibarlı tanışlıq tətbiqi.",
@@ -78,10 +78,10 @@ export const metadata: Metadata = {
     creator: "@danyeri_az",
   },
   alternates: {
-    canonical: "https://danyeri.az",
+    canonical: "https://www.danyeri.az",
     languages: {
-      "az-AZ": "https://danyeri.az",
-      "en-US": "https://danyeri.az/en",
+      "az-AZ": "https://www.danyeri.az",
+      "en-US": "https://www.danyeri.az/en",
     },
   },
   robots: {

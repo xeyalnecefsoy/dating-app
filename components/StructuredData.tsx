@@ -20,7 +20,7 @@ export function StructuredData() {
       "worstRating": "1"
     },
     "description": "Azərbaycanda ən etibarlı tanışlıq tətbiqi. Ciddi münasibət və evlilik üçün həyat yoldaşınızı tapın.",
-    "url": "https://danyeri.az",
+    "url": "https://www.danyeri.az",
     "inLanguage": "az",
     "author": {
       "@type": "Organization",
@@ -31,7 +31,7 @@ export function StructuredData() {
       "name": "Danyeri",
       "logo": {
         "@type": "ImageObject",
-        "url": "https://danyeri.az/logo.jpg"
+        "url": "https://www.danyeri.az/logo.jpg"
       }
     }
   };
@@ -40,8 +40,8 @@ export function StructuredData() {
     "@context": "https://schema.org",
     "@type": "Organization",
     "name": "Danyeri",
-    "url": "https://danyeri.az",
-    "logo": "https://danyeri.az/logo.jpg",
+    "url": "https://www.danyeri.az",
+    "logo": "https://www.danyeri.az/logo.jpg",
     "description": "Azərbaycanda ən etibarlı tanışlıq tətbiqi.",
     "foundingDate": "2024",
     "sameAs": [
