@@ -39,9 +39,12 @@ export const createOrUpdateUser = mutation({
     const existingRole = existingUser?.role;
     const hasStaffRole = existingRole && ["admin", "moderator", "superadmin"].includes(existingRole);
     
+    // Normalize gender to lowercase
+    const normalizedGender = args.gender?.toLowerCase();
+    
     // Determine status: staff and females are active, males go to waitlist
     let status = "active";
-    if (args.gender === "male" && !isStaff && !hasStaffRole) {
+    if (normalizedGender === "male" && !isStaff && !hasStaffRole) {
       status = "waitlist";
     }
 
@@ -52,8 +55,10 @@ export const createOrUpdateUser = mutation({
       // Update existing user
       await ctx.db.patch(existingUser._id, {
         name: args.name,
+        // Ensure createdAt is present
+        createdAt: existingUser.createdAt || Date.now(),
         email: args.email,
-        gender: args.gender,
+        gender: normalizedGender,
         age: args.age,
         location: args.location,
         bio: args.bio,
@@ -74,7 +79,7 @@ export const createOrUpdateUser = mutation({
         clerkId: args.clerkId,
         name: args.name,
         email: args.email,
-        gender: args.gender,
+        gender: normalizedGender,
         age: args.age,
         location: args.location,
         bio: args.bio,
@@ -256,3 +261,69 @@ export const deleteAccount = mutation({
   }
 });
 
+
+/**
+ * Get user's position in the waitlist
+ */
+/**
+ * Get user's position in the waitlist
+ */
+export const getQueuePosition = query({
+  args: { clerkId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+
+    if (!user || user.status !== "waitlist") {
+      return null;
+    }
+
+    // Critical: If createdAt is missing, we must NOT give them a priority.
+    // We treat missing createdAt as Date.now() (end of line) temporarily until backfilled.
+    // If strict ordering is required, we should use internal _creationTime if createdAt is 0?
+    // Convex documents have _creationTime which is system guaranteed order.
+    // Let's use user.createdAt if exists, else _creationTime.
+    
+    const creationTime = user.createdAt || user._creationTime;
+
+    const waitlistedUsers = await ctx.db
+      .query("users")
+      .withIndex("by_status", (q) => q.eq("status", "waitlist"))
+      .collect();
+
+    // strict less-than count
+    const position = waitlistedUsers.filter(u => {
+      const uTime = u.createdAt || u._creationTime;
+      // If times are exactly equal (rare), use ID as tiebreaker to be deterministic
+      if (uTime === creationTime) {
+        return u._id < user._id;
+      }
+      return uTime < creationTime;
+    }).length + 1;
+    
+    return position;
+  },
+});
+
+/**
+ * Migration to backfill createdAt for all users
+ */
+import { internalMutation } from "./_generated/server";
+
+export const backfillCreatedAt = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const users = await ctx.db.query("users").collect();
+    let count = 0;
+    for (const u of users) {
+      if (!u.createdAt) {
+        // Use _creationTime as the source of truth for when they actually signed up
+        await ctx.db.patch(u._id, { createdAt: u._creationTime });
+        count++;
+      }
+    }
+    return `Backfilled ${count} users.`;
+  },
+});

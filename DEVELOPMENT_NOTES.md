@@ -202,3 +202,34 @@ Users could not see each other's messages because they were writing to different
     *   *Features:* Tracks Registrations, Waitlist additions, Bans, and Auto-verifications (females).
     *   *Visuals:* Color-coded icons (Orange for waitlist, Green for verified, Red for ban).
 
+## 16. Profile Picture & Core Stability Fixes (Feb 2)
+### Critical Bug Fixes
+*   **Face Detection `ChunkLoadError`:**
+    *   **Problem:** Next.js failed to bundle `face-api.js` correctly due to binary file handling, causing massive crash on Onboarding.
+    *   **Solution:** Switched to **Dynamic Import** (`await import('face-api.js')`) inside the validation function. This ensures the heavy library only loads client-side and on-demand.
+    *   **Fallback:** Added a `try-catch` block. If models fail to load, we **skip validation** (auto-accept) rather than blocking the user.
+
+### Mandatory Profile Picture Enforcement
+*   **Active "Broken Image" Detection:**
+    *   **Problem:** Checking for `null` or empty string isn't enough. A URL might exist (e.g., in Convex storage) but return 404/403.
+    *   **Solution:** Implemented robust check in `MainLayout.tsx`:
+        ```typescript
+        const img = new Image();
+        img.src = user.avatar;
+        img.onerror = () => setIsAvatarBroken(true);
+        ```
+    *   **UI:** Showing a persistent, sticky **Warning Banner** on ALL pages if the image is detected as broken or matches the generic placeholder "dicebear".
+
+### Convex File Storage
+*   **Missing HTTP Route:**
+    *   **Problem:** Uploaded files had valid IDs but returned 404 because the backend HTTP router wasn't configured.
+    *   **Solution:** Created `convex/http.ts` with a `httpAction` handler for `/api/storage`. This is **required** for serving files via HTTP in Convex.
+
+### UI Stability
+*   **"Flash of Content" Prevention:**
+    *   **Problem:** Protected pages (Profile, Messages) would briefly flash for non-onboarded/waitlisted users before redirection.
+    *   **Solution:** In `MainLayout`, explicitly return a "Loading Spinner" or `null` if `isLoading` is true OR if the redirect condition is met. This ensures the user *never* sees restricted content even for a millisecond.
+*   **React Hook Ordering:**
+    *   **Remider:** NEVER place `useState` or `useEffect` after a conditional `return` statement. This causes "Rendered fewer hooks than expected" runtime errors. Always keep hooks at the very top level.
+
+

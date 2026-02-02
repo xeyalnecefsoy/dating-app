@@ -43,9 +43,22 @@ export const getUserRole = query({
 export const getAllUsers = query({
   args: { adminEmail: v.string() },
   handler: async (ctx, args) => {
-    // Only superadmin/admin can access
+    // Basic authorization check
     const isAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
+    
+    // Also allow if user exists and has admin role
+    let hasRole = false;
     if (!isAdmin) {
+       const user = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", args.adminEmail))
+        .first();
+       if (user && (user.role === 'admin' || user.role === 'superadmin')) {
+         hasRole = true;
+       }
+    }
+
+    if (!isAdmin && !hasRole) {
       throw new Error("Unauthorized: Admin access required");
     }
     
@@ -72,7 +85,9 @@ export const setUserRole = mutation({
   },
   handler: async (ctx, args) => {
     // Only superadmin can change roles
+    // Basic authorization check
     const isSuperAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
+    
     if (!isSuperAdmin) {
       throw new Error("Unauthorized: Only superadmin can change roles");
     }
@@ -99,9 +114,22 @@ export const setUserStatus = mutation({
   },
   handler: async (ctx, args) => {
     // Check if requester is at least admin
+    // Basic authorization check
     const isSuperAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
-    // For now, only superadmin can change status
+    
+    // Also allow if user exists and has admin role
+    let hasRole = false;
     if (!isSuperAdmin) {
+       const user = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", args.adminEmail))
+        .first();
+       if (user && (user.role === 'admin' || user.role === 'superadmin')) {
+         hasRole = true;
+       }
+    }
+
+    if (!isSuperAdmin && !hasRole) {
       throw new Error("Unauthorized: Admin access required");
     }
     
@@ -126,8 +154,22 @@ export const banUser = mutation({
     reason: v.optional(v.string())
   },
   handler: async (ctx, args) => {
+    // Basic authorization check
     const isSuperAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
+    
+    // Also allow if user exists and has admin role
+    let hasRole = false;
     if (!isSuperAdmin) {
+       const user = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", args.adminEmail))
+        .first();
+       if (user && (user.role === 'admin' || user.role === 'superadmin')) {
+         hasRole = true;
+       }
+    }
+
+    if (!isSuperAdmin && !hasRole) {
       throw new Error("Unauthorized: Admin access required");
     }
     
@@ -142,11 +184,26 @@ export const banUser = mutation({
 export const getPlatformStats = query({
   args: { adminEmail: v.string() },
   handler: async (ctx, args) => {
+    // Basic authorization check
     const isAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
+    
+    // Also allow if user exists and has admin role
+    let hasRole = false;
     if (!isAdmin) {
+       const user = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", args.adminEmail))
+        .first();
+       if (user && (user.role === 'admin' || user.role === 'superadmin')) {
+         hasRole = true;
+       }
+    }
+
+    if (!isAdmin && !hasRole) {
       throw new Error("Unauthorized: Admin access required");
     }
     
+    // Fetch all data (optimization: could happen in separate dedicated stats table later)
     const users = await ctx.db.query("users").collect();
     const matches = await ctx.db.query("matches").collect();
     const messages = await ctx.db.query("messages").collect();
@@ -156,19 +213,28 @@ export const getPlatformStats = query({
     const waitlistUsers = users.filter(u => u.status === "waitlist").length;
     const bannedUsers = users.filter(u => u.status === "banned").length;
     
+    // Active users = not banned, not waitlisted, not rejected
+    const activeUsers = users.filter(u => u.status === "active").length;
+    
+    // Messages today
+    const todayStart = new Date();
+    todayStart.setHours(0,0,0,0);
+    const todayMessages = messages.filter(m => m._creationTime > todayStart.getTime()).length;
+
     return {
       totalUsers: users.length,
-      activeUsers: users.filter(u => u.status !== "banned" && u.status !== "waitlist").length,
+      activeUsers,
       maleUsers,
       femaleUsers,
       waitlistUsers,
       bannedUsers,
       totalMatches: matches.length,
       totalMessages: messages.length,
+      todayMessages,
       genderRatio: femaleUsers > 0 ? (maleUsers / femaleUsers).toFixed(2) : "N/A",
-      pendingReports: 0, // TODO: Add reports table
-      pendingVerifications: waitlistUsers, // Real count from waitlist
-      premiumUsers: 0, // TODO: Add premium tracking
+      pendingReports: 0, // Placeholder
+      pendingVerifications: waitlistUsers, 
+      premiumUsers: 0, // Placeholder
     };
   },
 });
@@ -179,8 +245,22 @@ export const getPlatformStats = query({
 export const getWaitlistUsers = query({
   args: { adminEmail: v.string() },
   handler: async (ctx, args) => {
+    // Basic authorization check
     const isAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
+    
+    // Also allow if user exists and has admin role
+    let hasRole = false;
     if (!isAdmin) {
+       const user = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", args.adminEmail))
+        .first();
+       if (user && (user.role === 'admin' || user.role === 'superadmin')) {
+         hasRole = true;
+       }
+    }
+
+    if (!isAdmin && !hasRole) {
       throw new Error("Unauthorized: Admin access required");
     }
     
@@ -213,8 +293,22 @@ export const approveUser = mutation({
     targetUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    // Basic authorization check
     const isAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
+    
+    // Also allow if user exists and has admin role
+    let hasRole = false;
     if (!isAdmin) {
+       const user = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", args.adminEmail))
+        .first();
+       if (user && (user.role === 'admin' || user.role === 'superadmin')) {
+         hasRole = true;
+       }
+    }
+
+    if (!isAdmin && !hasRole) {
       throw new Error("Unauthorized: Admin access required");
     }
     
@@ -233,8 +327,22 @@ export const rejectUser = mutation({
     reason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Basic authorization check
     const isAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
+    
+    // Also allow if user exists and has admin role
+    let hasRole = false;
     if (!isAdmin) {
+       const user = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", args.adminEmail))
+        .first();
+       if (user && (user.role === 'admin' || user.role === 'superadmin')) {
+         hasRole = true;
+       }
+    }
+
+    if (!isAdmin && !hasRole) {
       throw new Error("Unauthorized: Admin access required");
     }
     
@@ -249,8 +357,22 @@ export const rejectUser = mutation({
 export const getAllConversations = query({
   args: { adminEmail: v.string() },
   handler: async (ctx, args) => {
+    // Basic authorization check
     const isAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
+    
+    // Also allow if user exists and has admin role
+    let hasRole = false;
     if (!isAdmin) {
+       const user = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", args.adminEmail))
+        .first();
+       if (user && (user.role === 'admin' || user.role === 'superadmin')) {
+         hasRole = true;
+       }
+    }
+
+    if (!isAdmin && !hasRole) {
       throw new Error("Unauthorized: Super admin access required");
     }
     
@@ -300,8 +422,22 @@ export const getConversationMessages = query({
     matchId: v.id("matches"),
   },
   handler: async (ctx, args) => {
+    // Basic authorization check
     const isAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
+    
+    // Also allow if user exists and has admin role
+    let hasRole = false;
     if (!isAdmin) {
+       const user = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", args.adminEmail))
+        .first();
+       if (user && (user.role === 'admin' || user.role === 'superadmin')) {
+         hasRole = true;
+       }
+    }
+
+    if (!isAdmin && !hasRole) {
       throw new Error("Unauthorized: Super admin access required");
     }
     
@@ -320,8 +456,22 @@ export const getConversationMessages = query({
 export const getRecentActivity = query({
   args: { adminEmail: v.string() },
   handler: async (ctx, args) => {
+    // Basic authorization check
     const isAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
+    
+    // Also allow if user exists and has admin role
+    let hasRole = false;
     if (!isAdmin) {
+       const user = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", args.adminEmail))
+        .first();
+       if (user && (user.role === 'admin' || user.role === 'superadmin')) {
+         hasRole = true;
+       }
+    }
+
+    if (!isAdmin && !hasRole) {
       throw new Error("Unauthorized: Admin access required");
     }
     

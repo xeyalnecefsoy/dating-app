@@ -31,7 +31,6 @@ export function BottomNav() {
 
   // Waitlist: only allow home and profile
   const isWaitlisted = user?.status === 'waitlist';
-  const allowedForWaitlist = ['/', '/profile'];
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-md border-t border-border">
@@ -40,13 +39,16 @@ export function BottomNav() {
           const isActive = pathname === item.href;
           const Icon = item.icon;
           const label = language === 'az' ? item.labelAz : item.labelEn;
-          const isDisabled = isWaitlisted && !allowedForWaitlist.includes(item.href);
           
-          if (isDisabled) {
+          const isAllowed = !isWaitlisted || item.href === '/';
+
+          if (!isAllowed) {
             return (
               <div
                 key={item.href}
-                className="flex flex-col items-center justify-center gap-0.5 text-muted-foreground/40 cursor-not-allowed"
+                className="flex flex-col items-center justify-center gap-0.5 cursor-not-allowed select-none"
+                style={{ opacity: 0.3, pointerEvents: 'none' }}
+                aria-disabled="true"
               >
                 <div className="relative">
                   <Icon className="w-5 h-5" strokeWidth={2} />
@@ -93,9 +95,12 @@ export function BottomNav() {
           )}>
             {user?.avatar ? (
               <img 
-                src={user.avatar} 
+                src={user.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${user.name}`}
                 alt={user.name || "Profile"} 
                 className="w-full h-full object-cover"
+                onError={(e) => {
+                   e.currentTarget.src = `https://api.dicebear.com/7.x/initials/svg?seed=${user.name || 'default'}`;
+                }}
               />
             ) : (
               <div className="w-full h-full bg-muted flex items-center justify-center">
@@ -159,6 +164,33 @@ export function SideNav() {
           const isActive = pathname === item.href;
           const Icon = item.icon;
           const label = language === 'az' ? item.labelAz : item.labelEn;
+
+          // Waitlist Logic
+          const isWaitlisted = user?.status === 'waitlist';
+          // Check if this item is profile (path or label matches)
+          const isProfileItem = item.href === '/profile' || item.href === '/onboarding' || item.labelEn === 'Profile';
+          
+          const isAllowed = !isWaitlisted || item.href === '/' || isProfileItem;
+
+          if (!isAllowed) {
+            return (
+              <div
+                key={item.href}
+                className={cn(
+                  "flex items-center gap-4 px-3 py-3 rounded-xl transition-colors group relative cursor-not-allowed select-none",
+                )}
+                style={{ opacity: 0.3, pointerEvents: 'none' }}
+              >
+                <div className="relative shrink-0">
+                  <Icon className="w-6 h-6 text-gray-400" />
+                </div>
+                
+                {!isCollapsed && (
+                  <span className="font-medium whitespace-nowrap text-gray-400">{label}</span>
+                )}
+              </div>
+            );
+          }
 
           return (
             <Link

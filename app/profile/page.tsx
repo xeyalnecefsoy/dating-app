@@ -175,9 +175,12 @@ export default function ProfilePage() {
           <div className="relative">
             <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-border">
               <img 
-                src={user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}`}
+                src={user.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${user.name}`}
                 alt={user.name}
                 className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.src = `https://api.dicebear.com/7.x/initials/svg?seed=${user.name}`;
+                }}
               />
             </div>
             <button 

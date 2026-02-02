@@ -1,14 +1,18 @@
 "use client";
 
-import * as faceapi from 'face-api.js';
-
 const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
 let modelsLoaded = false;
+let faceapi: any = null;
 
 export async function loadFaceDetectionModels() {
-  if (modelsLoaded) return true;
+  if (modelsLoaded && faceapi) return true;
   
   try {
+    // Dynamic import to prevent ChunkLoadError on initial load
+    if (!faceapi) {
+        faceapi = await import('face-api.js');
+    }
+
     await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
     modelsLoaded = true;
     console.log("Face detection models loaded successfully");
@@ -84,6 +88,13 @@ async function performValidation(file: File): Promise<FaceValidationResult> {
       
       img.onload = async () => {
         try {
+          // Ensure faceapi is loaded
+          if (!faceapi) {
+             console.warn("FaceAPI not loaded during validation, skipping check");
+             resolve({ isValid: true, hasFace: true, isBright: true });
+             return;
+          }
+
           // 1. Check for face
           const detections = await faceapi.detectAllFaces(img, new faceapi.TinyFaceDetectorOptions());
           const hasFace = detections.length > 0;

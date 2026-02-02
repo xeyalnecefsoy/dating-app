@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { BottomNav } from "@/components/Navigation";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 export default function HomePage() {
   const { user, isOnboarded, isLoading, isAuthenticated } = useUser();
@@ -407,6 +409,14 @@ function DailyQuestionMini({ language }: { language: string }) {
 function WaitlistScreen({ user }: { user: any }) {
   const { language } = useLanguage();
   
+  // Real-time queue position
+  const queuePosition = useQuery(api.users.getQueuePosition, { 
+    clerkId: user?.clerkId || "" 
+  });
+  
+  // Create a display number - if loading, show ..., if null (error), show fallback, otherwise show real position
+  const displayPosition = queuePosition === undefined ? "..." : (typeof queuePosition === 'number' ? `#${queuePosition.toLocaleString()}` : "#1");
+
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500">
       <div className="w-20 h-20 rounded-full bg-secondary/50 flex items-center justify-center mb-6 relative">
@@ -420,14 +430,16 @@ function WaitlistScreen({ user }: { user: any }) {
       
       <p className="text-muted-foreground mb-8 max-w-md">
         {language === 'az' 
-          ? 'Danyeri-də gender balansını qorumaq üçün bəyləri hissə-hissə qəbul edirik. Hazırda çox sayda müraciət var.' 
+          ? 'Danyeri-də cinslərarası balansı qorumaq üçün bəyləri hissə-hissə qəbul edirik. Hazırda çox sayda müraciət var.' 
           : 'To maintain a healthy gender balance on Danyeri, we accept gentlemen in batches. Demand is currently very high.'}
       </p>
 
       <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-sm mb-6">
         <div className="flex justify-between items-center mb-2">
           <span className="text-sm text-muted-foreground">{language === 'az' ? 'Sizin Sıranız' : 'Your Position'}</span>
-          <span className="font-bold font-mono text-primary">#1,428</span>
+          <span className="font-bold font-mono text-primary text-xl">
+            {displayPosition}
+          </span>
         </div>
         <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
           <div className="bg-primary h-full w-[15%] animate-pulse" />

@@ -60,16 +60,21 @@ export default function SettingsPage() {
   };
 
   const handleLogout = async () => {
-    // Navigate first to avoid onboarding flash
-    router.push("/");
-    
-    // Then clear state and sign out
-    setTimeout(async () => {
-      logoutUser();
+    try {
+      // 1. Sign out from Clerk first (this updates isAuthenticated -> false)
       if (isSignedIn) {
         await signOut();
       }
-    }, 100);
+      
+      // 2. Clear local state (this updates isOnboarded -> false)
+      logoutUser();
+      
+      // 3. specific Hard Redirect to home to ensure clean state
+      window.location.href = "/";
+    } catch (error) {
+      console.error("Logout error:", error);
+      window.location.href = "/";
+    }
   };
 
   const handleDeleteAccount = async () => {

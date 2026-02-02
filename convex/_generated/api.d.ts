@@ -9,6 +9,7 @@
  */
 
 import type * as admin from "../admin.js";
+import type * as files from "../files.js";
 import type * as likes from "../likes.js";
 import type * as matches from "../matches.js";
 import type * as messages from "../messages.js";
@@ -25,6 +26,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
+  files: typeof files;
   likes: typeof likes;
   matches: typeof matches;
   messages: typeof messages;

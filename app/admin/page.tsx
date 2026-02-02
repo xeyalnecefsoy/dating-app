@@ -125,6 +125,7 @@ export default function AdminPage() {
     bannedUsers: 0,
     totalMatches: 0,
     totalMessages: 0,
+    todayMessages: 0,
     genderRatio: "N/A",
     pendingReports: 0,
     pendingVerifications: 0,
@@ -292,17 +293,28 @@ export default function AdminPage() {
             <div className="flex items-center gap-3">
               <Button variant="ghost" size="icon" className="relative">
                 <Bell className="w-5 h-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+                {displayStats.pendingReports > 0 && (
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+                )}
               </Button>
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
-                  {user?.name?.charAt(0)?.toUpperCase() || 'S'}
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center overflow-hidden">
+                  {user?.avatar ? (
+                    <img src={user.avatar} alt={user.name || "Admin"} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-white font-bold text-sm">
+                      {user?.name?.charAt(0)?.toUpperCase() || 'A'}
+                    </span>
+                  )}
                 </div>
-                <span className="text-sm font-medium">
-                  {user?.role === 'superadmin' || user?.email?.toLowerCase() === 'xeyalnecefsoy@gmail.com' 
-                    ? 'Super Admin' 
-                    : user?.role === 'admin' ? 'Admin' : 'Moderator'}
-                </span>
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium leading-none">{user?.name || "Admin"}</span>
+                  <span className="text-[10px] text-muted-foreground font-medium uppercase mt-0.5">
+                    {user?.role === 'superadmin' || user?.email?.toLowerCase() === 'xeyalnecefsoy@gmail.com' 
+                      ? 'Super Admin' 
+                      : user?.role === 'admin' ? 'Admin' : 'Moderator'}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -337,8 +349,8 @@ export default function AdminPage() {
                   />
                   <StatCard
                     title="Bugünkü Mesajlar"
-                    value={displayStats.totalMessages.toLocaleString('en-US')} // Using total for now
-                    change={-2.1}
+                    value={displayStats.todayMessages?.toLocaleString('en-US') || "0"} 
+                    change={0}
                     icon={MessageSquare}
                     color="purple"
                   />

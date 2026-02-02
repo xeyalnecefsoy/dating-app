@@ -2,12 +2,17 @@
 
 import { SignUp } from "@clerk/nextjs";
 import { motion } from "framer-motion";
-import { Heart, Sparkles } from "lucide-react";
+import { Heart, Sparkles, ArrowLeft } from "lucide-react";
+import Link from "next/link";
 
 export default function SignUpPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-rose-900/20 via-background to-pink-900/20 px-4 py-8">
       {/* Logo & Branding */}
+      <Link href="/" className="absolute top-8 left-8 p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors text-white/80 hover:text-white">
+        <ArrowLeft className="w-6 h-6" />
+      </Link>
+
       {/* Sign Up Component */}
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}

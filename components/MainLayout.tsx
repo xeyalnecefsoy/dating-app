@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Compass, MessageCircle, User, Menu, ChevronLeft, Flame, ChevronRight, Search, Bell } from "lucide-react";
+import { Home, Compass, MessageCircle, User, Menu, ChevronLeft, Flame, ChevronRight, Search, Bell, Camera } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,21 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const { user, isOnboarded, isAuthenticated, isLoading } = useUser();
   const { language } = useLanguage();
   const [isCollapsed, setIsCollapsed] = useState(true); // Default collapsed
+  
+  // Check if avatar is valid (reachable)
+  const [isAvatarBroken, setIsAvatarBroken] = useState(false);
+
+  useEffect(() => {
+    if (user?.avatar && !user.avatar.includes("dicebear")) {
+      // Check if image loads
+      const img = new Image();
+      img.src = user.avatar;
+      img.onload = () => setIsAvatarBroken(false);
+      img.onerror = () => setIsAvatarBroken(true);
+    } else if (user?.avatar?.includes("dicebear")) {
+      setIsAvatarBroken(true);
+    }
+  }, [user?.avatar]);
 
   const isAuthPage = pathname === "/onboarding" || pathname?.startsWith("/sign-in") || pathname?.startsWith("/sign-up");
   const isAdminPage = pathname?.includes("/admin");
@@ -34,8 +49,11 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
   // Waitlist access control - only allow home and profile
   const isWaitlisted = user?.status === 'waitlist';
-  const allowedForWaitlist = ['/', '/profile', '/settings'];
-  const isRestrictedForWaitlist = isWaitlisted && pathname && !allowedForWaitlist.includes(pathname);
+  const allowedForWaitlist = ['/', '/profile', '/settings', '/onboarding'];
+  // We check !isLoading below to decide final render, but for PROVISIONAL blocking:
+  // If we are loading, we don't know status yet, so we assume potentially restricted.
+  
+  const isRestrictedForWaitlist = !isLoading && isWaitlisted && pathname && !allowedForWaitlist.includes(pathname);
 
   useEffect(() => {
     if (isRestrictedForWaitlist) {
@@ -45,6 +63,30 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
   if (isAuthPage || isAdminPage) {
     return <>{children}</>;
+  }
+
+  // CRITICAL FIX: While loading, DO NOT show content for protected pages.
+  // We only allow "Safe" pages (Home, Profile, etc) to render optimistically or during load.
+  // Actually, even Profile might be restricted? No, allowedForWaitlist includes it.
+  // So if path is NOT in allowedForWaitlist, we BLOCK it during loading.
+  const isSafePath = pathname && allowedForWaitlist.includes(pathname);
+  
+  // Prevent flash of content: If user is authenticated but NOT onboarded, and on a protected page,
+  // we block rendering immediately while the useEffect above handles the redirect.
+  const isHomePage = pathname === '/';
+  const shouldRedirectToOnboarding = isAuthenticated && !isOnboarded && !isAuthPage && !isAdminPage && !isHomePage;
+
+  if ((isLoading && !isSafePath) || shouldRedirectToOnboarding) { 
+      return (
+        <div className="flex items-center justify-center min-h-screen bg-background">
+          {/* Spinner or blank to avoid flicker */}
+        </div>
+      );
+  }
+
+  // Prevent flash of content for waitlisted users (after load)
+  if (isRestrictedForWaitlist) {
+    return null; 
   }
 
   const navItems = [
@@ -59,6 +101,9 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const profileHref = isOnboarded ? "/profile" : "/onboarding";
   const profileLabel = language === 'az' ? 'Profil' : 'Profile';
   const isProfileActive = pathname === "/profile";
+
+
+
 
   return (
     <div className="min-h-screen relative bg-background flex flex-col md:flex-row">
@@ -98,6 +143,35 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             const isActive = pathname === item.href;
             const Icon = item.icon;
             const label = language === 'az' ? item.labelAz : item.labelEn;
+
+            // Waitlist Logic
+            const isWaitlisted = user?.status === 'waitlist';
+            const isAllowed = !isWaitlisted || item.href === '/';
+
+            if (!isAllowed) {
+              return (
+                 <div
+                   key={item.href}
+                   className={cn(
+                     "flex items-center gap-4 p-3 rounded-xl transition-all duration-200 group relative cursor-not-allowed select-none",
+                     isCollapsed ? "justify-center w-12" : "w-full px-3",
+                   )}
+                   style={{ opacity: 0.3, pointerEvents: 'none' }}
+                   aria-disabled="true"
+                 >
+                   <div className={cn(
+                     "relative shrink-0 flex items-center justify-center w-10 h-10 rounded-xl transition-all",
+                     "bg-transparent text-muted-foreground"
+                   )}>
+                     <Icon className="w-6 h-6" strokeWidth={2} />
+                   </div>
+                   
+                   {!isCollapsed && (
+                     <span className="font-medium whitespace-nowrap text-muted-foreground">{label}</span>
+                   )}
+                 </div>
+              );
+            }
 
             return (
               <Link
@@ -160,9 +234,12 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             )}>
               {user?.avatar ? (
                 <img 
-                  src={user.avatar} 
+                  src={user.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${user.name}`}
                   alt={user.name || "Profile"} 
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.src = `https://api.dicebear.com/7.x/initials/svg?seed=${user.name || 'default'}`;
+                  }}
                 />
               ) : (
                 <div className="w-full h-full bg-muted flex items-center justify-center">
@@ -203,8 +280,33 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       {/* Mobile Bottom Nav */}
       <BottomNav />
 
-      {/* Debug Switcher - Always visible */}
       <DebugUserSwitcher />
+
+      {/* Mandatory Profile Picture Warning */}
+      {user && isAvatarBroken && !pathname?.includes("/onboarding") && (
+        <div className="fixed bottom-20 left-4 right-4 md:left-auto md:right-8 md:bottom-8 md:w-96 bg-destructive/90 backdrop-blur-md text-white p-4 rounded-2xl shadow-lg z-50 animate-in slide-in-from-bottom duration-500 border border-white/10">
+          <div className="flex items-start gap-4">
+            <div className="p-2 bg-white/10 rounded-full shrink-0">
+              <Camera className="w-6 h-6" />
+            </div>
+            <div className="flex-1">
+               <h3 className="font-bold text-sm mb-1">
+                 {language === 'az' ? 'Profil şəkli mütləqdir!' : 'Profile photo is required!'}
+               </h3>
+               <p className="text-xs opacity-90 mb-3">
+                 {language === 'az' 
+                   ? 'Platformada iştirak etmək üçün real profil şəkliniz olmalıdır. Zəhmət olmasa şəklinizi yükləyin.' 
+                   : 'You must have a real profile photo to verify your profile. Please upload one.'}
+               </p>
+               <Link href="/profile">
+                 <button className="w-full py-2 bg-white text-destructive font-bold rounded-xl text-sm hover:bg-white/90 transition-colors">
+                   {language === 'az' ? 'Şəkil Yüklə' : 'Upload Photo'}
+                 </button>
+               </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

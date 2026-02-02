@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import { useUser as useClerkUser, useAuth } from "@clerk/nextjs";
+import { usePathname, useRouter } from "next/navigation";
 import { getAvatarByGender } from "@/lib/mock-users";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -287,6 +288,23 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   }, [isClerkLoaded, isSignedIn, clerkUser, getStorageKey, convexUser]);
 
+  // Route Protection for Waitlisted Users
+  const pathname = usePathname();
+  const router = useRouter();
+
+  useEffect(() => {
+    // List of paths allowed for waitlisted users
+    const allowedPaths = ["/", "/profile", "/settings", "/premium", "/sign-in", "/sign-up", "/onboarding"]; // onboarding is handled separately but good to include
+    
+    // Check if user is fully loaded and has waitlist status
+    if (!isLoading && isOnboarded && user?.status === "waitlist") {
+      // If current path is not allowed, redirect to home
+      if (!allowedPaths.includes(pathname)) {
+        router.replace("/");
+      }
+    }
+  }, [user, pathname, isLoading, isOnboarded, router]);
+
   const updateUserInternal = useCallback((newUser: UserProfile | null, storageKey: string) => {
     setUser(newUser);
     if (newUser) {
@@ -374,6 +392,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setIsOnboarded(true);
     }
   }, [clerkUser, getStorageKey, updateUserInternal, createOrUpdateUserMutation]);
+
+  // Auto-heal: Sync Local User to DB if missing (Placed here to avoid ReferenceError)
+  useEffect(() => {
+     // If we have a local user, are signed in, but Convex returns null (user deleted or not synced),
+     // trigger a re-sync to restore the user in the backend.
+     if (isSignedIn && isClerkLoaded && user && convexUser === null) {
+         console.log("User exists locally but not in DB. Triggering auto-sync...");
+         // We pass the current local user data to re-populate the DB
+         completeOnboarding(user);
+     }
+  }, [isSignedIn, isClerkLoaded, user, convexUser, completeOnboarding]);
 
   const addBadge = useCallback((badge: string) => {
     setUser(prev => {

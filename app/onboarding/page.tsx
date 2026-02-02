@@ -11,6 +11,8 @@ import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUser as useClerkUser } from "@clerk/nextjs";
 import { getAvatarByGender, translateValue, translateInterest, translateLoveLanguage, translateStyle } from "@/lib/mock-users";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 import { 
   AVAILABLE_VALUES, 
@@ -29,6 +31,9 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(1);
   const [searchLocation, setSearchLocation] = useState("");
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   
   const [formData, setFormData] = useState({
     firstName: "",
@@ -191,39 +196,72 @@ export default function OnboardingPage() {
     }
   };
 
-  const handleComplete = () => {
-    const gender = formData.gender as "male" | "female";
-    
-    // Use uploaded profile photo, or Clerk image, or fallback to gender-based avatar
-    const avatarUrl = formData.profilePhotoPreview || clerkUser?.imageUrl || getAvatarByGender(gender, Math.floor(Math.random() * 5));
-    
-    const fullName = `${formData.firstName} ${formData.lastName}`.trim();
+  const handleComplete = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
 
-    completeOnboarding({
-      name: fullName,
-      age: calculateAge(),
-      gender: gender,
-      lookingFor: gender === "male" ? "female" : "male",
-      location: formData.location,
-      bio: formData.bio,
-      values: formData.values,
-      loveLanguage: formData.loveLanguage,
-      interests: formData.interests,
-      communicationStyle: formData.communicationStyle as "Direct" | "Empathetic" | "Analytical" | "Playful",
-      avatar: avatarUrl,
-    });
-    
-    // Clear onboarding session data
-    sessionStorage.removeItem('onboarding-step');
-    sessionStorage.removeItem('onboarding-formData');
-    
-    router.push("/discovery");
+    try {
+      const gender = formData.gender as "male" | "female";
+      
+      let avatarUrl = formData.profilePhotoPreview || clerkUser?.imageUrl || getAvatarByGender(gender, Math.floor(Math.random() * 5));
+
+      // Upload photo if a new file is selected
+      if (formData.profilePhoto) {
+        try {
+          // 1. Get upload URL
+          const postUrl = await generateUploadUrl();
+          
+          // 2. Upload file
+          const result = await fetch(postUrl, {
+            method: "POST",
+            headers: { "Content-Type": formData.profilePhoto.type },
+            body: formData.profilePhoto,
+          });
+          
+          if (!result.ok) throw new Error("Upload failed");
+          
+          const { storageId } = await result.json();
+          
+          // 3. Construct URL
+          avatarUrl = `${process.env.NEXT_PUBLIC_CONVEX_URL}/api/storage/${storageId}`;
+        } catch (error) {
+          console.error("Failed to upload photo:", error);
+          // Fallback to existing logic if upload fails (though this might still fail if too large, but at least we try)
+        }
+      }
+      
+      const fullName = `${formData.firstName} ${formData.lastName}`.trim();
+
+      await completeOnboarding({
+        name: fullName,
+        age: calculateAge(),
+        gender: gender,
+        lookingFor: gender === "male" ? "female" : "male",
+        location: formData.location,
+        bio: formData.bio,
+        values: formData.values,
+        loveLanguage: formData.loveLanguage,
+        interests: formData.interests,
+        communicationStyle: formData.communicationStyle as "Direct" | "Empathetic" | "Analytical" | "Playful",
+        avatar: avatarUrl,
+      });
+      
+      // Clear onboarding session data
+      sessionStorage.removeItem('onboarding-step');
+      sessionStorage.removeItem('onboarding-formData');
+      
+      router.push("/discovery");
+    } catch (error) {
+      console.error("Onboarding error:", error);
+      setIsSubmitting(false);
+    }
   };
 
   // Filter locations based on search
-  const filteredLocations = AZERBAIJAN_REGIONS.filter(loc => 
-    loc.toLowerCase().includes(searchLocation.toLowerCase())
-  );
+  const filteredLocations = AZERBAIJAN_REGIONS.filter(loc => {
+    const normalize = (str: string) => language === 'az' ? str.toLocaleLowerCase('az') : str.toLowerCase();
+    return normalize(loc).includes(normalize(searchLocation));
+  });
 
   // Generate arrays for date selectors
   const days = Array.from({ length: 31 }, (_, i) => i + 1);
@@ -379,6 +417,7 @@ export default function OnboardingPage() {
                       onChange={(val) => setFormData({ ...formData, birthDay: val })}
                       placeholder={txt.day}
                       searchPlaceholder="Gün..."
+                      language={language}
                     />
                     
                     <SearchableSelect
@@ -387,6 +426,7 @@ export default function OnboardingPage() {
                       onChange={(val) => setFormData({ ...formData, birthMonth: val })}
                       placeholder={txt.month}
                       searchPlaceholder="Ay..."
+                      language={language}
                     />
 
                     <SearchableSelect
@@ -395,6 +435,7 @@ export default function OnboardingPage() {
                       onChange={(val) => setFormData({ ...formData, birthYear: val })}
                       placeholder={txt.year}
                       searchPlaceholder="İl..."
+                      language={language}
                     />
                   </div>
                 </div>
@@ -648,7 +689,14 @@ export default function OnboardingPage() {
             size="lg"
             className="w-full h-12 text-base rounded-xl gradient-brand border-0 font-semibold disabled:opacity-50 shadow-lg"
           >
-            {txt.startMatching}
+            {isSubmitting ? (
+              <div className="flex items-center justify-center gap-2">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>{language === 'az' ? 'Yüklənir...' : 'Processing...'}</span>
+              </div>
+            ) : (
+              txt.startMatching
+            )}
           </Button>
         )}
       </div>
@@ -684,13 +732,15 @@ function SearchableSelect({
   value, 
   onChange, 
   placeholder,
-  searchPlaceholder 
+  searchPlaceholder,
+  language
 }: { 
   options: { value: string, label: string }[], 
   value: string, 
   onChange: (val: string) => void,
   placeholder: string,
-  searchPlaceholder?: string
+  searchPlaceholder?: string,
+  language?: string
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -706,9 +756,10 @@ function SearchableSelect({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const filteredOptions = options.filter(opt => 
-    opt.label.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredOptions = options.filter(opt => {
+    const normalize = (str: string) => language === 'az' ? str.toLocaleLowerCase('az') : str.toLowerCase();
+    return normalize(opt.label).includes(normalize(search));
+  });
 
   const selectedLabel = options.find(opt => opt.value === value)?.label || placeholder;
 

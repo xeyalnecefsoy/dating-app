@@ -7,6 +7,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const routes = [
     '',
     '/about',
+    '/sign-in',
+    '/sign-up',
     // '/contact', // TODO: Create contact page
     // '/privacy', // TODO: Create privacy policy
     // '/terms',   // TODO: Create terms of service
