@@ -10,6 +10,8 @@ import { useUser } from "@/contexts/UserContext";
 import { BottomNav } from "@/components/Navigation";
 import { MOCK_USERS } from "@/lib/mock-users";
 import { motion, AnimatePresence } from "framer-motion";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 type Notification = {
   id: string;
@@ -46,12 +48,6 @@ export default function NotificationsPage() {
     decline: language === 'az' ? 'Rədd Et' : 'Decline',
     sendMessage: language === 'az' ? 'Mesaj Göndər' : 'Send Message',
   };
-
-  /* 
-     Update to use Real DB users 
-  */
-  import { useQuery } from "convex/react";
-  import { api } from "@/convex/_generated/api";
 
   // Calculate all unique IDs we need to fetch
   const allRelatedIds = React.useMemo(() => {
