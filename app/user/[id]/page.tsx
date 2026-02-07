@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -9,10 +9,12 @@ import {
   Sparkles, Share2, CheckCircle2, Crown, Image, ChevronLeft, ChevronRight, Mail, Send
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { MOCK_USERS, translateValue, translateLoveLanguage, translateStyle, translateInterest } from "@/lib/mock-users";
+import { UserProfile, translateValue, translateLoveLanguage, translateStyle, translateInterest } from "@/lib/mock-users";
 import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { calculateCompatibility } from "@/lib/compatibility";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 import { useToast } from "@/components/ui/toast";
 
@@ -54,13 +56,61 @@ export default function UserProfilePage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedImageIndex]);
   
-  const userId = params.id as string;
-  const profile = MOCK_USERS.find(u => u.id === userId);
+  // The ID could be either a username or a clerkId
+  const idParam = (params.id as string) || "";
+  
+  // Try username lookup first (lowercase for consistency)
+  const userByUsername = useQuery(
+    api.users.getUserByUsername, 
+    idParam ? { username: idParam.toLowerCase() } : "skip"
+  );
+  
+  // Fallback to clerkId lookup only if username lookup returned null (not undefined/loading)
+  const userByClerkId = useQuery(
+    api.users.getUser, 
+    userByUsername === null && idParam ? { clerkId: idParam } : "skip"
+  );
+  
+  // Check if queries are still loading (undefined = loading, null = not found)
+  const isQueryLoading = userByUsername === undefined || 
+    (userByUsername === null && userByClerkId === undefined);
+  
+  // Use username result if found, otherwise use clerkId result
+  const dbUser = userByUsername || userByClerkId;
+
+  // Redirect to username URL if accessed via clerkId but user has username
+  useEffect(() => {
+    if (dbUser?.username && userByClerkId && !userByUsername) {
+      // User was found by clerkId but has a username - redirect to username URL
+      router.replace(`/user/${dbUser.username}`);
+    }
+  }, [dbUser, userByClerkId, userByUsername, router]);
+
+  const profile = useMemo((): UserProfile | null => {
+    if (!dbUser) return null;
+    return {
+      id: dbUser.clerkId || dbUser._id,
+      name: dbUser.name,
+      age: dbUser.age || 25,
+      gender: (dbUser.gender as "male" | "female") || "male",
+      location: dbUser.location || "Bakı",
+      bio: dbUser.bio ? { en: dbUser.bio, az: dbUser.bio } : { en: "No bio yet", az: "Hələ bio yoxdur" },
+      values: dbUser.values || [],
+      loveLanguage: dbUser.loveLanguage || "Quality Time",
+      communicationStyle: (dbUser.communicationStyle as "Direct" | "Empathetic" | "Analytical" | "Playful") || "Empathetic",
+      interests: dbUser.interests || [],
+      avatar: dbUser.avatar || '/placeholder-avatar.svg',
+      gallery: [dbUser.avatar || '/placeholder-avatar.svg'], // Default gallery to avatar for now
+      iceBreaker: { en: "Let's chat!", az: "Gəl danışaq!" }, // Default
+      isVerified: (dbUser as any).role === "admin" || (dbUser as any).role === "superadmin" || (dbUser as any).isVerified,
+      isPremium: (dbUser as any).isPremium || false,
+      lookingFor: (dbUser as any).lookingFor || "female",
+    };
+  }, [dbUser]);
 
   // Authentication Check
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isLoading && !currentUser) {
-      // Save current URL to return after login? For now just redirect to sign-in
        router.push("/sign-in");
     }
   }, [isLoading, currentUser, router]);
@@ -98,7 +148,7 @@ export default function UserProfilePage() {
     );
   }, [currentUser, isOnboarded, profile]);
 
-  if (isLoading) {
+  if (isLoading || isQueryLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -238,9 +288,12 @@ export default function UserProfilePage() {
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-1 text-foreground/80 drop-shadow-md">
+            <div className="flex items-center gap-2 text-foreground/80 drop-shadow-md">
               <MapPin className="w-4 h-4" />
               <span>{profile.location}</span>
+              {dbUser?.username && (
+                <span className="text-foreground/60">• @{dbUser.username}</span>
+              )}
             </div>
           </div>
         </div>

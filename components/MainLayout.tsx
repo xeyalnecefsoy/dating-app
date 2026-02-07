@@ -21,15 +21,34 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const [isAvatarBroken, setIsAvatarBroken] = useState(false);
 
   useEffect(() => {
-    if (user?.avatar && !user.avatar.includes("dicebear")) {
-      // Check if image loads
-      const img = new Image();
-      img.src = user.avatar;
-      img.onload = () => setIsAvatarBroken(false);
-      img.onerror = () => setIsAvatarBroken(true);
-    } else if (user?.avatar?.includes("dicebear")) {
+    if (!user?.avatar) {
       setIsAvatarBroken(true);
+      return;
     }
+
+    // Placeholder SVG is not a real photo
+    if (user.avatar.includes("/placeholder-avatar.svg")) {
+      setIsAvatarBroken(true);
+      return;
+    }
+
+    // Blob URLs (temporary preview) are valid
+    if (user.avatar.startsWith("blob:")) {
+      setIsAvatarBroken(false);
+      return;
+    }
+
+    // Convex storage URLs are valid
+    if (user.avatar.includes("convex.cloud") || user.avatar.includes("/api/storage/")) {
+      setIsAvatarBroken(false);
+      return;
+    }
+
+    // For other URLs, check if they actually load
+    const img = new Image();
+    img.src = user.avatar;
+    img.onload = () => setIsAvatarBroken(false);
+    img.onerror = () => setIsAvatarBroken(true);
   }, [user?.avatar]);
 
   const isAuthPage = pathname === "/onboarding" || pathname?.startsWith("/sign-in") || pathname?.startsWith("/sign-up");
@@ -234,11 +253,11 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             )}>
               {user?.avatar ? (
                 <img 
-                  src={user.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${user.name}`}
-                  alt={user.name || "Profile"} 
-                  className="w-full h-full object-cover"
+                  src={user.avatar || '/placeholder-avatar.svg'}
+                  alt={user.name}
+                  className="w-8 h-8 rounded-full object-cover bg-muted"
                   onError={(e) => {
-                    e.currentTarget.src = `https://api.dicebear.com/7.x/initials/svg?seed=${user.name || 'default'}`;
+                    e.currentTarget.src = '/placeholder-avatar.svg';
                   }}
                 />
               ) : (
@@ -283,7 +302,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       <DebugUserSwitcher />
 
       {/* Mandatory Profile Picture Warning */}
-      {user && isAvatarBroken && !pathname?.includes("/onboarding") && (
+      {!isLoading && user && isAvatarBroken && !pathname?.includes("/onboarding") && (
         <div className="fixed bottom-20 left-4 right-4 md:left-auto md:right-8 md:bottom-8 md:w-96 bg-destructive/90 backdrop-blur-md text-white p-4 rounded-2xl shadow-lg z-50 animate-in slide-in-from-bottom duration-500 border border-white/10">
           <div className="flex items-start gap-4">
             <div className="p-2 bg-white/10 rounded-full shrink-0">

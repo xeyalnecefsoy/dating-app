@@ -18,12 +18,25 @@ interface ConversationRowProps {
 
 export function ConversationRow({ participantId, currentUserId, isSelected, onSelect }: ConversationRowProps) {
   const { language } = useLanguage();
-  const participant = MOCK_USERS.find((u) => u.id === participantId);
+  // Try finding in static mocks first (for speed/legacy), then DB
+  let participant = MOCK_USERS.find((u) => u.id === participantId);
   const channelId = getChannelId(currentUserId, participantId);
   
   // Fetch real last message from Convex
   const lastMessage = useQuery(api.messages.last, { channelId });
   const presence = useQuery(api.presence.getStatus, { userId: participantId });
+  
+  // If not in static mocks, fetch from DB
+  const dbUser = useQuery(api.users.getUser, { clerkId: participantId });
+  
+  if (!participant && dbUser) {
+    participant = {
+      id: dbUser.clerkId || dbUser._id,
+      name: dbUser.name,
+      avatar: dbUser.avatar || "/placeholder-avatar.svg",
+      // ... map other fields if needed, but for row we only need name/avatar
+    } as any;
+  }
 
   if (!participant) return null;
 
@@ -33,6 +46,15 @@ export function ConversationRow({ participantId, currentUserId, isSelected, onSe
   
   // Clean up special message types for preview
   let isStoryReply = false;
+  let prefix = "";
+
+  if (lastMessage && displayMessage) {
+    const isMe = lastMessage.userId === currentUserId || lastMessage.userId === "current-user";
+    if (isMe) {
+        prefix = language === 'az' ? 'Siz: ' : 'You: ';
+    }
+  }
+
   if (displayMessage) {
     // Story replies
     const storyMatch = displayMessage.match(/^\[STORY:[^\]]+\]\s*(.*)/);
@@ -78,7 +100,10 @@ export function ConversationRow({ participantId, currentUserId, isSelected, onSe
             !displayMessage ? "text-muted-foreground italic opacity-70" : "text-muted-foreground"
           )}>
           {isStoryReply && <Camera className="w-3 h-3 shrink-0" />}
-          <span className="truncate">{displayMessage || placeholderText}</span>
+          <span className="truncate">
+            <span className="font-medium mr-1">{prefix}</span>
+            {displayMessage || placeholderText}
+          </span>
         </div>
       </div>
     </button>

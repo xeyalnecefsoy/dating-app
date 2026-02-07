@@ -5,6 +5,50 @@ import { v } from "convex/values";
 const STAFF_EMAILS = ["xeyalnecefsoy@gmail.com"];
 
 /**
+ * Generate a unique username from name
+ * Removes special characters, converts to lowercase, adds random suffix if needed
+ */
+async function generateUniqueUsername(ctx: any, name: string): Promise<string> {
+  // Normalize: remove special chars, convert to lowercase, replace spaces with underscores
+  let baseUsername = name
+    .toLowerCase()
+    .replace(/[əƏ]/g, 'e')
+    .replace(/[öÖ]/g, 'o')
+    .replace(/[üÜ]/g, 'u')
+    .replace(/[çÇ]/g, 'c')
+    .replace(/[şŞ]/g, 's')
+    .replace(/[ğĞ]/g, 'g')
+    .replace(/[ıİ]/g, 'i')
+    .replace(/[^a-z0-9_]/g, '')
+    .slice(0, 15); // Max 15 chars for base
+  
+  if (baseUsername.length < 3) {
+    baseUsername = "user";
+  }
+  
+  // Check if base username is available
+  let username = baseUsername;
+  let existing = await ctx.db
+    .query("users")
+    .withIndex("by_username", (q: any) => q.eq("username", username))
+    .first();
+  
+  // If taken, add random suffix
+  let attempts = 0;
+  while (existing && attempts < 10) {
+    const suffix = Math.floor(Math.random() * 9999).toString().padStart(4, '0');
+    username = `${baseUsername}${suffix}`;
+    existing = await ctx.db
+      .query("users")
+      .withIndex("by_username", (q: any) => q.eq("username", username))
+      .first();
+    attempts++;
+  }
+  
+  return username;
+}
+
+/**
  * Create or update a user during onboarding
  * Males go to waitlist, females are active immediately
  * Staff members bypass waitlist regardless of gender
@@ -16,6 +60,9 @@ export const createOrUpdateUser = mutation({
     name: v.string(),
     gender: v.optional(v.string()),
     age: v.optional(v.number()),
+    birthDay: v.optional(v.string()),
+    birthMonth: v.optional(v.string()),
+    birthYear: v.optional(v.string()),
     location: v.optional(v.string()),
     bio: v.optional(v.string()),
     values: v.optional(v.array(v.string())),
@@ -27,10 +74,26 @@ export const createOrUpdateUser = mutation({
   },
   handler: async (ctx, args) => {
     // Check if user already exists
-    const existingUser = await ctx.db
+    // Check if user already exists by Clerk ID
+    let existingUser = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
       .first();
+
+    // If not found by Clerk ID, check by Email (to prevent duplicates/merge accounts)
+    if (!existingUser && args.email) {
+      existingUser = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", args.email))
+        .first();
+      
+      // If we found a user by email but different Clerk ID, it means they logged in with a new method
+      // We should update the Clerk ID to the new one to "link" the account
+      if (existingUser) {
+        console.log(`Merging user ${existingUser._id} with new Clerk ID ${args.clerkId}`);
+        await ctx.db.patch(existingUser._id, { clerkId: args.clerkId });
+      }
+    }
 
     // Check if this is a staff member
     const isStaff = args.email && STAFF_EMAILS.includes(args.email.toLowerCase());
@@ -52,6 +115,12 @@ export const createOrUpdateUser = mutation({
     const role = isStaff ? "superadmin" : (existingRole || "user");
 
     if (existingUser) {
+      // Generate username if not exists
+      let username = existingUser.username;
+      if (!username) {
+        username = await generateUniqueUsername(ctx, args.name);
+      }
+      
       // Update existing user
       await ctx.db.patch(existingUser._id, {
         name: args.name,
@@ -60,6 +129,9 @@ export const createOrUpdateUser = mutation({
         email: args.email,
         gender: normalizedGender,
         age: args.age,
+        birthDay: args.birthDay,
+        birthMonth: args.birthMonth,
+        birthYear: args.birthYear,
         location: args.location,
         bio: args.bio,
         values: args.values,
@@ -71,16 +143,26 @@ export const createOrUpdateUser = mutation({
         // Only update status if not already set or if staff
         status: existingUser.status || status,
         role: role,
+        // Set username if not already set
+        ...(existingUser.username ? {} : { username, usernameChangedAt: Date.now() }),
       });
-      return { userId: existingUser._id, status: existingUser.status || status, isNew: false };
+      return { userId: existingUser._id, status: existingUser.status || status, isNew: false, username };
     } else {
+      // Generate username for new user
+      const username = await generateUniqueUsername(ctx, args.name);
+      
       // Create new user
       const userId = await ctx.db.insert("users", {
         clerkId: args.clerkId,
         name: args.name,
         email: args.email,
+        username: username,
+        usernameChangedAt: Date.now(),
         gender: normalizedGender,
         age: args.age,
+        birthDay: args.birthDay,
+        birthMonth: args.birthMonth,
+        birthYear: args.birthYear,
         location: args.location,
         bio: args.bio,
         values: args.values,
@@ -93,9 +175,44 @@ export const createOrUpdateUser = mutation({
         role: role,
         createdAt: Date.now(),
       });
-      return { userId, status, isNew: true };
+      return { userId, status, isNew: true, username };
     }
   },
+});
+
+export const resetSuperAdmin = mutation({
+  args: { email: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .first();
+
+    if (!user) return { success: false, message: "User not found" };
+
+    // Reset to Khayal's profile
+    await ctx.db.patch(user._id, {
+        name: "Xəyal",
+        gender: "male",
+        role: "superadmin",
+        avatar: "https://tremendous-partridge-845.convex.cloud/api/storage/dfb3e63e-35dc-4459-b19c-6997f7e49eb8", 
+        // Keep existing valid data or reset if needed
+    });
+    
+    // Check for duplicates
+    const duplicates = await ctx.db.query("users").collect();
+    const dupUsers = duplicates.filter(u => u.email === args.email && u._id !== user._id);
+    for (const d of dupUsers) {
+        await ctx.db.delete(d._id);
+    }
+    
+    // Also delete any user that has no email but might be the duplicate "Gözəl Anlar"
+    // ID: jd729b6xm76v62prs5yf3qk5n980j3a7
+    // We should probably just delete "Gözəl Anlar" by ID to be safe
+    // But let's rely on manual cleanup if needed.
+    
+    return { success: true, message: "Superadmin reset complete" };
+  }
 });
 
 /**
@@ -150,6 +267,23 @@ export const getActiveUsers = query({
     );
 
     return filteredUsers;
+  },
+});
+
+/**
+ * Get all active users for search (client-side filtering)
+ */
+export const searchUsers = query({
+  args: { 
+    currentUserId: v.optional(v.string())
+  },
+  handler: async (ctx, args) => {
+    const users = await ctx.db
+      .query("users")
+      .withIndex("by_status", (q) => q.eq("status", "active"))
+      .collect();
+
+    return users.filter(u => u.clerkId !== args.currentUserId);
   },
 });
 
@@ -325,5 +459,192 @@ export const backfillCreatedAt = internalMutation({
       }
     }
     return `Backfilled ${count} users.`;
+  },
+});
+
+
+
+export const fixAvatarUrls = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const users = await ctx.db.query("users").collect();
+    let count = 0;
+    const correctBase = "https://tremendous-partridge-845.convex.cloud";
+    
+    for (const u of users) {
+      if (u.avatar && u.avatar.startsWith("undefined/api/storage/")) {
+        const newAvatar = u.avatar.replace("undefined", correctBase);
+        await ctx.db.patch(u._id, { avatar: newAvatar });
+        count++;
+      }
+    }
+    return `Fixed ${count} avatar URLs.`;
+  },
+});
+
+/**
+ * Get multiple users by their IDs (Clerk IDs)
+ */
+export const getUsersByIds = query({
+  args: { ids: v.array(v.string()) },
+  handler: async (ctx, args) => {
+    const users = [];
+    for (const id of args.ids) {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerkId", id))
+        .first();
+      if (user) {
+        users.push(user);
+      }
+    }
+    return users;
+  },
+});
+
+// ==================== USERNAME SYSTEM ====================
+
+const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,20}$/;
+const USERNAME_CHANGE_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const PREMIUM_COOLDOWN_MS = 15 * 24 * 60 * 60 * 1000; // 15 days for premium
+
+/**
+ * Get user by username
+ */
+export const getUserByUsername = query({
+  args: { username: v.string() },
+  handler: async (ctx, args) => {
+    const normalizedUsername = args.username.toLowerCase();
+    return await ctx.db
+      .query("users")
+      .withIndex("by_username", (q) => q.eq("username", normalizedUsername))
+      .first();
+  },
+});
+
+/**
+ * Check if username is available
+ */
+export const checkUsernameAvailable = query({
+  args: { username: v.string() },
+  handler: async (ctx, args) => {
+    const normalizedUsername = args.username.toLowerCase();
+    
+    // Validate format
+    if (!USERNAME_REGEX.test(args.username)) {
+      return { 
+        available: false, 
+        error: "Username 3-20 simvol olmalı, yalnız hərf, rəqəm və alt xətt (_) icazəlidir" 
+      };
+    }
+    
+    // Check reserved usernames
+    const reserved = ["admin", "superadmin", "moderator", "support", "help", "danyeri", "system"];
+    if (reserved.includes(normalizedUsername)) {
+      return { available: false, error: "Bu username qorunur" };
+    }
+    
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_username", (q) => q.eq("username", normalizedUsername))
+      .first();
+      
+    return { available: !existing, error: existing ? "Bu username artıq istifadə olunur" : null };
+  },
+});
+
+/**
+ * Set or update username
+ */
+export const setUsername = mutation({
+  args: { 
+    clerkId: v.string(),
+    username: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const normalizedUsername = args.username.toLowerCase();
+    
+    // Validate format
+    if (!USERNAME_REGEX.test(args.username)) {
+      return { 
+        success: false, 
+        error: "Username 3-20 simvol olmalı, yalnız hərf, rəqəm və alt xətt (_) icazəlidir" 
+      };
+    }
+    
+    // Check reserved
+    const reserved = ["admin", "superadmin", "moderator", "support", "help", "danyeri", "system"];
+    if (reserved.includes(normalizedUsername)) {
+      return { success: false, error: "Bu username qorunur" };
+    }
+    
+    // Get current user
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+      
+    if (!user) {
+      return { success: false, error: "İstifadəçi tapılmadı" };
+    }
+    
+    // Check cooldown (skip for staff)
+    const isStaff = user.role === "admin" || user.role === "superadmin" || user.role === "moderator";
+    const isPremium = (user as any).isPremium === true;
+    
+    if (!isStaff && user.usernameChangedAt) {
+      const cooldown = isPremium ? PREMIUM_COOLDOWN_MS : USERNAME_CHANGE_COOLDOWN_MS;
+      const timeSinceChange = Date.now() - user.usernameChangedAt;
+      
+      if (timeSinceChange < cooldown) {
+        const daysLeft = Math.ceil((cooldown - timeSinceChange) / (24 * 60 * 60 * 1000));
+        return { 
+          success: false, 
+          error: `Username dəyişmək üçün ${daysLeft} gün gözləməlisiniz` 
+        };
+      }
+    }
+    
+    // Check availability
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_username", (q) => q.eq("username", normalizedUsername))
+      .first();
+      
+    if (existing && existing._id !== user._id) {
+      return { success: false, error: "Bu username artıq istifadə olunur" };
+    }
+    
+    // Update username
+    await ctx.db.patch(user._id, {
+      username: normalizedUsername,
+      usernameChangedAt: Date.now(),
+    });
+    
+    return { success: true, username: normalizedUsername };
+  },
+});
+
+/**
+ * Backfill usernames for all existing users who don't have one
+ */
+export const backfillUsernames = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const users = await ctx.db.query("users").collect();
+    let count = 0;
+    
+    for (const u of users) {
+      if (!u.username && u.name) {
+        const username = await generateUniqueUsername(ctx, u.name);
+        await ctx.db.patch(u._id, { 
+          username, 
+          usernameChangedAt: Date.now() 
+        });
+        count++;
+      }
+    }
+    
+    return `Generated usernames for ${count} users.`;
   },
 });

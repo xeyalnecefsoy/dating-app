@@ -3,13 +3,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Heart, User, Users, Calendar, Search, ChevronDown, Camera, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Heart, User, Users, Calendar, Search, ChevronDown, Camera, Loader2, AlertCircle, CheckCircle2, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useUser as useClerkUser } from "@clerk/nextjs";
+import { useUser as useClerkUser, useClerk } from "@clerk/nextjs";
 import { getAvatarByGender, translateValue, translateInterest, translateLoveLanguage, translateStyle } from "@/lib/mock-users";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -27,6 +27,7 @@ export default function OnboardingPage() {
   const { completeOnboarding } = useUser();
   const { language } = useLanguage();
   const { user: clerkUser } = useClerkUser();
+  const { signOut } = useClerk();
   
   const [step, setStep] = useState(1);
   const [searchLocation, setSearchLocation] = useState("");
@@ -58,6 +59,11 @@ export default function OnboardingPage() {
     message: string;
   }>({ isValidating: false, isValid: null, message: "" });
 
+  const handleLogout = async () => {
+    await signOut();
+    window.location.href = "/";
+  };
+
   // Persist step and formData to sessionStorage to survive camera reload
   useEffect(() => {
     const savedStep = sessionStorage.getItem('onboarding-step');
@@ -83,21 +89,48 @@ export default function OnboardingPage() {
 
   // Save formData changes (without File object)
   useEffect(() => {
-    const toSave = { ...formData, profilePhoto: null };
+    // Exclude both File object and base64 preview string to avoid QuotaExceededError
+    const { profilePhoto, profilePhotoPreview, ...toSave } = formData;
     sessionStorage.setItem('onboarding-formData', JSON.stringify(toSave));
   }, [formData]);
 
-  // Pre-fill name from Clerk user (Google account)
+  // Pre-fill form with existing user data (for editing profile)
+  const { user: convexUser, isLoading: isUserLoading } = useUser();
+
   useEffect(() => {
-    if (clerkUser) {
-      if (!formData.firstName && clerkUser.firstName) {
+    // Only pre-fill if we have a user and form is relatively empty (to avoid overwriting work in progress if refreshed)
+    // We check if formData.firstName is empty as a proxy for "not yet filled"
+    if (convexUser && !formData.firstName) {
+      const [first, ...last] = (convexUser.name || "").split(" ");
+      
+      setFormData(prev => ({
+        ...prev,
+        firstName: first || "",
+        lastName: last.join(" ") || "",
+        gender: (convexUser.gender as "male" | "female") || "",
+        birthDay: convexUser.birthDay || "",
+        birthMonth: convexUser.birthMonth || "",
+        birthYear: convexUser.birthYear || "",
+        location: convexUser.location || "",
+        bio: convexUser.bio || "",
+        values: convexUser.values || [],
+        loveLanguage: convexUser.loveLanguage || "",
+        interests: convexUser.interests || [],
+        communicationStyle: (convexUser.communicationStyle as any) || "",
+        profilePhotoPreview: convexUser.avatar || "",
+        // We can't recover exact birth date from age, so we leave it blank for security/accuracy
+        // or the user has to re-enter it.
+      }));
+    } else if (clerkUser && !formData.firstName) {
+      // Fallback to Clerk data if no Convex user yet
+      if (clerkUser.firstName) {
         setFormData(prev => ({ ...prev, firstName: clerkUser.firstName || "" }));
       }
-      if (!formData.lastName && clerkUser.lastName) {
+      if (clerkUser.lastName) {
         setFormData(prev => ({ ...prev, lastName: clerkUser.lastName || "" }));
       }
     }
-  }, [clerkUser, formData.firstName, formData.lastName]);
+  }, [convexUser, clerkUser, formData.firstName]);
 
   const totalSteps = 6;
 
@@ -223,7 +256,9 @@ export default function OnboardingPage() {
           const { storageId } = await result.json();
           
           // 3. Construct URL
-          avatarUrl = `${process.env.NEXT_PUBLIC_CONVEX_URL}/api/storage/${storageId}`;
+          const baseUrl = process.env.NEXT_PUBLIC_CONVEX_URL || "https://tremendous-partridge-845.convex.cloud";
+          avatarUrl = `${baseUrl}/api/storage/${storageId}`;
+          console.log("Constructed Avatar URL:", avatarUrl);
         } catch (error) {
           console.error("Failed to upload photo:", error);
           // Fallback to existing logic if upload fails (though this might still fail if too large, but at least we try)
@@ -235,6 +270,9 @@ export default function OnboardingPage() {
       await completeOnboarding({
         name: fullName,
         age: calculateAge(),
+        birthDay: formData.birthDay,
+        birthMonth: formData.birthMonth,
+        birthYear: formData.birthYear,
         gender: gender,
         lookingFor: gender === "male" ? "female" : "male",
         location: formData.location,
@@ -293,7 +331,15 @@ export default function OnboardingPage() {
             <ArrowLeft className="w-5 h-5" />
           </Button>
         ) : (
-          <div className="w-10" />
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleLogout} 
+            className="rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+            title={language === 'az' ? 'Çıxış' : 'Log out'}
+          >
+            <LogOut className="w-5 h-5" />
+          </Button>
         )}
         
         <div className="flex items-center gap-2">

@@ -7,7 +7,8 @@ import { ArrowLeft, MessageCircle, MoreVertical, Heart, MapPin, BadgeCheck } fro
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { MOCK_USERS } from "@/lib/mock-users";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
@@ -30,7 +31,23 @@ export default function MatchesPage() {
     return null;
   }
 
-  const matchedUsers = MOCK_USERS.filter(u => user?.matches.includes(u.id));
+  const matchIds = user?.matches || [];
+  const dbMatches = useQuery(api.users.getUsersByIds, { ids: matchIds });
+
+  const matchedUsers = React.useMemo(() => {
+    if (!dbMatches) return [];
+    
+    return dbMatches.map((u: any) => ({
+      id: u.clerkId || u._id,
+      name: u.name,
+      age: u.age || 25,
+      gender: u.gender,
+      location: u.location || "Bakı",
+      avatar: u.avatar || '/placeholder-avatar.svg',
+      isVerified: u.role === "admin" || u.role === "superadmin" || u.isVerified,
+      isPremium: u.isPremium || false,
+    }));
+  }, [dbMatches]);
 
   return (
     <div className="min-h-screen bg-background pb-24">

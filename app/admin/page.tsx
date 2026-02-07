@@ -492,9 +492,12 @@ export default function AdminPage() {
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-3">
                               <img
-                                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}`}
+                                src={user.avatar || '/placeholder-avatar.svg'}
                                 alt={user.name}
-                                className="w-10 h-10 rounded-full object-cover"
+                                className="w-10 h-10 rounded-full object-cover bg-muted"
+                                onError={(e) => {
+                                  e.currentTarget.src = '/placeholder-avatar.svg';
+                                }}
                               />
                               <div>
                                 <p className="font-medium flex items-center gap-2">
@@ -502,7 +505,7 @@ export default function AdminPage() {
                                   {user.role === 'admin' && <ShieldCheck className="w-4 h-4 text-blue-500" />}
                                   {user.role === 'superadmin' && <Crown className="w-4 h-4 text-yellow-500" />}
                                 </p>
-                                <p className="text-xs text-muted-foreground">{user.email || "No email"}</p>
+                                <p className="text-xs text-muted-foreground">{user.email || user.clerkId || "No email"}</p>
                               </div>
                             </div>
                           </td>
@@ -533,6 +536,7 @@ export default function AdminPage() {
                                 size="icon"
                                 className="h-8 w-8"
                                 onClick={() => setSelectedUser(user)}
+                                title="İstifadəçi məlumatlarını gör"
                               >
                                 <Eye className="w-4 h-4" />
                               </Button>
@@ -541,6 +545,7 @@ export default function AdminPage() {
                                 size="icon"
                                 className="h-8 w-8 text-red-500 hover:text-red-600"
                                 onClick={() => handleBanUser(user._id)}
+                                title={user.status === 'banned' ? 'İstifadəçi artıq bloklanıb' : 'İstifadəçini blokla'}
                               >
                                 <Ban className="w-4 h-4" />
                               </Button>
@@ -664,8 +669,8 @@ export default function AdminPage() {
                     >
                       <div className="aspect-square bg-muted relative">
                         <img
-                          src={item.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.name}`}
-                          alt={item.name}
+                          src={item.avatar || '/placeholder-avatar.svg'}
+                          alt={item.userName}
                           className="w-full h-full object-cover"
                         />
                         <div className="absolute top-3 right-3">
@@ -877,7 +882,7 @@ export default function AdminPage() {
             >
               <div className="relative h-32 bg-gradient-to-br from-pink-500 to-purple-600">
                 <img
-                  src={selectedUser.avatar || selectedUser.image || `https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedUser.name}`}
+                  src={selectedUser.avatar || selectedUser.image || '/placeholder-avatar.svg'}
                   alt={selectedUser.name}
                   className="absolute -bottom-12 left-6 w-24 h-24 rounded-2xl border-4 border-background object-cover"
                 />

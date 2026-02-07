@@ -7,7 +7,8 @@ import { ArrowLeft, Heart, MapPin, BadgeCheck, Crown, Sparkles, RotateCcw } from
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { MOCK_USERS } from "@/lib/mock-users";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { motion } from "framer-motion";
 
 export default function LikesPage() {
@@ -31,7 +32,24 @@ export default function LikesPage() {
   }
 
   // Get profiles that user has liked
-  const likedUsers = MOCK_USERS.filter(u => user?.likes.includes(u.id));
+  // Get profiles that user has liked
+  const likeIds = user?.likes || [];
+  const dbLikes = useQuery(api.users.getUsersByIds, { ids: likeIds });
+
+  const likedUsers = React.useMemo(() => {
+    if (!dbLikes) return [];
+    
+    return dbLikes.map((u: any) => ({
+      id: u.clerkId || u._id,
+      name: u.name,
+      age: u.age || 25,
+      gender: u.gender,
+      location: u.location || "Bakı",
+      avatar: u.avatar || '/placeholder-avatar.svg',
+      isVerified: u.role === "admin" || u.role === "superadmin" || u.isVerified,
+      isPremium: u.isPremium || false,
+    }));
+  }, [dbLikes]);
 
   // Check if they've matched
   const isMatched = (userId: string) => user?.matches.includes(userId);
@@ -85,7 +103,7 @@ export default function LikesPage() {
                   }`}
                 >
                   {/* Avatar */}
-                  <Link href={`/user/${likedUser.id}`} className="relative shrink-0">
+                  <Link href={`/user/${(likedUser as any).username || likedUser.id}`} className="relative shrink-0">
                     <img 
                       src={likedUser.avatar} 
                       alt={likedUser.name}
@@ -126,7 +144,7 @@ export default function LikesPage() {
                   </div>
 
                   {/* Action */}
-                  <Link href={matched ? `/messages?userId=${likedUser.id}` : `/user/${likedUser.id}`}>
+                  <Link href={matched ? `/messages?userId=${likedUser.id}` : `/user/${(likedUser as any).username || likedUser.id}`}>
                     <Button 
                       size="sm" 
                       variant={matched ? "default" : "outline"}

@@ -49,10 +49,6 @@ const nextConfig: NextConfig = {
           {
              key: 'Permissions-Policy',
              value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()' // Limit browser features
-          },
-          {
-            key: 'X-Robots-Tag',
-            value: 'index, follow'
           }
         ],
       },

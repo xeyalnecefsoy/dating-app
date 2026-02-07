@@ -2,6 +2,9 @@ export type UserProfile = {
   id: string;
   name: string;
   age: number;
+  birthDay?: string;
+  birthMonth?: string;
+  birthYear?: string;
   gender: "male" | "female";
   lookingFor: "male" | "female";
   location: string;

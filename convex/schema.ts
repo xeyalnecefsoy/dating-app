@@ -6,6 +6,8 @@ export default defineSchema({
     clerkId: v.optional(v.string()), // Clerk user ID for auth
     name: v.string(),
     email: v.optional(v.string()),
+    username: v.optional(v.string()), // Unique username for profile URLs
+    usernameChangedAt: v.optional(v.number()), // Last username change timestamp
     image: v.optional(v.string()),
     bio: v.optional(v.string()),
     interests: v.optional(v.array(v.string())),
@@ -15,6 +17,10 @@ export default defineSchema({
     createdAt: v.optional(v.number()),
     // Extended profile fields
     age: v.optional(v.number()),
+    // Store birth components for editing accuracy
+    birthDay: v.optional(v.string()), 
+    birthMonth: v.optional(v.string()),
+    birthYear: v.optional(v.string()),
     location: v.optional(v.string()),
     values: v.optional(v.array(v.string())),
     loveLanguage: v.optional(v.string()),
@@ -23,6 +29,7 @@ export default defineSchema({
     lookingFor: v.optional(v.string()), // 'male' or 'female'
   }).index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"])
+    .index("by_username", ["username"])
     .index("by_status", ["status"])
     .index("by_gender", ["gender"]),
   

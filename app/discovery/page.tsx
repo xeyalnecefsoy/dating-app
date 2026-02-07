@@ -8,18 +8,20 @@ import { ArrowLeft, X, Heart, Star,
   MapPin, Sparkles, SlidersHorizontal, RotateCcw, Info, Search, CheckCircle2, Crown, MessageCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { MOCK_USERS, UserProfile, translateValue, translateLoveLanguage, translateStyle, translateInterest } from "@/lib/mock-users";
+import { UserProfile, translateValue, translateLoveLanguage, translateStyle, translateInterest } from "@/lib/mock-users";
 import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { calculateCompatibility } from "@/lib/compatibility";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { useAuth } from "@clerk/nextjs";
 
 
 export default function DiscoveryPage() {
   const router = useRouter();
   const { user: currentUser, isOnboarded, likeUser, matchUser } = useUser();
   const { t, language } = useLanguage();
+  const { isSignedIn, getToken } = useAuth();
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(null);
@@ -105,8 +107,13 @@ export default function DiscoveryPage() {
       currentUserId: currentUser.id 
     } : "skip"
   );
+  
+  const isLoading = convexUsers === undefined;
 
   const availableUsers = useMemo(() => {
+    // If loading, don't return anything yet to prevent flash of mock content
+    if (isLoading) return [];
+
     // Convert Convex users to UserProfile format
     const realUsers: UserProfile[] = (convexUsers || []).map((u: any) => ({
       id: u.clerkId || u._id,
@@ -115,28 +122,26 @@ export default function DiscoveryPage() {
       gender: u.gender as "male" | "female",
       lookingFor: u.lookingFor as "male" | "female",
       location: u.location || "Bakı",
-      bio: u.bio || "",
+      bio: u.bio ? { en: u.bio, az: u.bio } : { en: "", az: "" },
       values: u.values || [],
       loveLanguage: u.loveLanguage || "Quality Time",
       interests: u.interests || [],
       communicationStyle: (u.communicationStyle || "Empathetic") as "Direct" | "Empathetic" | "Analytical" | "Playful",
-      avatar: u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.name}`,
+      avatar: u.avatar || '/placeholder-avatar.svg',
       badges: [],
-      isVerified: true,
-      isPremium: false,
+      isVerified: u.role === "admin" || u.role === "superadmin" || u.isVerified,
+      isPremium: u.isPremium || false,
       iceBreaker: { en: "", az: "" },
     }));
 
-    // Combine real users first, then mock users as fallback
-    const allPotentialUsers = [...realUsers, ...MOCK_USERS];
-    
-    // Remove duplicates by id
-    const seen = new Set<string>();
-    const uniqueUsers = allPotentialUsers.filter(u => {
-      if (seen.has(u.id)) return false;
-      seen.add(u.id);
-      return true;
-    });
+    // Use shuffled real users
+    let uniqueUsers = [...realUsers];
+
+    // Shuffle users (Fisher-Yates) for random order
+    for (let i = uniqueUsers.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [uniqueUsers[i], uniqueUsers[j]] = [uniqueUsers[j], uniqueUsers[i]];
+    }
 
     return uniqueUsers.filter(u => {
       if (currentUser?.likes.includes(u.id)) return false;
@@ -147,7 +152,7 @@ export default function DiscoveryPage() {
       return true;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, isOnboarded, currentUser?.lookingFor, convexUsers]);
+  }, [filters, isOnboarded, currentUser?.lookingFor, convexUsers, isLoading]);
 
   const currentProfile = availableUsers[currentIndex];
 
@@ -178,24 +183,61 @@ export default function DiscoveryPage() {
     if (dir === "right") {
       likeUser(currentProfile.id); // Local state update
       
-      // Try Convex for mutual match, with fallback
-      let matchResult = false;
-      try {
-        const result = await likeMutation({
-          likerId: currentUser.id,
-          likedId: currentProfile.id,
-        });
-        matchResult = result.isMatch;
-      } catch (error) {
-        console.warn("Convex like failed, using random match:", error);
-        // Fallback: 30% match chance when Convex unavailable
-        matchResult = Math.random() > 0.7;
-      }
-      
-      if (matchResult) {
-        matchUser(currentProfile.id);
-        setMatchedProfile(currentProfile);
-        setShowMatchModal(true);
+      // Verify we have a valid Clerk token before calling Convex
+      if (isSignedIn) {
+        try {
+          // Wait for token to ensure auth is ready (use default template)
+          const token = await getToken();
+          
+          if (!token) {
+            console.warn("No Clerk token available, using local state only");
+            // Fallback: random match when token not available
+            const matchResult = Math.random() > 0.7;
+            if (matchResult) {
+              matchUser(currentProfile.id);
+              setMatchedProfile(currentProfile);
+              setShowMatchModal(true);
+            }
+          } else {
+            // Token exists, safe to call Convex
+            let matchResult = false;
+            try {
+              const result = await likeMutation({
+                likerId: currentUser.id,
+                likedId: currentProfile.id,
+              });
+              matchResult = result.isMatch;
+            } catch (error) {
+              console.warn("Convex like failed:", error);
+              // Fallback: 30% match chance when Convex fails
+              matchResult = Math.random() > 0.7;
+            }
+            
+            if (matchResult) {
+              matchUser(currentProfile.id);
+              setMatchedProfile(currentProfile);
+              setShowMatchModal(true);
+            }
+          }
+        } catch (tokenError) {
+          console.error("Token fetch error:", tokenError);
+          // Fallback: random match on token error
+          const matchResult = Math.random() > 0.7;
+          if (matchResult) {
+            matchUser(currentProfile.id);
+            setMatchedProfile(currentProfile);
+            setShowMatchModal(true);
+          }
+        }
+      } else {
+        console.warn("User not authenticated, using local state only");
+        // Fallback: random match when not authenticated
+        const matchResult = Math.random() > 0.7;
+        if (matchResult) {
+          matchUser(currentProfile.id);
+          setMatchedProfile(currentProfile);
+          setShowMatchModal(true);
+        }
       }
     }
 
@@ -221,6 +263,21 @@ export default function DiscoveryPage() {
       setDragX(0);
     }
   };
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="h-screen bg-background flex flex-col items-center justify-center w-full">
+        <Header onFilterClick={() => {}} t={t} />
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+          <p className="text-muted-foreground animate-pulse">
+            {language === 'az' ? 'Axtarılır...' : 'Searching...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // No more profiles
   if (!currentProfile) {
@@ -361,7 +418,7 @@ export default function DiscoveryPage() {
                     <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5 text-white z-20">
                       {/* Clickable name/location area - taps navigate to profile */}
                       <Link
-                        href={`/user/${currentProfile.id}`}
+                        href={`/user/${(currentProfile as any).username || currentProfile.id}`}
                         onClick={(e) => e.stopPropagation()}
                         className="block active:opacity-80 transition-opacity"
                       >
@@ -410,7 +467,7 @@ export default function DiscoveryPage() {
                       </div>
                       
                       <Link
-                        href={`/user/${currentProfile.id}`}
+                        href={`/user/${(currentProfile as any).username || currentProfile.id}`}
                         onClick={(e) => e.stopPropagation()}
                         className="absolute bottom-3 sm:bottom-4 right-3 sm:right-4 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center border border-white/20 hover:bg-white/40 transition-colors"
                       >

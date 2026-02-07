@@ -232,4 +232,37 @@ Users could not see each other's messages because they were writing to different
 *   **React Hook Ordering:**
     *   **Remider:** NEVER place `useState` or `useEffect` after a conditional `return` statement. This causes "Rendered fewer hooks than expected" runtime errors. Always keep hooks at the very top level.
 
+## 17. Authentication & Redirection Fixes (Feb 3)
+### Redirect Loop Fix
+*   **Problem:** Users getting stuck in a redirect loop to `/onboarding` after logging out or deleting account.
+*   **Cause:** Client-side state (localStorage/Context) persistence and `router.replace` softness allowed `isAuthenticated` checks to pass momentarily with stale data.
+*   **Solution:** Changed Logout and Delete Account actions to use **Hard Redirect** (`window.location.href = '/'`). This forces a full page reload, ensuring memory and state are completely flushed.
+
+### Onboarding Escape Hatch
+*   **Problem:** Users stuck in the Onboarding flow (due to state mismatch) had no way to log out, as the settings menu is not accessible.
+*   **Solution:** Added a **"Log Out" button** to the top-left of the first Onboarding step. This allows users to force-quit the session even if the app thinks they need to onboard.
+
+## 18. Profile Photo Upload & Storage (Feb 3)
+### Convex Storage Integration
+*   **Problem:** Profile photos uploaded during onboarding were not persisting; users saw placeholder avatars.
+*   **Root Cause:** 
+    1. `convex/http.ts` was not casting `storageId` to proper `Id<"_storage">` type
+    2. Profile page had no upload functionality after onboarding
+    3. `NEXT_PUBLIC_CONVEX_URL` was not being accessed correctly in browser
+*   **Solution:**
+    1. Fixed `http.ts` to cast storage ID and added CORS headers
+    2. Added full Convex storage upload to Profile page with mutations
+    3. Added fallback to hardcoded Convex URL when env var unavailable
+
+### UX Improvements
+*   **Instant Preview:** Use `URL.createObjectURL()` to show image immediately when selected (before upload)
+*   **Toast Notifications:** Green toast for success ("Şəkil uğurla yükləndi!"), red for errors
+*   **Loading Indicator:** Spinner on camera button during upload, button disabled
+*   **Smart Avatar Validation:** `MainLayout.tsx` now correctly identifies:
+    - `blob:` URLs as valid (temporary preview)
+    - Convex storage URLs as valid
+    - Dicebear URLs as placeholders (triggers warning)
+*   **Warning Auto-Hide:** "Profil şəkli mütləqdir" warning disappears when real photo is uploaded
+
+
 

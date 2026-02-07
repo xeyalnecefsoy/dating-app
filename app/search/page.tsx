@@ -6,15 +6,23 @@ import {
   ArrowLeft, Search as SearchIcon, MapPin, Heart, X, SlidersHorizontal
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { MOCK_USERS, UserProfile, translateValue, translateInterest, translateStyle } from "@/lib/mock-users";
+import { UserProfile, translateValue, translateInterest, translateStyle } from "@/lib/mock-users";
 import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { motion, AnimatePresence } from "framer-motion";
 
-export default function SearchPage() {
+  import { useQuery } from "convex/react";
+  import { api } from "@/convex/_generated/api";
+
+  export default function SearchPage() {
   const { user: currentUser, isOnboarded, likeUser } = useUser();
   const { t, language } = useLanguage();
   
+  // Fetch real users from DB
+  const dbUsers = useQuery(api.users.searchUsers, { 
+    currentUserId: currentUser?.clerkId 
+  });
+
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({ 
@@ -24,8 +32,39 @@ export default function SearchPage() {
     communicationStyle: "all"
   });
 
+  const allUsers = useMemo(() => {
+    // Map DB users to UserProfile shape
+    const realProfiles: UserProfile[] = (dbUsers || []).map((u: any) => ({
+      id: u.clerkId || u._id, // Use clerkId if available for consistency
+      name: u.name || "User",
+      age: u.age || 25,
+      gender: u.gender as "male" | "female" || "male",
+      lookingFor: u.lookingFor as "male" | "female" || "female",
+      location: u.location || "Bakı",
+      bio: { 
+        en: u.bio || "No bio yet.", 
+        az: u.bio || "Hələ bioqrafiya yoxdur." 
+      },
+      values: u.values || [],
+      loveLanguage: u.loveLanguage || "Quality Time",
+      interests: u.interests || [],
+      communicationStyle: (u.communicationStyle as any) || "Direct",
+      iceBreaker: {
+        en: "Say hello!",
+        az: "Salam de!"
+      },
+      avatar: u.avatar || "/placeholder-avatar.svg",
+      gallery: u.gallery || [],
+      isVerified: u.role === "admin" || u.role === "superadmin",
+      isPremium: u.isPremium,
+    }));
+
+    // Use only real users
+    return realProfiles;
+  }, [dbUsers]);
+
   const availableUsers = useMemo(() => {
-    return MOCK_USERS.filter(u => {
+    return allUsers.filter(u => {
       // Basic filtering
       if (currentUser && isOnboarded && u.gender !== currentUser.lookingFor) return false;
       if (u.age < filters.minAge || u.age > filters.maxAge) return false;
@@ -34,7 +73,7 @@ export default function SearchPage() {
       if (searchQuery && !u.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
       return true;
     });
-  }, [currentUser?.lookingFor, isOnboarded, filters, searchQuery]);
+  }, [currentUser?.lookingFor, isOnboarded, filters, searchQuery, allUsers]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col w-full items-center">
@@ -116,7 +155,7 @@ export default function SearchPage() {
                   <Heart className={`w-4 h-4 ${currentUser?.likes.includes(u.id) ? "fill-white" : "text-white"}`} />
                 </button>
                 
-                <Link href={`/user/${u.id}`} className="absolute inset-0 z-10" />
+                <Link href={`/user/${(u as any).username || u.id}`} className="absolute inset-0 z-10" />
               </motion.div>
             ))}
           </div>

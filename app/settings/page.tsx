@@ -13,7 +13,9 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUser } from "@/contexts/UserContext";
 import { useClerk, useAuth } from "@clerk/nextjs";
+import { useToast } from "@/components/ui/toast";
 import { motion, AnimatePresence } from "framer-motion";
+import DevPanel from "@/components/DevPanel";
 
 type NotificationSettings = {
   pushEnabled: boolean;
@@ -28,6 +30,7 @@ export default function SettingsPage() {
   const { logout: logoutUser, user, isOnboarded } = useUser();
   const { signOut } = useClerk();
   const { isSignedIn } = useAuth();
+  const { showToast } = useToast();
   
   const [notifications, setNotifications] = useState<NotificationSettings>({
     pushEnabled: true,
@@ -61,29 +64,32 @@ export default function SettingsPage() {
 
   const handleLogout = async () => {
     try {
-      // 1. Sign out from Clerk first (this updates isAuthenticated -> false)
-      if (isSignedIn) {
-        await signOut();
-      }
-      
-      // 2. Clear local state (this updates isOnboarded -> false)
+      // 1. Clear local state first
       logoutUser();
       
-      // 3. specific Hard Redirect to home to ensure clean state
-      window.location.href = "/";
+      // 2. Clear all session/local storage
+      sessionStorage.removeItem('onboarding-step');
+      sessionStorage.removeItem('onboarding-formData');
+      sessionStorage.clear();
+      
+      // 3. Sign out from Clerk with built-in redirect
+      // This prevents race conditions and flashing between pages
+      if (isSignedIn) {
+        await signOut({ redirectUrl: '/' });
+        return; // signOut handles redirect
+      }
+      
+      // Fallback if not signed in
+      window.location.replace('/');
     } catch (error) {
       console.error("Logout error:", error);
-      window.location.href = "/";
+      window.location.replace('/');
     }
   };
 
   const handleDeleteAccount = async () => {
-    // Navigate first to avoid onboarding flash
-    router.push("/");
-    
-    // Then clear all data asynchronously
-    setTimeout(async () => {
-      // Clear all local storage data
+    try {
+      // 1. Clear all local storage data
       localStorage.removeItem("danyeri-notifications");
       localStorage.removeItem("danyeri-theme");
       localStorage.removeItem("danyeri-language");
@@ -96,14 +102,24 @@ export default function SettingsPage() {
         }
       });
       
-      // Clear user from context
+      // 2. Clear all sessionStorage
+      sessionStorage.clear();
+      
+      // 3. Clear user from context
       logoutUser();
       
-      // Sign out from Clerk
+      // 4. Sign out from Clerk with built-in redirect
       if (isSignedIn) {
-        await signOut();
+        await signOut({ redirectUrl: '/' });
+        return; // signOut handles redirect
       }
-    }, 100);
+      
+      // Fallback
+      window.location.replace('/');
+    } catch (error) {
+      console.error("Delete account error:", error);
+      window.location.replace('/');
+    }
   };
 
   const texts = {
@@ -161,7 +177,7 @@ export default function SettingsPage() {
           <section>
             <h2 className="text-sm text-muted-foreground mb-3 px-1">{texts.account}</h2>
             <div className="bg-card rounded-2xl border border-border overflow-hidden">
-              <Link href="/onboarding">
+              <Link href="/profile">
                 <div className="flex items-center justify-between p-4 active:bg-muted">
                   <div className="flex items-center gap-3">
                     <User className="w-5 h-5 text-muted-foreground" />
@@ -268,7 +284,10 @@ export default function SettingsPage() {
         <section>
           <h2 className="text-sm text-muted-foreground mb-3 px-1">{texts.support}</h2>
           <div className="bg-card rounded-2xl border border-border overflow-hidden">
-            <button className="w-full flex items-center justify-between p-4 active:bg-muted">
+            <button 
+              onClick={() => showToast({ type: "info", title: texts.saved, message: "Tezliklə!" })}
+              className="w-full flex items-center justify-between p-4 active:bg-muted"
+            >
               <div className="flex items-center gap-3">
                 <Shield className="w-5 h-5 text-muted-foreground" />
                 <span className="text-foreground">{texts.privacy}</span>
@@ -276,7 +295,10 @@ export default function SettingsPage() {
               <ChevronRight className="w-5 h-5 text-muted-foreground" />
             </button>
             <div className="h-px bg-border mx-4" />
-            <button className="w-full flex items-center justify-between p-4 active:bg-muted">
+            <button 
+              onClick={() => showToast({ type: "info", title: texts.saved, message: "Tezliklə!" })}
+              className="w-full flex items-center justify-between p-4 active:bg-muted"
+            >
               <div className="flex items-center gap-3">
                 <HelpCircle className="w-5 h-5 text-muted-foreground" />
                 <span className="text-foreground">{texts.help}</span>
@@ -310,6 +332,13 @@ export default function SettingsPage() {
                 </div>
               </button>
             </div>
+          </section>
+        )}
+
+        {/* Developer Panel */}
+        {isOnboarded && (
+          <section>
+             <DevPanel />
           </section>
         )}
 

@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { 
   ArrowLeft, Settings, Edit2, Heart, MessageCircle,
-  Award, Flame, MapPin, ChevronRight, Camera, Crown, Shield, CheckCircle2
+  Award, Flame, MapPin, ChevronRight, Camera, Crown, Shield, CheckCircle2, Loader2, X, Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/contexts/UserContext";
@@ -20,6 +20,8 @@ import {
   LOVE_LANGUAGES, 
   COMM_STYLES 
 } from "@/lib/constants";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -30,13 +32,39 @@ export default function ProfilePage() {
   const [bioText, setBioText] = React.useState("");
   const [isEditingDetails, setIsEditingDetails] = React.useState(false);
   const [isEditingInterests, setIsEditingInterests] = React.useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [uploadToast, setUploadToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   
   const [tempValues, setTempValues] = React.useState<string[]>([]);
   const [tempLoveLanguage, setTempLoveLanguage] = React.useState("");
   const [tempCommStyle, setTempCommStyle] = React.useState<any>("");
   const [tempInterests, setTempInterests] = React.useState<string[]>([]);
+  
+  // Header Edit State
+  const [isEditingHeader, setIsEditingHeader] = useState(false);
+  const [tempName, setTempName] = useState("");
+  const [tempLocation, setTempLocation] = useState("");
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  
+  // Track latest user value to avoid stale closure in async operations
+  const userRef = React.useRef(user);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+  
+  // Convex mutation for file upload
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const getUrlFromStorageId = useMutation(api.files.getUrlFromStorageId);
+  const updateUserMutation = useMutation(api.users.createOrUpdateUser);
+
+  // Auto-hide toast after 3 seconds
+  useEffect(() => {
+    if (uploadToast) {
+      const timer = setTimeout(() => setUploadToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [uploadToast]);
 
   useEffect(() => {
     if (!isLoading && !isOnboarded) {
@@ -50,7 +78,11 @@ export default function ProfilePage() {
       setTempValues(user.values);
       setTempLoveLanguage(user.loveLanguage);
       setTempCommStyle(user.communicationStyle);
+      setTempLoveLanguage(user.loveLanguage);
+      setTempCommStyle(user.communicationStyle);
       setTempInterests(user.interests);
+      setTempName(user.name);
+      setTempLocation(user.location);
     }
   }, [user]);
 
@@ -107,6 +139,41 @@ export default function ProfilePage() {
     }
   };
 
+  const handleSaveHeader = async () => {
+     if (user && user.clerkId) {
+        // Optimistic update
+        if (typeof setUser === 'function') {
+           setUser({ ...user, name: tempName, location: tempLocation });
+        }
+        setIsEditingHeader(false);
+        
+        try {
+           await updateUserMutation({
+             clerkId: user.clerkId,
+             name: tempName,
+             location: tempLocation,
+             // ... preserve other fields ...
+             gender: user.gender,
+             age: user.age,
+             birthDay: user.birthDay,
+             birthMonth: user.birthMonth,
+             birthYear: user.birthYear,
+             bio: user.bio,
+             values: user.values,
+             loveLanguage: user.loveLanguage,
+             interests: user.interests,
+             communicationStyle: user.communicationStyle,
+             lookingFor: user.lookingFor,
+             avatar: user.avatar,
+           });
+           setUploadToast({ message: language === 'az' ? 'Məlumat yeniləndi!' : 'Info updated!', type: 'success' });
+        } catch (error) {
+           console.error("Failed to update header", error);
+           setUploadToast({ message: language === 'az' ? 'Xəta baş verdi' : 'Error updating info', type: 'error' });
+        }
+     }
+  };
+
   const toggleValue = (val: string) => {
     if (tempValues.includes(val)) {
       setTempValues(tempValues.filter(v => v !== val));
@@ -124,19 +191,103 @@ export default function ProfilePage() {
   };
 
   const handleAvatarClick = () => {
-    fileInputRef.current?.click();
+    if (!isUploadingPhoto) {
+      fileInputRef.current?.click();
+    }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && user) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (typeof setUser === 'function') {
-            setUser({ ...user, avatar: reader.result as string });
-        }
-      };
-      reader.readAsDataURL(file);
+    if (!file || !user) return;
+
+    setIsUploadingPhoto(true);
+    
+    // IMMEDIATELY show preview for instant feedback
+    const previewUrl = URL.createObjectURL(file);
+    if (typeof setUser === 'function') {
+      setUser({ ...user, avatar: previewUrl });
+    }
+    
+    try {
+      console.log('Starting photo upload...');
+      
+      // 1. Get upload URL from Convex
+      const postUrl = await generateUploadUrl();
+      console.log('Got upload URL:', postUrl);
+      
+      // 2. Upload file to Convex storage
+      const result = await fetch(postUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      
+      if (!result.ok) {
+        const errorText = await result.text();
+        throw new Error(`Upload failed: ${result.status} - ${errorText}`);
+      }
+      
+      const { storageId } = await result.json();
+      console.log('Upload successful, storageId:', storageId);
+      
+      // 3. Get the proper Convex storage URL using the built-in method
+      const avatarUrl = await getUrlFromStorageId({ storageId });
+      console.log('Avatar URL from Convex:', avatarUrl);
+      
+      if (!avatarUrl) {
+        throw new Error("Failed to get storage URL");
+      }
+      
+      // 4. Revoke the temporary preview URL and update with permanent URL
+      // Use userRef.current to get latest user state (avoid stale closure)
+      URL.revokeObjectURL(previewUrl);
+      const latestUser = userRef.current;
+      if (typeof setUser === 'function' && latestUser) {
+        setUser({ ...latestUser, avatar: avatarUrl });
+      }
+      
+      // 5. Also update in Convex DB for persistence
+      // Use latestUser to ensure we have the most recent data
+      if (latestUser?.clerkId) {
+        await updateUserMutation({
+          clerkId: latestUser.clerkId,
+          name: latestUser.name,
+          avatar: avatarUrl,
+          gender: latestUser.gender,
+          age: latestUser.age,
+          location: latestUser.location,
+          bio: latestUser.bio,
+          values: latestUser.values,
+          loveLanguage: latestUser.loveLanguage,
+          interests: latestUser.interests,
+          communicationStyle: latestUser.communicationStyle,
+          lookingFor: latestUser.lookingFor,
+        });
+        console.log('User updated in Convex DB');
+      }
+      
+      setUploadToast({ 
+        message: language === 'az' ? 'Şəkil uğurla yükləndi!' : 'Photo uploaded successfully!', 
+        type: 'success' 
+      });
+      
+      console.log("Photo uploaded successfully:", avatarUrl);
+    } catch (error) {
+      console.error("Failed to upload photo:", error);
+      
+      setUploadToast({ 
+        message: language === 'az' ? 'Şəkil yüklənərkən xəta baş verdi' : 'Failed to upload photo', 
+        type: 'error' 
+      });
+      
+      // Keep the preview but show error
+      // User can try again
+    } finally {
+      setIsUploadingPhoto(false);
+      // Clear file input so same file can be selected again
+      if (e.target) {
+        e.target.value = '';
+      }
     }
   };
 
@@ -149,6 +300,29 @@ export default function ProfilePage() {
         className="hidden" 
         accept="image/*"
       />
+      
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {uploadToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-full shadow-lg flex items-center gap-2 ${
+              uploadToast.type === 'success' 
+                ? 'bg-green-500 text-white' 
+                : 'bg-red-500 text-white'
+            }`}
+          >
+            {uploadToast.type === 'success' ? (
+              <CheckCircle2 className="w-5 h-5" />
+            ) : (
+              <X className="w-5 h-5" />
+            )}
+            <span className="font-medium">{uploadToast.message}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       {/* Header */}
       <header className="sticky top-0 z-40 glass border-b border-border/50">
@@ -173,38 +347,76 @@ export default function ProfilePage() {
         {/* Profile Header */}
         <section className="flex items-center gap-5 mb-8">
           <div className="relative">
-            <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-border">
+            <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-border ring-4 ring-primary/5 shadow-2xl bg-card">
               <img 
-                src={user.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${user.name}`}
+                src={user.avatar || '/placeholder-avatar.svg'}
                 alt={user.name}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover bg-muted"
                 onError={(e) => {
-                  e.currentTarget.src = `https://api.dicebear.com/7.x/initials/svg?seed=${user.name}`;
+                  e.currentTarget.src = '/placeholder-avatar.svg';
                 }}
               />
             </div>
             <button 
               onClick={handleAvatarClick}
-              className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-primary flex items-center justify-center border-2 border-background cursor-pointer hover:bg-primary/90 transition-colors"
+              disabled={isUploadingPhoto}
+              className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-primary flex items-center justify-center border-2 border-background cursor-pointer hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
-              <Camera className="w-4 h-4 text-white" />
+              {isUploadingPhoto ? (
+                <Loader2 className="w-4 h-4 text-white animate-spin" />
+              ) : (
+                <Camera className="w-4 h-4 text-white" />
+              )}
             </button>
           </div>
           
-          <div className="flex-1">
-            <h2 className="text-2xl font-bold mb-1 flex items-center gap-2">
-              {user.name}, {user.age}
-              {(user.role === 'superadmin' || user.role === 'admin' || (user as any).email === 'xeyalnecefsoy@gmail.com') && (
-                 <div className="bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-full px-2 py-0.5 flex items-center gap-1 shadow-sm">
-                   <Crown className="w-3.5 h-3.5 fill-current" />
-                   <span className="text-[10px] uppercase font-bold tracking-wide">Qurucu</span>
-                 </div>
-              )}
-            </h2>
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <MapPin className="w-4 h-4" />
-              <span>{user.location}</span>
-            </div>
+          <div className="flex-1 min-w-0">
+             <div className="flex justify-between items-start">
+                {isEditingHeader ? (
+                   <div className="w-full space-y-2 mb-2">
+                      <input 
+                        value={tempName}
+                        onChange={(e) => setTempName(e.target.value)}
+                        className="w-full text-xl font-bold bg-muted/50 border border-border rounded px-2 py-1"
+                        placeholder={language === 'az' ? "Adınız" : "Your Name"}
+                      />
+                      <input 
+                        value={tempLocation}
+                        onChange={(e) => setTempLocation(e.target.value)}
+                        className="w-full text-sm bg-muted/50 border border-border rounded px-2 py-1"
+                        placeholder={language === 'az' ? "Məkan" : "Location"}
+                      />
+                   </div>
+                ) : (
+                   <div>
+                     <h2 className="text-2xl font-bold mb-1 flex items-center gap-2">
+                      {user.name}, {user.age}
+                      {(user.role === 'superadmin' || user.role === 'admin' || (user as any).email === 'xeyalnecefsoy@gmail.com') && (
+                        <div className="bg-gradient-to-r from-blue-500 via-blue-600 to-cyan-500 text-white rounded-full px-2 py-0.5 flex items-center gap-1 shadow-md ring-2 ring-blue-400/30">
+                          <Sparkles className="w-3.5 h-3.5 fill-current" />
+                          <span className="text-[10px] uppercase font-bold tracking-wide">Qurucu</span>
+                        </div>
+                      )}
+                    </h2>
+                    <div className="flex items-center gap-1 text-muted-foreground">
+                      <MapPin className="w-4 h-4" />
+                      <span>{user.location}</span>
+                    </div>
+                   </div>
+                )}
+                
+                <Button 
+                   variant="ghost" 
+                   size="sm" 
+                   className="h-8 w-8 rounded-full p-0 shrink-0 ml-2"
+                   onClick={() => {
+                     if (isEditingHeader) handleSaveHeader();
+                     else setIsEditingHeader(true);
+                   }}
+                 >
+                   {isEditingHeader ? <CheckCircle2 className="w-4 h-4 text-primary" /> : <Edit2 className="w-4 h-4" />}
+                 </Button>
+             </div>
           </div>
         </section>
 
@@ -300,6 +512,47 @@ export default function ProfilePage() {
             />
           ) : (
             <p className="text-muted-foreground whitespace-pre-wrap">{user.bio || (language === 'az' ? 'Məlumat yoxdur' : 'No bio yet')}</p>
+          )}
+        </section>
+
+        {/* Gallery / Qalereya */}
+        <section className="bg-card rounded-2xl border border-border p-4 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold">{language === 'az' ? 'Qalereya' : 'Gallery'}</h3>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-8 px-3 text-xs"
+            >
+              <Camera className="w-4 h-4 mr-1" />
+              {language === 'az' ? 'Şəkil əlavə et' : 'Add photo'}
+            </Button>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {user.avatar ? (
+              <div className="aspect-square rounded-lg overflow-hidden border border-border">
+                <img
+                  src={user.avatar || '/placeholder-avatar.svg'}
+                  alt="Gallery photo" 
+                  className="w-full h-48 object-cover bg-muted"
+                  onError={(e) => {
+                    e.currentTarget.src = '/placeholder-avatar.svg';
+                  }}
+                />
+              </div>
+            ) : null}
+            {/* Placeholder for more photos */}
+            <div className="aspect-square rounded-lg border-2 border-dashed border-border flex items-center justify-center bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer">
+              <div className="text-center">
+                <Camera className="w-6 h-6 mx-auto mb-1 text-muted-foreground" />
+                <p className="text-[10px] text-muted-foreground">{language === 'az' ? 'Əlavə et' : 'Add'}</p>
+              </div>
+            </div>
+          </div>
+          {!user.avatar && (
+            <p className="text-xs text-muted-foreground text-center mt-3">
+              {language === 'az' ? 'Hələlik şəkil yoxdur' : 'No photos yet'}
+            </p>
           )}
         </section>
 

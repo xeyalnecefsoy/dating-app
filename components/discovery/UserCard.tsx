@@ -145,18 +145,19 @@ export function UserCard({ user }: UserCardProps) {
                       {user.location}
                    </div>
                 </div>
-                {/* Small/Blurred Avatar Area */}
+            {/* Small/Blurred Avatar Area */}
                 <div className="relative group">
-                    <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-slate-100 dark:border-slate-600 shadow-sm">
+                    <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-slate-100 dark:border-slate-600 shadow-sm bg-slate-100">
                         <img 
                           src={user.avatar} 
                           alt={user.name} 
-                          className="w-full h-full object-cover filter blur-[2px] hover:blur-none transition-all duration-500 scale-110" 
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            console.error(`Failed to load avatar for ${user.name}:`, target.src);
+                            target.src = "https://images.unsplash.com/photo-1511367461989-f85a21fda167?w=400&h=400&fit=crop"; // Fallback
+                          }}
+                          className="w-full h-full object-cover hover:scale-110 transition-transform duration-500" 
                         />
-                    </div>
-                    {/* Hover hint */}
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
-                       <span className="text-[8px] bg-black/50 text-white px-1 rounded">View</span>
                     </div>
                 </div>
             </div>

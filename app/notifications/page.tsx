@@ -47,13 +47,34 @@ export default function NotificationsPage() {
     sendMessage: language === 'az' ? 'Mesaj Göndər' : 'Send Message',
   };
 
+  /* 
+     Update to use Real DB users 
+  */
+  import { useQuery } from "convex/react";
+  import { api } from "@/convex/_generated/api";
+
+  // Calculate all unique IDs we need to fetch
+  const allRelatedIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    user?.unreadMatches?.forEach(id => ids.add(id));
+    user?.messageRequests?.forEach(id => ids.add(id));
+    user?.matches?.forEach(id => ids.add(id));
+    return Array.from(ids);
+  }, [user]);
+
+  // Fetch user details from DB
+  const relatedUsers = useQuery(api.users.getUsersByIds, { ids: allRelatedIds }) || [];
+
+  // Helper to find user in fetched list
+  const getUser = (userId?: string) => relatedUsers.find(u => u.clerkId === userId) || MOCK_USERS.find(u => u.id === userId);
+
   // Generate notifications from real user data
   const notifications = useMemo(() => {
     const notifs: Notification[] = [];
     
     // New matches (unread)
     user?.unreadMatches?.forEach((matchId, index) => {
-      const matchedUser = MOCK_USERS.find(u => u.id === matchId);
+      const matchedUser = getUser(matchId);
       if (matchedUser) {
         notifs.push({
           id: `match-${matchId}`,
@@ -68,7 +89,7 @@ export default function NotificationsPage() {
 
     // Message requests
     user?.messageRequests?.forEach((requesterId) => {
-      const requester = MOCK_USERS.find(u => u.id === requesterId);
+      const requester = getUser(requesterId);
       if (requester) {
         notifs.push({
           id: `request-${requesterId}`,
@@ -83,7 +104,7 @@ export default function NotificationsPage() {
 
     // Read matches (already seen)
     user?.matches?.filter(id => !user?.unreadMatches?.includes(id)).forEach((matchId) => {
-      const matchedUser = MOCK_USERS.find(u => u.id === matchId);
+      const matchedUser = getUser(matchId);
       if (matchedUser) {
         notifs.push({
           id: `match-read-${matchId}`,
@@ -106,9 +127,7 @@ export default function NotificationsPage() {
     });
 
     return notifs;
-  }, [user, txt]);
-
-  const getUser = (userId?: string) => MOCK_USERS.find(u => u.id === userId);
+  }, [user, relatedUsers, txt]);
 
   return (
     <div className="min-h-screen bg-background pb-20">

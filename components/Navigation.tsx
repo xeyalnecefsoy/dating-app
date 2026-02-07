@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Compass, MessageCircle, User, Menu, ChevronLeft, Flame, LogOut, Search, Bell, Crown, MapPin } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
+import { useUser as useClerkUser } from "@clerk/nextjs";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,11 @@ import { Button } from "@/components/ui/button";
 export function BottomNav() {
   const pathname = usePathname();
   const { user, isOnboarded } = useUser();
+  const { user: clerkUser } = useClerkUser();
   const { language } = useLanguage();
+  
+  // Use Clerk avatar as fallback when user context is not yet loaded
+  const avatarUrl = user?.avatar || clerkUser?.imageUrl;
 
   const navItems = [
     { href: "/", icon: Home, labelEn: "Home", labelAz: "Ana Səhifə" },
@@ -93,13 +98,13 @@ export function BottomNav() {
             "relative w-6 h-6 rounded-full overflow-hidden",
             isProfileActive && "ring-2 ring-primary ring-offset-1 ring-offset-background"
           )}>
-            {user?.avatar ? (
+            {avatarUrl ? (
               <img 
-                src={user.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${user.name}`}
-                alt={user.name || "Profile"} 
-                className="w-full h-full object-cover"
+                src={avatarUrl}
+                alt={user?.name || "Profile"}
+                className="w-full h-full rounded-full object-cover bg-muted"
                 onError={(e) => {
-                   e.currentTarget.src = `https://api.dicebear.com/7.x/initials/svg?seed=${user.name || 'default'}`;
+                   e.currentTarget.src = '/placeholder-avatar.svg';
                 }}
               />
             ) : (

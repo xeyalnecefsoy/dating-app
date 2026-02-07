@@ -65,8 +65,10 @@ export const getAllUsers = query({
     const users = await ctx.db.query("users").collect();
     return users.map(u => ({
       _id: u._id,
+      clerkId: u.clerkId,
       name: u.name,
       email: u.email,
+      avatar: u.avatar,
       role: u.role || "user",
       status: u.status || "active",
       createdAt: u.createdAt,
