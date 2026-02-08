@@ -8,6 +8,8 @@ const isPublicRoute = createRouteMatcher([
   '/sign-up(.*)',
   '/api/webhooks(.*)',
   '/api/push(.*)',
+  '/sitemap.xml',
+  '/robots.txt',
 ]);
 
 // Define auth routes (sign-in, sign-up) - should redirect away if already signed in
