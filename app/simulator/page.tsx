@@ -26,7 +26,7 @@ export default function SimulatorPage() {
         </Link>
       </header>
       
-      <main className="flex-1 flex flex-col p-4 md:p-8 max-w-7xl mx-auto w-full">
+      <main className="flex-1 flex flex-col p-4 md:p-6 max-w-7xl mx-auto w-full min-w-0 overflow-x-hidden">
         <CommunicationSimulator />
       </main>
     </div>

@@ -5,7 +5,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { MOCK_USERS } from "@/lib/mock-users";
+
 import { getChannelId } from "@/lib/utils";
 import { usePathname, useSearchParams } from "next/navigation";
 
@@ -106,7 +106,10 @@ export function NotificationHandler() {
     // Show notification for each new message
     newMessages.forEach(msg => {
       const senderName = msg.userId;
-      const matchUser = matchUserId ? MOCK_USERS.find(u => u.id === matchUserId) : null;
+      // const matchUser = matchUserId ? MOCK_USERS.find(u => u.id === matchUserId) : null;
+      // We don't have user details here without extra fetching. 
+      // For now, use senderName (which is often the name in our schema currently)
+      const displayName = senderName; 
       
       // Clean message text (remove STORY tags etc)
       let messageText = msg.body;
@@ -116,10 +119,10 @@ export function NotificationHandler() {
       }
       
       showNotification(
-        matchUser?.name || senderName,
+        displayName,
         {
           body: messageText.substring(0, 100),
-          icon: matchUser?.avatar || "/icons/icon-192x192.png",
+          icon: "/icons/icon-192x192.png", // Default icon as we don't have avatar
           tag: `msg-${channelId}`,
         }
       );

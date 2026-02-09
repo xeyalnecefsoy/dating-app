@@ -5,7 +5,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Camera } from "lucide-react";
 import { getChannelId, cn } from "@/lib/utils";
-import { MOCK_USERS } from "@/lib/mock-users";
+
 
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -18,27 +18,22 @@ interface ConversationRowProps {
 
 export function ConversationRow({ participantId, currentUserId, isSelected, onSelect }: ConversationRowProps) {
   const { language } = useLanguage();
-  // Try finding in static mocks first (for speed/legacy), then DB
-  let participant = MOCK_USERS.find((u) => u.id === participantId);
   const channelId = getChannelId(currentUserId, participantId);
-  
   // Fetch real last message from Convex
   const lastMessage = useQuery(api.messages.last, { channelId });
   const presence = useQuery(api.presence.getStatus, { userId: participantId });
   
-  // If not in static mocks, fetch from DB
+  // Fetch from DB
   const dbUser = useQuery(api.users.getUser, { clerkId: participantId });
   
-  if (!participant && dbUser) {
-    participant = {
+  const participant = dbUser ? {
       id: dbUser.clerkId || dbUser._id,
       name: dbUser.name,
       avatar: dbUser.avatar || "/placeholder-avatar.svg",
-      // ... map other fields if needed, but for row we only need name/avatar
-    } as any;
-  }
+  } : null;
 
-  if (!participant) return null;
+  if (!participant && !dbUser) return null; // Wait for loading? Or return null if not found.
+  if (!participant) return null; // Still loading or not found
 
   // Fallback / Initial State (if no message in DB yet)
   // We can show the default "match" message or empty

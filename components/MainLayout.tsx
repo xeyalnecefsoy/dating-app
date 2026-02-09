@@ -8,7 +8,7 @@ import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
 import { BottomNav } from "./Navigation";
-import { DebugUserSwitcher } from "./DebugUserSwitcher";
+
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -19,37 +19,56 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   
   // Check if avatar is valid (reachable)
   const [isAvatarBroken, setIsAvatarBroken] = useState(false);
+  const [isCheckingAvatar, setIsCheckingAvatar] = useState(true);
 
   useEffect(() => {
-    if (!user?.avatar) {
+    // Reset checking state when user changes
+    setIsCheckingAvatar(true);
+
+    if (!user) {
+      setIsCheckingAvatar(false);
+      return;
+    }
+
+    if (!user.avatar) {
       setIsAvatarBroken(true);
+      setIsCheckingAvatar(false);
       return;
     }
 
     // Placeholder SVG is not a real photo
     if (user.avatar.includes("/placeholder-avatar.svg")) {
       setIsAvatarBroken(true);
+      setIsCheckingAvatar(false);
       return;
     }
 
     // Blob URLs (temporary preview) are valid
     if (user.avatar.startsWith("blob:")) {
       setIsAvatarBroken(false);
+      setIsCheckingAvatar(false);
       return;
     }
 
     // Convex storage URLs are valid
     if (user.avatar.includes("convex.cloud") || user.avatar.includes("/api/storage/")) {
       setIsAvatarBroken(false);
+      setIsCheckingAvatar(false);
       return;
     }
 
     // For other URLs, check if they actually load
     const img = new Image();
     img.src = user.avatar;
-    img.onload = () => setIsAvatarBroken(false);
-    img.onerror = () => setIsAvatarBroken(true);
-  }, [user?.avatar]);
+    img.onload = () => {
+      setIsAvatarBroken(false);
+      setIsCheckingAvatar(false);
+    };
+    img.onerror = () => {
+      setIsAvatarBroken(true);
+      setIsCheckingAvatar(false);
+    };
+  }, [user, user?.avatar]);
 
   const isAuthPage = pathname === "/onboarding" || pathname?.startsWith("/sign-in") || pathname?.startsWith("/sign-up");
   const isAdminPage = pathname?.includes("/admin");
@@ -291,7 +310,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           When sidebar expands (w-64), it will overlay the content instead of pushing it.
       */}
       <div 
-         className="flex-1 flex flex-col min-h-screen md:pl-20 pb-20 md:pb-0 transition-all duration-300 ease-in-out"
+         className="flex-1 flex flex-col min-h-screen md:pl-20 pb-20 md:pb-0 transition-all duration-300 ease-in-out min-w-0 overflow-x-hidden"
       >
         {children}
       </div>
@@ -299,10 +318,10 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       {/* Mobile Bottom Nav */}
       <BottomNav />
 
-      <DebugUserSwitcher />
+
 
       {/* Mandatory Profile Picture Warning */}
-      {!isLoading && user && isAvatarBroken && !pathname?.includes("/onboarding") && (
+      {!isLoading && !isCheckingAvatar && user && isAvatarBroken && !pathname?.includes("/onboarding") && (
         <div className="fixed bottom-20 left-4 right-4 md:left-auto md:right-8 md:bottom-8 md:w-96 bg-destructive/90 backdrop-blur-md text-white p-4 rounded-2xl shadow-lg z-50 animate-in slide-in-from-bottom duration-500 border border-white/10">
           <div className="flex items-start gap-4">
             <div className="p-2 bg-white/10 rounded-full shrink-0">

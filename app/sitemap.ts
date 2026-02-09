@@ -9,6 +9,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/about',
     '/sign-in',
     '/sign-up',
+    '/discovery',
+    '/messages',
     // '/contact', // TODO: Create contact page
     // '/privacy', // TODO: Create privacy policy
     // '/terms',   // TODO: Create terms of service

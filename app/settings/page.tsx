@@ -15,7 +15,7 @@ import { useUser } from "@/contexts/UserContext";
 import { useClerk, useAuth } from "@clerk/nextjs";
 import { useToast } from "@/components/ui/toast";
 import { motion, AnimatePresence } from "framer-motion";
-import DevPanel from "@/components/DevPanel";
+
 
 type NotificationSettings = {
   pushEnabled: boolean;
@@ -139,6 +139,8 @@ export default function SettingsPage() {
     logout: language === 'az' ? 'Çıxış' : 'Log Out',
     deleteAccount: language === 'az' ? 'Hesabı Sil' : 'Delete Account',
     saved: language === 'az' ? 'Saxlanıldı!' : 'Saved!',
+    info: language === 'az' ? 'Məlumat' : 'Information',
+    soonDesc: language === 'az' ? 'Bu bölmə tezliklə əlavə olunacaq.' : 'This section will be added soon.',
     // Modal texts
     logoutTitle: language === 'az' ? 'Çıxış etmək istəyirsiniz?' : 'Log out?',
     logoutDesc: language === 'az' ? 'Hesabınızdan çıxış edəcəksiniz.' : 'You will be logged out of your account.',
@@ -285,7 +287,7 @@ export default function SettingsPage() {
           <h2 className="text-sm text-muted-foreground mb-3 px-1">{texts.support}</h2>
           <div className="bg-card rounded-2xl border border-border overflow-hidden">
             <button 
-              onClick={() => showToast({ type: "info", title: texts.saved, message: "Tezliklə!" })}
+              onClick={() => showToast({ type: "info", title: texts.info, message: texts.soonDesc })}
               className="w-full flex items-center justify-between p-4 active:bg-muted"
             >
               <div className="flex items-center gap-3">
@@ -296,7 +298,7 @@ export default function SettingsPage() {
             </button>
             <div className="h-px bg-border mx-4" />
             <button 
-              onClick={() => showToast({ type: "info", title: texts.saved, message: "Tezliklə!" })}
+              onClick={() => showToast({ type: "info", title: texts.info, message: texts.soonDesc })}
               className="w-full flex items-center justify-between p-4 active:bg-muted"
             >
               <div className="flex items-center gap-3">
@@ -335,12 +337,7 @@ export default function SettingsPage() {
           </section>
         )}
 
-        {/* Developer Panel */}
-        {isOnboarded && (
-          <section>
-             <DevPanel />
-          </section>
-        )}
+
 
         {/* Version */}
         <p className="text-center text-xs text-muted-foreground pt-4">

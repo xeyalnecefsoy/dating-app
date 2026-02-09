@@ -3,8 +3,8 @@
 import React, { useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { Plus } from "lucide-react";
-import { UserStories, MOCK_STORIES, getStoriesByUser } from "@/lib/stories";
-import { MOCK_USERS } from "@/lib/mock-users";
+import { UserStories } from "@/lib/stories";
+
 import { StoryViewer } from "./StoryViewer";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUser } from "@/contexts/UserContext";
@@ -24,21 +24,15 @@ export function StoriesBar({ filterByMatches = true }: StoriesBarProps) {
   const [selectedUserIndex, setSelectedUserIndex] = useState<number | null>(null);
   const sendMessageMutation = useMutation(api.messages.send);
 
-  // Get all user stories
+    // Get all user stories
+  // TODO: Replace with real stories from API
+  const allUserStories: UserStories[] = []; 
+
+  // Mock logic removed
+  /*
   let allUserStories = getStoriesByUser(MOCK_STORIES, MOCK_USERS);
-
-  // Filter by opposite gender (based on user's lookingFor preference)
-  if (user?.lookingFor) {
-    allUserStories = allUserStories.filter(us => {
-      const storyUser = MOCK_USERS.find(u => u.id === us.userId);
-      return storyUser?.gender === user.lookingFor;
-    });
-  }
-
-  // Filter by matches if needed
-  if (filterByMatches && user?.matches) {
-    allUserStories = allUserStories.filter(us => user.matches.includes(us.userId));
-  }
+  // ... filtering logic ...
+  */
 
   const handleStoryClick = (index: number) => {
     setSelectedUserIndex(index);
@@ -56,7 +50,7 @@ export function StoriesBar({ filterByMatches = true }: StoriesBarProps) {
     if (!user) return;
 
     const isMatched = user.matches?.includes(userId);
-    const targetUser = MOCK_USERS.find(u => u.id === userId);
+    const targetUser = { name: "User" }; // Placeholder until we have real user data fetching here
     
     if (isMatched) {
       // Send direct message via Convex

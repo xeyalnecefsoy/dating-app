@@ -9,7 +9,7 @@
  */
 
 import type * as admin from "../admin.js";
-import type * as dev from "../dev.js";
+import type * as ai from "../ai.js";
 import type * as files from "../files.js";
 import type * as http from "../http.js";
 import type * as likes from "../likes.js";
@@ -28,7 +28,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
-  dev: typeof dev;
+  ai: typeof ai;
   files: typeof files;
   http: typeof http;
   likes: typeof likes;

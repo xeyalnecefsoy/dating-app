@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUser } from "@/contexts/UserContext";
 import { BottomNav } from "@/components/Navigation";
-import { MOCK_USERS } from "@/lib/mock-users";
+
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -62,7 +62,7 @@ export default function NotificationsPage() {
   const relatedUsers = useQuery(api.users.getUsersByIds, { ids: allRelatedIds }) || [];
 
   // Helper to find user in fetched list
-  const getUser = (userId?: string) => relatedUsers.find(u => u.clerkId === userId) || MOCK_USERS.find(u => u.id === userId);
+  const getUser = (userId?: string) => relatedUsers.find(u => u.clerkId === userId);
 
   // Generate notifications from real user data
   const notifications = useMemo(() => {

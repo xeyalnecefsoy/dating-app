@@ -7,7 +7,9 @@ export type Scenario = {
     name: string;
     role: { en: string; az: string };
     avatar?: string;
+    gender: "male" | "female";
   };
+  suggestions: { en: string[]; az: string[] };
 };
 
 export const scenarios: Scenario[] = [
@@ -20,7 +22,20 @@ export const scenarios: Scenario[] = [
       name: "Aylin",
       role: { en: "Stranger", az: "Yabancı" },
       avatar: "/avatars/aysel.png",
+      gender: "female",
     },
+    suggestions: {
+      en: [
+        "No, it's free. Please, have a seat!",
+        "I think someone is sitting there, sorry.",
+        "It is really crowded! Do you come here often?"
+      ],
+      az: [
+        "Xeyr, boşdur. Buyurun, əyləşin!",
+        "Bağışlayın, deyəsən orada kimsə oturub.",
+        "Həqiqətən çox adam var! Bura tez-tez gəlirsiniz?"
+      ]
+    }
   },
   {
     id: "date-disagreement",
@@ -30,8 +45,21 @@ export const scenarios: Scenario[] = [
     persona: {
       name: "Orxan",
       role: { en: "Date", az: "Görüşdüyün şəxs" },
-      avatar: "/avatars/farid.png",
+      avatar: "/avatars/orxan.png",
+      gender: "male",
     },
+    suggestions: {
+      en: [
+        "That's an interesting point. What makes you say that?",
+        "I agree! Intelligence is so much more than just IQ.",
+        "I see your perspective, but tests do have some value."
+      ],
+      az: [
+        "Maraqlı fikirdir. Səni belə düşünməyə vadar edən nədir?",
+        "Razıyam! Zəka sadəcə IQ testindən ibarət deyil.",
+        "Fikrini anlayıram, amma məncə testlərin də öz yeri var."
+      ]
+    }
   },
   {
     id: "networking",
@@ -42,7 +70,44 @@ export const scenarios: Scenario[] = [
       name: "Leyla",
       role: { en: "Senior Engineer", az: "Baş Mühəndis" },
       avatar: "/avatars/leyla.png",
+      gender: "female",
     },
+    suggestions: {
+      en: [
+        "Thank you! I found your take on bias very thought-provoking.",
+        "I'm glad to meet you. I'm also working in AI field.",
+        "Do you have a moment? I'd love to ask a quick question."
+      ],
+      az: [
+        "Təşəkkürlər! Sizin qərəzlilik barədə fikirləriniz çox düşündürücü idi.",
+        "Sizinlə tanış olmağıma şadam. Mən də AI sahəsində çalışıram.",
+        "Bir dəqiqəniz var? Sizə qısa bir sual vermək istərdim."
+      ]
+    }
+  },
+  {
+    id: "art-exhibition",
+    title: { en: "Art Exhibition", az: "Rəsm Sərgisi" },
+    description: { en: "Discuss a painting with a stranger.", az: "Yabancı biri ilə bir rəsm əsərini müzakirə edin." },
+    initialMessage: { en: "This painting is quite abstract, isn't it? What do you see in it?", az: "Bu rəsm olduqca abstraktdır, elə deyilmi? Siz bunda nə görürsünüz?" },
+    persona: {
+      name: "Tural",
+      role: { en: "Art Enthusiast", az: "Sənətsevər" },
+      avatar: "/avatars/tural.png",
+      gender: "male",
+    },
+    suggestions: {
+      en: [
+        "I see a storm, creating chaos but also energy.",
+        "To be honest, I'm not sure, but the colors are beautiful.",
+        "It reminds me of a childhood memory, strangely enough."
+      ],
+      az: [
+        "Mən burada fırtına görürəm, xaos amma həm də enerji var.",
+        "Düzü, tam əmin deyiləm, amma rənglər çox gözəldir.",
+        "Ümumiyyətlə abstrakt sənəti çox sevirəm, hər kəs fərqli şey görür."
+      ]
+    }
   },
 ];
 

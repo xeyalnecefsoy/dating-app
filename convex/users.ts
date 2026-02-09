@@ -314,17 +314,7 @@ export const isStaffMember = query({
   },
 });
 
-// Create a new user (Dev/Test only)
-export const createTempUser = mutation({
-  args: { name: v.string() },
-  handler: async (ctx, args) => {
-    const userId = await ctx.db.insert("users", {
-      name: args.name,
-      interests: [],
-    });
-    return userId;
-  },
-});
+
 
 export const deleteAccount = mutation({
   args: {},
