@@ -281,7 +281,9 @@ export default function HomePage() {
         </section>
       </main>
 
-      <BottomNav />
+      <React.Suspense fallback={null}>
+        <BottomNav />
+      </React.Suspense>
     </div>
   );
 }
