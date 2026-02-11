@@ -9,6 +9,8 @@ import { ToastProvider } from "./ui/toast";
 import { NotificationHandler } from "./NotificationHandler";
 import { ServiceWorkerRegister } from "./ServiceWorkerRegister";
 import { PWAInstallPrompt } from "./PWAInstallPrompt";
+import { LazyMotion, domAnimation } from "framer-motion";
+
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <ConvexClientProvider>
@@ -16,12 +18,14 @@ export function Providers({ children }: { children: ReactNode }) {
         <ThemeProvider>
           <UserProvider>
             <ToastProvider>
-              <Suspense fallback={null}>
-                <NotificationHandler />
-              </Suspense>
-              <ServiceWorkerRegister />
-              <PWAInstallPrompt />
-              {children}
+              <LazyMotion features={domAnimation} strict={false}>
+                <Suspense fallback={null}>
+                  <NotificationHandler />
+                </Suspense>
+                <ServiceWorkerRegister />
+                <PWAInstallPrompt />
+                {children}
+              </LazyMotion>
             </ToastProvider>
           </UserProvider>
         </ThemeProvider>

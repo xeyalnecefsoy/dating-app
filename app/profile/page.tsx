@@ -22,6 +22,7 @@ import {
 } from "@/lib/constants";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { processProfileImage } from "@/lib/image-utils";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -211,6 +212,10 @@ export default function ProfilePage() {
     try {
       console.log('Starting photo upload...');
       
+      // 0. Process the image (resize/compress)
+      // We convert it to Blob, then upload
+      const processedBlob = await processProfileImage(file);
+      
       // 1. Get upload URL from Convex
       const postUrl = await generateUploadUrl();
       console.log('Got upload URL:', postUrl);
@@ -218,8 +223,8 @@ export default function ProfilePage() {
       // 2. Upload file to Convex storage
       const result = await fetch(postUrl, {
         method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
+        headers: { "Content-Type": "image/jpeg" },
+        body: processedBlob,
       });
       
       if (!result.ok) {

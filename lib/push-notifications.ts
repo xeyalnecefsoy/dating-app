@@ -60,7 +60,7 @@ export async function subscribeToPushNotifications(storeSubscription: any) {
         return true;
     }
   } catch (error) {
-    console.error("Failed to subscribe to push notifications:", error);
+    // console.error("Failed to subscribe to push notifications:", error);
     return false;
   }
   return false;

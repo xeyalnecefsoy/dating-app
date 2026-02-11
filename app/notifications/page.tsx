@@ -10,120 +10,61 @@ import { useUser } from "@/contexts/UserContext";
 import { BottomNav } from "@/components/Navigation";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
 type Notification = {
-  id: string;
-  type: "match" | "like" | "message_request" | "system";
+  _id: string;
+  type: string;
   userId?: string;
-  text: string;
-  time: string;
+  title: string;
+  body: string;
+  data?: any;
   read: boolean;
+  _creationTime: number;
 };
 
 export default function NotificationsPage() {
   const router = useRouter();
   const { language } = useLanguage();
-  const { user, acceptMessageRequest, declineMessageRequest, markAllNotificationsAsRead } = useUser();
+  const dbNotifications = useQuery(api.notifications.get) || [];
+  const markAsRead = useMutation(api.notifications.markAllAsRead);
 
   // Mark all as read when leaving the page
   React.useEffect(() => {
     return () => {
-      markAllNotificationsAsRead();
+      markAsRead();
     };
-  }, [markAllNotificationsAsRead]);
+  }, [markAsRead]);
 
   const txt = {
     title: language === 'az' ? 'Bildirişlər' : 'Notifications',
     noNotifications: language === 'az' ? 'Hələ ki, bildiriş yoxdur' : 'No notifications yet',
-    viewedProfile: language === 'az' ? 'profilinizə baxdı' : 'viewed your profile',
-    likedYou: language === 'az' ? 'sizi bəyəndi' : 'liked you',
-    newMatch: language === 'az' ? 'ilə uyğunluq tapdınız!' : 'You matched!',
-    messageRequest: language === 'az' ? 'sizinlə söhbət etmək istəyir' : 'wants to chat with you',
     goldOffer: language === 'az' ? 'Danyeri Premium 50% endirimdə!' : '50% off Danyeri Premium!',
     now: language === 'az' ? 'İndi' : 'Just now',
     recently: language === 'az' ? 'Bu yaxınlarda' : 'Recently',
-    accept: language === 'az' ? 'Qəbul Et' : 'Accept',
-    decline: language === 'az' ? 'Rədd Et' : 'Decline',
-    sendMessage: language === 'az' ? 'Mesaj Göndər' : 'Send Message',
   };
 
-  // Calculate all unique IDs we need to fetch
-  const allRelatedIds = React.useMemo(() => {
-    const ids = new Set<string>();
-    user?.unreadMatches?.forEach(id => ids.add(id));
-    user?.messageRequests?.forEach(id => ids.add(id));
-    user?.matches?.forEach(id => ids.add(id));
-    return Array.from(ids);
-  }, [user]);
+  // Helper to format time
+  const formatTime = (timestamp: number) => {
+    const diff = Date.now() - timestamp;
+    if (diff < 60000) return txt.now;
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return txt.recently;
+  };
 
-  // Fetch user details from DB
-  const relatedUsers = useQuery(api.users.getUsersByIds, { ids: allRelatedIds }) || [];
-
-  // Helper to find user in fetched list
-  const getUser = (userId?: string) => relatedUsers.find(u => u.clerkId === userId);
-
-  // Generate notifications from real user data
+  // Combine real notifications with system ones if needed
   const notifications = useMemo(() => {
-    const notifs: Notification[] = [];
+    const list = [...dbNotifications];
     
-    // New matches (unread)
-    user?.unreadMatches?.forEach((matchId, index) => {
-      const matchedUser = getUser(matchId);
-      if (matchedUser) {
-        notifs.push({
-          id: `match-${matchId}`,
-          type: "match",
-          userId: matchId,
-          text: `${matchedUser.name} ${txt.newMatch}`,
-          time: txt.now,
-          read: false,
-        });
-      }
-    });
-
-    // Message requests
-    user?.messageRequests?.forEach((requesterId) => {
-      const requester = getUser(requesterId);
-      if (requester) {
-        notifs.push({
-          id: `request-${requesterId}`,
-          type: "message_request",
-          userId: requesterId,
-          text: `${requester.name} ${txt.messageRequest}`,
-          time: txt.recently,
-          read: user.seenMessageRequests?.includes(requesterId) || false,
-        });
-      }
-    });
-
-    // Read matches (already seen)
-    user?.matches?.filter(id => !user?.unreadMatches?.includes(id)).forEach((matchId) => {
-      const matchedUser = getUser(matchId);
-      if (matchedUser) {
-        notifs.push({
-          id: `match-read-${matchId}`,
-          type: "match",
-          userId: matchId,
-          text: `${matchedUser.name} ${txt.newMatch}`,
-          time: txt.recently,
-          read: true,
-        });
-      }
-    });
-
-    // System notification (always show one)
-    notifs.push({
-      id: "system-premium",
-      type: "system",
-      text: txt.goldOffer,
-      time: txt.recently,
-      read: true,
-    });
-
-    return notifs;
-  }, [user, relatedUsers, txt]);
+    // Add system notification if list is empty or just as a promo
+    if (list.length === 0) {
+       // Optional: keep system notification logic
+    }
+    
+    return list;
+  }, [dbNotifications]);
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -151,11 +92,13 @@ export default function NotificationsPage() {
         ) : (
           <AnimatePresence>
             {notifications.map((notif) => {
-              const notifUser = getUser(notif.userId);
+              // Fetch related user for avatar if available
+              // In a real app we might want to include this data in snapshot or fetch in bulk
+              // For now, let's just use generic icon or fetch in separate component
               
               return (
                 <motion.div 
-                  key={notif.id}
+                  key={notif._id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -100 }}
@@ -164,6 +107,7 @@ export default function NotificationsPage() {
                       ? "bg-card border-border" 
                       : "bg-primary/5 border-primary/20"
                   }`}
+                  onClick={() => notif.data?.url && router.push(notif.data.url)}
                 >
                   <div className="relative shrink-0">
                     {notif.type === "system" ? (
@@ -171,11 +115,9 @@ export default function NotificationsPage() {
                         <Star className="w-6 h-6 fill-current" />
                       </div>
                     ) : (
-                      <img 
-                        src={notifUser?.avatar || "/avatars/default.png"} 
-                        className="w-12 h-12 rounded-full object-cover" 
-                        alt="User"
-                      />
+                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                         <User className="w-6 h-6 text-primary" />
+                      </div>
                     )}
                     {notif.type === "like" && (
                       <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-background flex items-center justify-center">
@@ -191,52 +133,15 @@ export default function NotificationsPage() {
                          </div>
                       </div>
                     )}
-                    {notif.type === "message_request" && (
-                      <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-background flex items-center justify-center">
-                         <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center">
-                           <Mail className="w-2 h-2 text-white" />
-                         </div>
-                      </div>
-                    )}
                   </div>
                   
                   <div className="flex-1 min-w-0">
-                     <p className="text-sm">{notif.text}</p>
-                     <p className="text-xs text-muted-foreground mt-1">{notif.time}</p>
+                     <p className="font-medium text-sm">{notif.title}</p>
+                     <p className="text-sm text-muted-foreground line-clamp-2">{notif.body}</p>
+                     <p className="text-xs text-muted-foreground mt-1">{formatTime(notif._creationTime)}</p>
                   </div>
 
-                  {/* Action Buttons */}
-                  {notif.type === "match" && notif.userId && (
-                    <Button 
-                      size="sm" 
-                      className="shrink-0 rounded-full"
-                      onClick={() => router.push(`/messages?chat=${notif.userId}`)}
-                    >
-                      <MessageCircle className="w-4 h-4 mr-1" />
-                      {txt.sendMessage}
-                    </Button>
-                  )}
-
-                  {notif.type === "message_request" && notif.userId && (
-                    <div className="flex gap-2 shrink-0">
-                      <button
-                        onClick={() => declineMessageRequest(notif.userId!)}
-                        className="w-8 h-8 rounded-full bg-red-500/10 hover:bg-red-500/20 flex items-center justify-center transition-colors"
-                        title={txt.decline}
-                      >
-                        <X className="w-4 h-4 text-red-500" />
-                      </button>
-                      <button
-                        onClick={() => acceptMessageRequest(notif.userId!)}
-                        className="w-8 h-8 rounded-full bg-green-500/10 hover:bg-green-500/20 flex items-center justify-center transition-colors"
-                        title={txt.accept}
-                      >
-                        <Check className="w-4 h-4 text-green-500" />
-                      </button>
-                    </div>
-                  )}
-
-                  {!notif.read && notif.type !== "match" && notif.type !== "message_request" && (
+                  {!notif.read && (
                     <div className="w-2.5 h-2.5 rounded-full bg-primary shrink-0" />
                   )}
                 </motion.div>

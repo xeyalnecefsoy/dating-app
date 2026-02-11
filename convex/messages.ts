@@ -11,15 +11,41 @@ export const list = query({
     if (!identity) return [];
 
     const channelId = args.channelId || "general";
-    
-    // TODO: Verify if user is part of this channel (match)
-    
+
     const messages = await ctx.db
       .query("messages")
       .withIndex("by_channel", (q) => q.eq("channelId", channelId))
       .collect();
+
+    // Soft delete handling & text localization & image URL resolution
+    const messagesWithUrls = await Promise.all(messages.map(async (msg) => {
+      if (msg.isDeleted) {
+         return {
+          ...msg,
+          body: "Bu mesaj silindi", 
+          format: "text",
+          venueId: undefined,
+          icebreakerId: undefined,
+          imageUrl: undefined // No image for deleted messages
+        };
+      }
+      
+      let imageUrl = null;
+      if (msg.format === 'image' && msg.body) {
+        try {
+           imageUrl = await ctx.storage.getUrl(msg.body as any);
+        } catch (e) {
+           console.error("Failed to resolve image URL", e);
+        }
+      }
+
+      return {
+        ...msg,
+        imageUrl, // Field to store the signed URL
+      };
+    }));
     
-    return messages;
+    return messagesWithUrls;
   },
 });
 
@@ -27,12 +53,7 @@ export const list = query({
 export const last = query({
   args: { channelId: v.string() },
   handler: async (ctx, args) => {
-    // Authenticated users only
     const identity = await ctx.auth.getUserIdentity();
-    /*
-      It is okay to let this fail silently or return null if unauthenticated, 
-      but for UI rendering it is better to be safe.
-    */
     if (!identity) return null;
 
     const message = await ctx.db
@@ -58,12 +79,16 @@ export const send = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthenticated");
-    const userId = identity.subject;
+    
+    // Use the userId from args (clerkId) for consistency with likes/matches
+    // But verify authentication is valid
+    const userId = args.userId || identity.subject;
 
     const channelId = args.channelId || "general";
     await ctx.db.insert("messages", {
-      body: args.body,
-      userId: userId, // Enforced
+      body: args.body, // If format='image', this is the storageId
+      userId: userId, 
+      channelId: channelId, // Fixed: Include channelId!
       format: args.format || "text",
       venueId: args.venueId,
       icebreakerId: args.icebreakerId,
@@ -72,21 +97,19 @@ export const send = mutation({
     // Notify the recipient (if it's a match/private chat)
     if (channelId.startsWith("match-")) {
        // channelId format: match-userId1-userId2 (sorted)
-       // We need to find the OTHER user.
        const parts = channelId.split("-");
        // parts[0] is match, parts[1] is id1, parts[2] is id2
        const otherUserId = parts[1] === userId ? parts[2] : parts[1];
        
        if (otherUserId) {
           // Schedule the push notification
-          // We truncate body for privacy/length
           const notificationBody = args.format === 'invite' ? '📅 Yeni görüş dəvəti!' : 
                                    args.format === 'icebreaker' ? '✨ Yeni buzqıran sual!' :
                                    args.body.substring(0, 100);
 
           await ctx.scheduler.runAfter(0, api.push.sendPush, {
              userId: otherUserId,
-             title: `Yeni Mesaj`, // In real app, fetch sender name
+             title: "Yeni Mesaj", 
              body: notificationBody,
              url: `/messages?userId=${userId}`
           });
@@ -97,25 +120,22 @@ export const send = mutation({
 
 // Delete a message (Unsend)
 export const deleteMessage = mutation({
-  args: { id: v.id("messages"), userId: v.string() }, // userId verification
+  args: { id: v.id("messages"), userId: v.string() }, 
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthenticated");
-    const userId = identity.subject;
+    const userId = args.userId || identity.subject;
 
     const message = await ctx.db.get(args.id);
     
-    if (!message) {
-      // Message already deleted
-      return;
-    }
+    if (!message) return;
 
     // Verify ownership
     if (message.userId !== userId) {
       throw new Error("You can only delete your own messages");
     }
 
-    // Check time limit (e.g., 15 minutes)
+    // Check time limit (15 minutes)
     const DELETE_LIMIT_MS = 15 * 60 * 1000;
     const now = Date.now();
     
@@ -123,7 +143,11 @@ export const deleteMessage = mutation({
       throw new Error("Message is too old to delete (15 min limit)");
     }
 
-    await ctx.db.delete(args.id);
+    // Soft Delete Implementation
+    await ctx.db.patch(args.id, { 
+      isDeleted: true,
+      deletedAt: Date.now()
+    });
   },
 });
 
@@ -133,13 +157,11 @@ export const editMessage = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthenticated");
-    const userId = identity.subject;
+    const userId = args.userId || identity.subject;
 
     const message = await ctx.db.get(args.id);
     
-    if (!message) {
-      throw new Error("Message not found");
-    }
+    if (!message) throw new Error("Message not found");
 
     // Verify ownership
     if (message.userId !== userId) {

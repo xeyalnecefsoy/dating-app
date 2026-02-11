@@ -18,7 +18,7 @@ interface UserCardProps {
 
 export function UserCard({ user }: UserCardProps) {
   const router = useRouter();
-  const { user: currentUser, isOnboarded, likeUser, matchUser } = useUser();
+  const { user: currentUser, isOnboarded, likeUser, matchUser, sendMessageRequest } = useUser();
   const { language, t } = useLanguage();
   const [showIceBreaker, setShowIceBreaker] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
@@ -60,17 +60,26 @@ export function UserCard({ user }: UserCardProps) {
     }
   };
 
-  const handleMessage = () => {
+  const handleMessage = async () => {
     if (!isOnboarded) {
       router.push("/onboarding");
       return;
+    }
+
+    // Superadmin Bypass: Create match/request and go to chat
+    if ((currentUser as any)?.role === 'superadmin') {
+       const result = await sendMessageRequest(user.id);
+       if (result) {
+         router.push(`/messages?userId=${user.id}`);
+         return;
+       }
     }
     
     // If not matched, like first
     if (!currentUser?.matches.includes(user.id)) {
       handleLike();
     } else {
-      router.push("/messages");
+      router.push(`/messages?userId=${user.id}`);
     }
   };
 

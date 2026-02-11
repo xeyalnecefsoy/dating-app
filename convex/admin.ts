@@ -531,3 +531,105 @@ export const getRecentActivity = query({
     return activities;
   },
 });
+
+/**
+ * Get platform settings (for admin dashboard)
+ */
+export const getPlatformSettings = query({
+  args: { adminEmail: v.string() },
+  handler: async (ctx, args) => {
+    const isAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
+    if (!isAdmin) throw new Error("Unauthorized");
+
+    const settings = await ctx.db.query("platformSettings").collect();
+    const result: Record<string, string> = {};
+    for (const s of settings) {
+      result[s.key] = s.value;
+    }
+    return result;
+  },
+});
+
+/**
+ * Toggle premium paywall on/off (superadmin only)
+ */
+export const togglePaywall = mutation({
+  args: { 
+    adminEmail: v.string(),
+    enabled: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const isSuperAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
+    if (!isSuperAdmin) throw new Error("Unauthorized: Only superadmin can toggle paywall");
+
+    const existing = await ctx.db
+      .query("platformSettings")
+      .withIndex("by_key", (q) => q.eq("key", "PREMIUM_PAYWALL_ENABLED"))
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, { value: args.enabled ? "true" : "false" });
+    } else {
+      await ctx.db.insert("platformSettings", {
+        key: "PREMIUM_PAYWALL_ENABLED",
+        value: args.enabled ? "true" : "false",
+      });
+    }
+
+    return { success: true, paywallEnabled: args.enabled };
+  },
+});
+
+/**
+ * Grant premium to a user (superadmin only)
+ */
+export const grantPremium = mutation({
+  args: { 
+    adminEmail: v.string(),
+    targetUserId: v.id("users"),
+    plan: v.string(), // 'monthly' | 'quarterly' | 'yearly'
+  },
+  handler: async (ctx, args) => {
+    const isSuperAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
+    if (!isSuperAdmin) throw new Error("Unauthorized: Only superadmin can grant premium");
+
+    const durations: Record<string, number> = {
+      monthly: 30 * 24 * 60 * 60 * 1000,
+      quarterly: 90 * 24 * 60 * 60 * 1000,
+      yearly: 365 * 24 * 60 * 60 * 1000,
+    };
+
+    const duration = durations[args.plan];
+    if (!duration) throw new Error("Invalid plan");
+
+    await ctx.db.patch(args.targetUserId, {
+      isPremium: true,
+      premiumPlan: args.plan,
+      premiumExpiresAt: Date.now() + duration,
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Revoke premium from a user (superadmin only)
+ */
+export const revokePremium = mutation({
+  args: { 
+    adminEmail: v.string(),
+    targetUserId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const isSuperAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
+    if (!isSuperAdmin) throw new Error("Unauthorized: Only superadmin can revoke premium");
+
+    await ctx.db.patch(args.targetUserId, {
+      isPremium: false,
+      premiumPlan: undefined,
+      premiumExpiresAt: undefined,
+    });
+
+    return { success: true };
+  },
+});

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Send, Search, Heart, MoreVertical, Phone, Video, Image, Gift, Check, X as XIcon, Mail, Clock, Trash2, Pencil, Camera } from "lucide-react";
+import { ArrowLeft, Send, Search, Heart, MoreVertical, Phone, Video, Image as ImageIcon, Check, X as XIcon, Mail, Clock, Trash2, Pencil, Camera, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useUser } from "@/contexts/UserContext";
@@ -15,8 +15,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { getChannelId, cn } from "@/lib/utils";
 import { ConversationRow } from "@/components/messages/ConversationRow";
-import { GiftModal } from "@/components/messages/GiftModal";
-import { VirtualGift } from "@/lib/virtual-gifts";
+// GiftModal removed
 import { StoriesBar } from "@/components/stories";
 import { PARTNER_VENUES } from "@/lib/partner-venues";
 import { ICEBREAKERS } from "@/lib/icebreakers";
@@ -49,7 +48,10 @@ export default function MessagesPage() {
   const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [showGiftModal, setShowGiftModal] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  
+  // const [showGiftModal, setShowGiftModal] = useState(false); // Removed
   
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -111,16 +113,23 @@ export default function MessagesPage() {
   useEffect(() => {
     const userIdParam = searchParams.get("userId");
     if (userIdParam) {
-      // If we have a userId param, we want to open a chat with this user.
-      // We set selectedConv to a temporary object if not found in list.
-      // But really we should just ensure we have the participant details.
-      if (!selectedConv || selectedConv.participantId !== userIdParam) {
-           setSelectedConv({
-               id: `conv-${userIdParam}`,
-               participantId: userIdParam,
-               messages: []
-           });
+      if (userIdParam === 'general') {
+         if (!selectedConv || selectedConv.id !== 'general') {
+             setSelectedConv(generalChatConv);
+         }
+      } else {
+          // If we have a userId param, we want to open a chat with this user.
+          if (!selectedConv || selectedConv.participantId !== userIdParam) {
+               setSelectedConv({
+                   id: `conv-${userIdParam}`,
+                   participantId: userIdParam,
+                   messages: []
+               });
+          }
       }
+    } else {
+        // If URL has no userId, clear selectedConv (handle browser back button)
+        if (selectedConv) setSelectedConv(null);
     }
   }, [searchParams, selectedConv]);
 
@@ -245,6 +254,53 @@ export default function MessagesPage() {
   });
   
   const sendMessageMutation = useMutation(api.messages.send);
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      // 1. Get upload URL
+      const postUrl = await generateUploadUrl();
+      
+      // 2. Upload file
+      const result = await fetch(postUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      
+      if (!result.ok) throw new Error("Upload failed");
+      
+      const { storageId } = await result.json();
+
+      // 3. Send message with storageId
+      await sendMessageMutation({
+        body: storageId,
+        userId: user?.id || "Anonymous",
+        channelId: activeChannelId!,
+        format: "image",
+      });
+      
+      showToast({
+        title: language === "az" ? "Uğurlu" : "Success",
+        message: language === "az" ? "Şəkil göndərildi" : "Image sent",
+        type: "success"
+      });
+    } catch (error) {
+      console.error(error);
+      showToast({
+        title: language === "az" ? "Xəta" : "Error",
+        message: language === "az" ? "Şəkil yüklənə bilmədi" : "Failed to upload image",
+        type: "error"
+      });
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -255,7 +311,7 @@ export default function MessagesPage() {
     try {
       await deleteMessageMutation({ 
         id: msgId as any, 
-        userId: user?.name || "Anonymous", 
+        userId: user?.id || "Anonymous", 
       });
       showToast({
         title: language === "az" ? "Silindi" : "Deleted",
@@ -278,7 +334,7 @@ export default function MessagesPage() {
     try {
       await editMessageMutation({
         id: msgId as any,
-        userId: user?.name || "Anonymous",
+        userId: user?.id || "Anonymous",
         newBody: newText,
       });
       setEditingMessageId(null);
@@ -307,14 +363,17 @@ export default function MessagesPage() {
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !activeChannelId) return;
 
-    await sendMessageMutation({
-      body: newMessage,
-      userId: user?.name || "Anonymous", // Sending NAME for display, usually better to send ID and resolve name, but schema uses userId string
-      channelId: activeChannelId,
-      format: "text"
-    });
-    
-    setNewMessage("");
+    try {
+        await sendMessageMutation({
+          body: newMessage,
+          userId: user?.id || "Anonymous", // Send ID, not name
+          channelId: activeChannelId,
+          format: "text"
+        });
+        setNewMessage("");
+    } catch (error) {
+        console.error("Failed to send message:", error);
+    }
   };
 
   // Add a "General Chat" option to the conversation list
@@ -345,16 +404,22 @@ export default function MessagesPage() {
     const isGeneral = selectedConv.id === "general";
     
     return (
-      <div className="min-h-screen bg-background flex flex-col">
+      <div className="fixed inset-0 z-[60] bg-background flex flex-col md:static md:z-auto md:h-screen">
+        {/* Main Content Container with padding for BottomNav */}
+        <div className="flex-1 flex flex-col min-h-0">
+        
         {/* Chat Header */}
-        <header className="sticky top-0 z-40 glass border-b border-border/50">
+        <header className="flex-none z-40 glass border-b border-border/50">
           <div className="px-4 h-14 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Button 
                 variant="ghost" 
                 size="icon" 
                 className="rounded-full"
-                onClick={() => setSelectedConv(null)} // Go back to list
+                onClick={() => {
+                    setSelectedConv(null);
+                    router.push('/messages');
+                }} // Go back to list
               >
                 <ArrowLeft className="w-5 h-5" />
               </Button>
@@ -397,7 +462,7 @@ export default function MessagesPage() {
         </header>
 
         {/* Messages */}
-        <main className="flex-1 overflow-y-auto p-4 space-y-4">
+        <main className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide">
            {/* Loading State */}
            {convexMessages === undefined && (
              <div className="text-center text-muted-foreground py-10">{txt.loading}</div>
@@ -423,7 +488,8 @@ export default function MessagesPage() {
                timestamp: new Date(msg._creationTime),
                format: msg.format,
                venueId: msg.venueId,
-               icebreakerId: msg.icebreakerId
+               icebreakerId: msg.icebreakerId,
+               isDeleted: msg.isDeleted
              })) || [];
 
              // If we have remote messages, prefer them. If not, and it's a new private match, show the local intro message.
@@ -431,7 +497,8 @@ export default function MessagesPage() {
              const isPrivateChat = selectedConv.id !== "general";
              const showLocalFallback = remoteMessages.length === 0 && isPrivateChat;
              
-             const displayMessages = showLocalFallback ? selectedConv.messages : remoteMessages;
+             // Ensure we display updated messages
+             const displayMessages = remoteMessages.length > 0 ? remoteMessages : (showLocalFallback ? selectedConv.messages : []);
 
              if (displayMessages.length === 0 && !isGeneral) {
                 // If absolutely no messages (not even local), show match banner (handled below if we return null here? No, let's keep array empty)
@@ -441,7 +508,8 @@ export default function MessagesPage() {
                const isMe = msg.senderId === user?.id || msg.senderId === "current-user" || msg.senderId === user?.name;
                // Check if message is less than 15 mins old
                const isRecent = (Date.now() - new Date(msg.timestamp).getTime() < 15 * 60 * 1000);
-               const canDelete = isMe && isRecent;
+               const canDelete = isMe && isRecent && !(msg as any).isDeleted;
+               const canEdit = isMe && isRecent && !(msg as any).isDeleted;
 
                const isEditing = editingMessageId === msg.id;
                
@@ -462,7 +530,8 @@ export default function MessagesPage() {
                     {/* Content Column */}
                     <div className={`flex flex-col ${isMe ? "items-end" : "items-start"} min-w-0`}>
                      <span className="text-[10px] text-muted-foreground mb-1 px-1 opacity-50">
-                       {msg.senderId === "current-user" ? user?.name : msg.senderId}
+                       {/* Correct Name Display */}
+                       {isMe ? (user?.name || "Siz") : (participant?.name || msg.senderId)}
                      </span>
                      
                      {isEditing ? (
@@ -539,6 +608,21 @@ export default function MessagesPage() {
                                   );
                                 })()}
                               </div>
+                          ) : (msg as any).format === 'image' ? (
+                              <div className="relative">
+                                {(msg as any).imageUrl ? (
+                                  <img 
+                                    src={(msg as any).imageUrl} 
+                                    className="rounded-lg max-w-[200px] h-auto object-cover border border-white/10"
+                                    alt="Sent image"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <div className="w-[200px] h-[150px] bg-muted/20 animate-pulse rounded-lg flex items-center justify-center">
+                                     <ImageIcon className="w-8 h-8 opacity-20" />
+                                  </div>
+                                )}
+                              </div>
                           ) : (msg as any).format === 'icebreaker' ? (
                               // Icebreaker Card
                               <div className="flex flex-col gap-1">
@@ -549,7 +633,7 @@ export default function MessagesPage() {
                                 <p className="font-medium text-lg leading-snug">{msg.text}</p>
                               </div>
                           ) : (
-                            <p>{msg.text}</p>
+                            <p className={(msg as any).isDeleted ? "italic opacity-70 text-sm" : ""}>{msg.text}</p>
                           )}
                        </div>
                      )}
@@ -603,20 +687,26 @@ export default function MessagesPage() {
            <div ref={messagesEndRef} />
         </main>
 
-        {/* Input */}
-        <div className="sticky bottom-0 glass border-t border-border/50 p-4 safe-bottom">
+        {/* Input - Flex-none ensures it sits at the bottom of the flex container */}
+        <div className="flex-none glass border-t border-border/50 p-4 safe-bottom z-[70]">
           <div className="flex items-center gap-3">
-             <Button variant="ghost" size="icon" className="rounded-full shrink-0">
-              <Image className="w-5 h-5" />
+             <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept="image/*"
+                onChange={handleImageUpload}
+             />
+             <Button 
+                variant="ghost" 
+                size="icon" 
+                className="rounded-full shrink-0"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+             >
+              {isUploading ? <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /> : <ImageIcon className="w-5 h-5" />}
             </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="rounded-full shrink-0"
-              onClick={() => setShowGiftModal(true)}
-            >
-              <Gift className="w-5 h-5 text-primary" />
-            </Button>
+            {/* Gift Button Removed */}
             <Button 
               variant="ghost" 
               size="icon" 
@@ -639,7 +729,12 @@ export default function MessagesPage() {
               placeholder={txt.messagePlaceholder}
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+              onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSendMessage();
+                  }
+              }}
               className="bg-card border-border rounded-full"
             />
             <Button 
@@ -653,19 +748,7 @@ export default function MessagesPage() {
           </div>
         </div>
 
-        {/* Gift Modal */}
-        <GiftModal
-          isOpen={showGiftModal}
-          onClose={() => setShowGiftModal(false)}
-          onSendGift={(gift: VirtualGift) => {
-            // Demo: Send gift as a message
-            const giftMsg = `🎁 ${gift.emoji} ${language === 'az' ? gift.nameAz : gift.name}`;
-            setNewMessage(giftMsg);
-            handleSendMessage();
-          }}
-          recipientName={participant?.name || ""}
-          language={language as "en" | "az"}
-        />
+        {/* Gift Modal Removed */}
 
         {/* Icebreaker Modal */}
         <AnimatePresence>
@@ -823,6 +906,9 @@ export default function MessagesPage() {
             </motion.div>
           )}
         </AnimatePresence>
+        
+        <BottomNav />
+      </div>
       </div>
     );
   }
@@ -879,7 +965,10 @@ export default function MessagesPage() {
           {/* General Chat Item */}
           {/* General Chat Item */}
           <button
-              onClick={() => setSelectedConv(generalChatConv)}
+              onClick={() => {
+                  setSelectedConv(generalChatConv);
+                  router.push('/messages?userId=general');
+              }}
               className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-card transition-colors bg-primary/5 border border-primary/10 mb-2"
             >
               <div className="relative">
@@ -936,7 +1025,9 @@ export default function MessagesPage() {
                         }]
                     };
                     setSelectedConv(fakeConv);
+                    router.push(`/messages?userId=${match.clerkId || match._id}`);
                   }}
+
                 />
               ))
             )}

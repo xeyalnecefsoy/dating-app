@@ -27,6 +27,13 @@ export default defineSchema({
     communicationStyle: v.optional(v.string()),
     avatar: v.optional(v.string()),
     lookingFor: v.optional(v.string()), // 'male' or 'female'
+    // Privacy
+    blockedUsers: v.optional(v.array(v.string())), // Clerk IDs of blocked users
+    hideProfile: v.optional(v.boolean()), // Hide from discovery
+    // Premium
+    isPremium: v.optional(v.boolean()),
+    premiumPlan: v.optional(v.string()), // 'monthly' | 'quarterly' | 'yearly'
+    premiumExpiresAt: v.optional(v.number()), // timestamp — null = lifetime/admin-granted
   }).index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"])
     .index("by_username", ["username"])
@@ -42,6 +49,8 @@ export default defineSchema({
     format: v.optional(v.string()), // 'text' | 'image' | 'invite' | 'icebreaker'
     venueId: v.optional(v.string()), // For venue invites
     icebreakerId: v.optional(v.string()), // For icebreakers
+    isDeleted: v.optional(v.boolean()), // Soft delete flag
+    deletedAt: v.optional(v.number()), // When it was deleted
   }).index("by_channel", ["channelId"]),
 
   matches: defineTable({
@@ -58,6 +67,7 @@ export default defineSchema({
    likes: defineTable({
     likerId: v.string(),   // Who liked
     likedId: v.string(),   // Who was liked
+    type: v.optional(v.string()), // 'like' | 'super'
     createdAt: v.number(),
   }).index("by_liker", ["likerId"])
    .index("by_liked", ["likedId"])
@@ -70,4 +80,20 @@ export default defineSchema({
     auth: v.string(),
   }).index("by_user", ["userId"])
     .index("by_endpoint", ["endpoint"]),
+
+  notifications: defineTable({
+    userId: v.string(), // Who receives the notification
+    type: v.string(), // 'match', 'message', 'system'
+    title: v.string(),
+    body: v.string(),
+    data: v.optional(v.any()), // Extra data (e.g. matchId, url)
+    read: v.boolean(),
+    createdAt: v.number(),
+  }).index("by_user", ["userId"])
+    .index("by_user_read", ["userId", "read"]),
+
+  platformSettings: defineTable({
+    key: v.string(),
+    value: v.string(),
+  }).index("by_key", ["key"]),
 });

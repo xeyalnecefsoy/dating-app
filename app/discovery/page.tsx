@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import { ArrowLeft, X, Heart, Star, 
-  MapPin, Sparkles, SlidersHorizontal, RotateCcw, Info, Search, CheckCircle2, Crown, MessageCircle
+  MapPin, Sparkles, SlidersHorizontal, RotateCcw, Info, Search, CheckCircle2, Crown, MessageCircle, Ban
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UserProfile, translateValue, translateLoveLanguage, translateStyle, translateInterest } from "@/lib/mock-users";
@@ -24,7 +24,7 @@ export default function DiscoveryPage() {
   const { isSignedIn, getToken } = useAuth();
   
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(null);
+  const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | "up" | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [dragX, setDragX] = useState(0);
@@ -36,6 +36,8 @@ export default function DiscoveryPage() {
     location: "all",
     communicationStyle: "all"
   });
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [profileToBlock, setProfileToBlock] = useState<UserProfile | null>(null);
 
   // Restore state from sessionStorage on mount
   React.useEffect(() => {
@@ -173,70 +175,55 @@ export default function DiscoveryPage() {
   
   // Convex mutation for likes
   const likeMutation = useMutation(api.likes.like);
+  const blockMutation = useMutation(api.blocks.blockUser);
 
-  const handleSwipe = async (dir: "left" | "right") => {
-    if (!currentProfile || isSwiping || !currentUser) return; // Prevent double trigger
+  const handleBlock = async () => {
+    if (!profileToBlock || !isSignedIn) return;
+    try {
+      await blockMutation({ targetUserId: profileToBlock.id });
+      // Auto-skip if the person we blocked is the current one
+      if (currentProfile?.id === profileToBlock.id) {
+        setCurrentIndex(prev => prev + 1);
+        setShowDetails(false);
+      }
+      setShowBlockModal(false);
+      setProfileToBlock(null);
+    } catch (error) {
+      console.error("Block error:", error);
+    }
+  };
+
+  const handleSwipe = async (dir: "left" | "right" | "up") => {
+    if (!currentProfile || isSwiping || !currentUser) return;
     
     setIsSwiping(true);
     setSwipeDirection(dir);
     
-    if (dir === "right") {
+    // Right = Like, Up = Super Like
+    if (dir === "right" || dir === "up") {
       likeUser(currentProfile.id); // Local state update
       
-      // Verify we have a valid Clerk token before calling Convex
+      const likeType = dir === "up" ? "super" : "like";
+
       if (isSignedIn) {
         try {
-          // Wait for token to ensure auth is ready (use default template)
-          const token = await getToken();
+          const result = await likeMutation({
+            likerId: currentUser.id,
+            likedId: currentProfile.id,
+            type: likeType,
+          });
           
-          if (!token) {
-            console.warn("No Clerk token available, using local state only");
-            // Fallback: random match when token not available
-            const matchResult = Math.random() > 0.7;
-            if (matchResult) {
-              matchUser(currentProfile.id);
-              setMatchedProfile(currentProfile);
-              setShowMatchModal(true);
-            }
-          } else {
-            // Token exists, safe to call Convex
-            let matchResult = false;
-            try {
-              const result = await likeMutation({
-                likerId: currentUser.id,
-                likedId: currentProfile.id,
-              });
-              matchResult = result.isMatch;
-            } catch (error) {
-              console.warn("Convex like failed:", error);
-              // Fallback: 30% match chance when Convex fails
-              matchResult = Math.random() > 0.7;
-            }
-            
-            if (matchResult) {
-              matchUser(currentProfile.id);
-              setMatchedProfile(currentProfile);
-              setShowMatchModal(true);
-            }
-          }
-        } catch (tokenError) {
-          console.error("Token fetch error:", tokenError);
-          // Fallback: random match on token error
-          const matchResult = Math.random() > 0.7;
-          if (matchResult) {
+          // Check if match occurred (ignore errors gracefully)
+          const isMatch = !result.error && result.isMatch;
+          
+          if (isMatch) {
             matchUser(currentProfile.id);
             setMatchedProfile(currentProfile);
             setShowMatchModal(true);
           }
-        }
-      } else {
-        console.warn("User not authenticated, using local state only");
-        // Fallback: random match when not authenticated
-        const matchResult = Math.random() > 0.7;
-        if (matchResult) {
-          matchUser(currentProfile.id);
-          setMatchedProfile(currentProfile);
-          setShowMatchModal(true);
+        } catch (err) {
+          console.warn("Like mutation failed:", err);
+          // Silently fail - local state is already updated
         }
       }
     }
@@ -246,8 +233,12 @@ export default function DiscoveryPage() {
       setCurrentIndex(prev => prev + 1);
       setShowDetails(false);
       setDragX(0);
-      setIsSwiping(false); // Reset flag
-    }, 250); // increased slightly to match exit animation
+      setIsSwiping(false);
+    }, 250);
+  };
+  
+  const handleSuperLike = () => {
+     handleSwipe("up");
   };
 
   const handleDrag = (event: any, info: PanInfo) => {
@@ -466,13 +457,27 @@ export default function DiscoveryPage() {
                         )}
                       </div>
                       
-                      <Link
-                        href={`/user/${(currentProfile as any).username || currentProfile.id}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="absolute bottom-3 sm:bottom-4 right-3 sm:right-4 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center border border-white/20 hover:bg-white/40 transition-colors"
-                      >
-                        <Info className="w-4 h-4 text-white" />
-                      </Link>
+                      <div className="absolute bottom-3 sm:bottom-4 right-3 sm:right-4 flex gap-2">
+                        <button
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            e.preventDefault(); 
+                            setProfileToBlock(currentProfile);
+                            setShowBlockModal(true); 
+                          }}
+                          className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-red-500/30 backdrop-blur-sm flex items-center justify-center border border-red-400/20 hover:bg-red-500/50 transition-colors"
+                          title={language === 'az' ? 'Əngəllə' : 'Block'}
+                        >
+                          <Ban className="w-4 h-4 text-white" />
+                        </button>
+                        <Link
+                          href={`/user/${(currentProfile as any).username || currentProfile.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center border border-white/20 hover:bg-white/40 transition-colors"
+                        >
+                          <Info className="w-4 h-4 text-white" />
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 </motion.div>
@@ -514,7 +519,7 @@ export default function DiscoveryPage() {
               <span className="text-[10px] text-muted-foreground">{language === 'az' ? 'Bəyən' : 'Like'}</span>
             </div>
             <div className="flex flex-col items-center gap-1">
-              <button disabled={isSwiping} onClick={() => handleSwipe("right")} className="w-12 h-12 rounded-full bg-card border border-border flex items-center justify-center active:scale-95 transition-transform hover:bg-yellow-500/10 disabled:opacity-50 disabled:pointer-events-none">
+              <button disabled={isSwiping} onClick={handleSuperLike} className="w-12 h-12 rounded-full bg-card border border-border flex items-center justify-center active:scale-95 transition-transform hover:bg-yellow-500/10 disabled:opacity-50 disabled:pointer-events-none">
                 <Star className="w-5 h-5 text-yellow-500" />
               </button>
               <span className="text-[10px] text-muted-foreground">{language === 'az' ? 'Super' : 'Super'}</span>
@@ -621,6 +626,68 @@ export default function DiscoveryPage() {
                   {language === 'az' ? 'Kəşf Etməyə Davam Et' : 'Keep Swiping'}
                 </Button>
               </motion.div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Block Confirmation Modal */}
+      <AnimatePresence>
+        {showBlockModal && profileToBlock && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowBlockModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm bg-card border border-border rounded-3xl p-6 shadow-2xl"
+            >
+              <div className="flex flex-col items-center text-center">
+                <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
+                  <Ban className="w-8 h-8 text-red-500" />
+                </div>
+                
+                <h3 className="text-xl font-bold text-foreground mb-2">
+                  {language === 'az' ? 'Əngəlləmək istədiyinizə əminsiniz?' : 'Are you sure you want to block?'}
+                </h3>
+                
+                <p className="text-sm text-muted-foreground mb-6">
+                  {language === 'az' 
+                    ? `Bu şəxs (${profileToBlock.name}) artıq qarşınıza çıxmayacaq və sizi görə bilməyəcək.`
+                    : `This person (${profileToBlock.name}) will no longer appear to you and won't be able to see you.`}
+                </p>
+                
+                <div className="bg-muted/50 rounded-2xl p-4 mb-6 w-full text-xs text-muted-foreground text-left flex gap-3 italic">
+                  <Info className="w-4 h-4 shrink-0 text-primary" />
+                  <p>
+                    {language === 'az'
+                      ? 'Əngəllədiyiniz şəxsləri istədiyiniz vaxt Parametrlər -> Məxfilik -> Əngəllənən İstifadəçilər bölməsindən idarə edə bilərsiniz.'
+                      : 'You can manage blocked users anytime from Settings -> Privacy -> Blocked Users.'}
+                  </p>
+                </div>
+                
+                <div className="flex flex-col gap-3 w-full">
+                  <Button
+                    className="w-full h-12 rounded-2xl bg-red-500 hover:bg-red-600 text-white font-semibold"
+                    onClick={handleBlock}
+                  >
+                    {language === 'az' ? 'Bəli, əngəllə' : 'Yes, block'}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full h-12 rounded-2xl font-medium"
+                    onClick={() => setShowBlockModal(false)}
+                  >
+                    {language === 'az' ? 'Ləğv et' : 'Cancel'}
+                  </Button>
+                </div>
+              </div>
             </motion.div>
           </motion.div>
         )}

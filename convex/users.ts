@@ -244,29 +244,54 @@ export const getUserByEmail = query({
 });
 
 /**
- * Get active users for discovery
- * Filters by status = 'active' and opposite gender
+ * Get active users for discovery (paginated)
+ * Filters by status = 'active', opposite gender, and privacy settings
+ * Returns max 50 users per batch, excludes already-seen users
  */
 export const getActiveUsers = query({
   args: { 
     currentUserGender: v.optional(v.string()),
     currentUserId: v.optional(v.string()),
+    excludeIds: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
-    // Get all active users
+    // Fetch users with limit to avoid loading entire DB
     const users = await ctx.db
       .query("users")
       .withIndex("by_status", (q) => q.eq("status", "active"))
-      .collect();
+      .take(200);
 
-    // Filter by opposite gender and exclude current user
+    // Get current user's blocked list
+    let myBlockedUsers: string[] = [];
+    if (args.currentUserId) {
+      const currentUser = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.currentUserId))
+        .first();
+      myBlockedUsers = currentUser?.blockedUsers || [];
+    }
+
+    const excludeSet = new Set(args.excludeIds || []);
+
+    // Filter by opposite gender, exclude current user, and apply privacy filters
     const targetGender = args.currentUserGender === "male" ? "female" : "male";
-    const filteredUsers = users.filter(u => 
-      u.gender === targetGender && 
-      u.clerkId !== args.currentUserId
-    );
+    const filteredUsers = users.filter(u => {
+      // Basic filters
+      if (u.gender !== targetGender) return false;
+      if (u.clerkId === args.currentUserId) return false;
+      // Exclude already-seen users
+      if (u.clerkId && excludeSet.has(u.clerkId)) return false;
+      // Privacy: skip users who hid their profile
+      if (u.hideProfile === true) return false;
+      // Privacy: skip users I blocked
+      if (u.clerkId && myBlockedUsers.includes(u.clerkId)) return false;
+      // Privacy: skip users who blocked ME
+      if (u.blockedUsers && args.currentUserId && u.blockedUsers.includes(args.currentUserId)) return false;
+      return true;
+    });
 
-    return filteredUsers;
+    // Return max 50 users per batch
+    return filteredUsers.slice(0, 50);
   },
 });
 

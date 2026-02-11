@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { Flame, Heart, MessageCircle, User, Compass, Sparkles, ChevronRight, Star, Bell, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -68,8 +69,14 @@ export default function HomePage() {
       <header className="sticky top-0 z-40 glass border-b border-border/50">
         <div className="w-full max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="md:hidden flex items-center gap-2"> {/* Only show logo strictly on mobile if sidebar is hidden, or show always but hide on desktop if sidebar handles it? Sidebar handles it on desktop. */}
-             <div className="w-8 h-8 flex items-center justify-center">
-               <img src="/logo.jpg" className="w-full h-full object-contain rounded-full" alt="Danyeri Logo" />
+             <div className="w-8 h-8 flex items-center justify-center relative rounded-full overflow-hidden">
+               <Image 
+                 src="/logo.jpg" 
+                 alt="Danyeri Logo" 
+                 fill
+                 className="object-contain"
+                 priority
+               />
              </div>
              <span className="font-bold text-lg">Danyeri</span>
           </div>
@@ -220,16 +227,22 @@ export default function HomePage() {
                   className="shrink-0 w-48 rounded-2xl bg-card border border-border p-4"
                 >
                   <div className="flex -space-x-4 mb-3">
-                    <img 
-                      src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${story.img1}`} 
-                      className="w-12 h-12 rounded-full border-2 border-background bg-secondary"
-                      alt={story.names.split(' ')[0]}
-                    />
-                    <img 
-                      src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${story.img2}`} 
-                      className="w-12 h-12 rounded-full border-2 border-background bg-secondary"
-                      alt={story.names.split(' ')[2]}
-                    />
+                    <div className="relative w-12 h-12 rounded-full border-2 border-background bg-secondary overflow-hidden">
+                      <Image 
+                        src="/placeholder-avatar.svg" 
+                        alt={story.names.split(' ')[0]}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="relative w-12 h-12 rounded-full border-2 border-background bg-secondary overflow-hidden">
+                      <Image 
+                        src="/placeholder-avatar.svg" 
+                        alt={story.names.split(' ')[2]}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
                   </div>
                   <h3 className="font-semibold text-sm mb-0.5">{story.names}</h3>
                   <p className="text-xs text-muted-foreground">{story.duration}</p>
@@ -306,7 +319,13 @@ function WelcomeScreen() {
           >
             {/* Main logo - slightly smaller for mobile fit */}
             <div className="w-28 h-28 rounded-full flex items-center justify-center shadow-2xl shadow-primary/30 bg-background/50 backdrop-blur-md overflow-hidden z-10 relative">
-              <img src="/logo.jpg" className="w-full h-full object-cover" alt="Danyeri Logo" />
+              <Image 
+                src="/logo.jpg" 
+                alt="Danyeri Logo" 
+                fill
+                className="object-cover"
+                priority
+              />
             </div>
             
             {/* Floating icons */}

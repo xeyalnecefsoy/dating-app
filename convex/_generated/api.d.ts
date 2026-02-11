@@ -10,11 +10,14 @@
 
 import type * as admin from "../admin.js";
 import type * as ai from "../ai.js";
+import type * as blocks from "../blocks.js";
 import type * as files from "../files.js";
 import type * as http from "../http.js";
 import type * as likes from "../likes.js";
 import type * as matches from "../matches.js";
 import type * as messages from "../messages.js";
+import type * as notifications from "../notifications.js";
+import type * as premium from "../premium.js";
 import type * as presence from "../presence.js";
 import type * as push from "../push.js";
 import type * as subscriptions from "../subscriptions.js";
@@ -29,11 +32,14 @@ import type {
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   ai: typeof ai;
+  blocks: typeof blocks;
   files: typeof files;
   http: typeof http;
   likes: typeof likes;
   matches: typeof matches;
   messages: typeof messages;
+  notifications: typeof notifications;
+  premium: typeof premium;
   presence: typeof presence;
   push: typeof push;
   subscriptions: typeof subscriptions;

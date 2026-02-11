@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { 
   ArrowLeft, Moon, Sun, Globe, Bell, Shield, 
-  HelpCircle, LogOut, ChevronRight, User, Trash2, Check, AlertTriangle, X
+  HelpCircle, LogOut, ChevronRight, User, Trash2, Check, AlertTriangle, X,
+  EyeOff, Ban
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -14,6 +15,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useUser } from "@/contexts/UserContext";
 import { useClerk, useAuth } from "@clerk/nextjs";
 import { useToast } from "@/components/ui/toast";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { motion, AnimatePresence } from "framer-motion";
 
 
@@ -40,6 +43,13 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  // Privacy settings from Convex
+  const privacySettings = useQuery(
+    api.blocks.getPrivacySettings,
+    isSignedIn ? {} : "skip"
+  );
+  const toggleHideProfile = useMutation(api.blocks.toggleHideProfile);
 
   // Load notification settings from localStorage
   useEffect(() => {
@@ -87,8 +97,13 @@ export default function SettingsPage() {
     }
   };
 
+  const deleteAccountMutation = useMutation(api.users.deleteAccount);
+
   const handleDeleteAccount = async () => {
     try {
+      // 0. Call Convex Mutation to delete data from DB
+      await deleteAccountMutation();
+
       // 1. Clear all local storage data
       localStorage.removeItem("danyeri-notifications");
       localStorage.removeItem("danyeri-theme");
@@ -118,6 +133,8 @@ export default function SettingsPage() {
       window.location.replace('/');
     } catch (error) {
       console.error("Delete account error:", error);
+      // Even if mutation fails (e.g. network), we should probably still log them out locally
+      // but warn them. For now, let's force logout to be safe.
       window.location.replace('/');
     }
   };
@@ -141,6 +158,12 @@ export default function SettingsPage() {
     saved: language === 'az' ? 'Saxlanıldı!' : 'Saved!',
     info: language === 'az' ? 'Məlumat' : 'Information',
     soonDesc: language === 'az' ? 'Bu bölmə tezliklə əlavə olunacaq.' : 'This section will be added soon.',
+    // Privacy texts
+    privacySection: language === 'az' ? 'Məxfilik' : 'Privacy',
+    hideProfile: language === 'az' ? 'Profili Gizlət' : 'Hide Profile',
+    hideProfileDesc: language === 'az' ? 'Kəşf bölməsində görünməyin' : 'Hide from discovery',
+    blockedUsers: language === 'az' ? 'Əngəllənən İstifadəçilər' : 'Blocked Users',
+    blockedUsersDesc: language === 'az' ? 'Əngəlləri idarə edin' : 'Manage blocked users',
     // Modal texts
     logoutTitle: language === 'az' ? 'Çıxış etmək istəyirsiniz?' : 'Log out?',
     logoutDesc: language === 'az' ? 'Hesabınızdan çıxış edəcəksiniz.' : 'You will be logged out of your account.',
@@ -281,6 +304,51 @@ export default function SettingsPage() {
             </div>
           </div>
         </section>
+
+        {/* Privacy */}
+        {isOnboarded && (
+          <section>
+            <h2 className="text-sm text-muted-foreground mb-3 px-1">{texts.privacySection}</h2>
+            <div className="bg-card rounded-2xl border border-border overflow-hidden">
+              <div className="flex items-center justify-between p-4">
+                <div className="flex items-center gap-3">
+                  <EyeOff className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <span className="text-foreground block">{texts.hideProfile}</span>
+                    <span className="text-xs text-muted-foreground">{texts.hideProfileDesc}</span>
+                  </div>
+                </div>
+                <Switch 
+                  checked={privacySettings?.hideProfile || false}
+                  onCheckedChange={async (checked) => {
+                    await toggleHideProfile({ hideProfile: checked });
+                    showSavedFeedback();
+                  }}
+                />
+              </div>
+              <div className="h-px bg-border mx-4" />
+              <Link href="/blocked">
+                <div className="flex items-center justify-between p-4 active:bg-muted">
+                  <div className="flex items-center gap-3">
+                    <Ban className="w-5 h-5 text-muted-foreground" />
+                    <div>
+                      <span className="text-foreground block">{texts.blockedUsers}</span>
+                      <span className="text-xs text-muted-foreground">{texts.blockedUsersDesc}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {privacySettings && privacySettings.blockedCount > 0 && (
+                      <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                        {privacySettings.blockedCount}
+                      </span>
+                    )}
+                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                </div>
+              </Link>
+            </div>
+          </section>
+        )}
 
         {/* Support */}
         <section>

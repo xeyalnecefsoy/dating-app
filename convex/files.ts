@@ -13,16 +13,15 @@ export const getStorageUrl = query({
   },
 });
 
-// Get storage URL from storageId string (mutation version for one-time call)
+// Get storage URL from storageId (mutation version for one-time call)
 export const getUrlFromStorageId = mutation({
-  args: { storageId: v.string() },
+  args: { storageId: v.id("_storage") },
   handler: async (ctx, args) => {
-    const typedId = args.storageId as unknown as typeof args.storageId;
     try {
-      const url = await ctx.storage.getUrl(typedId as any);
+      const url = await ctx.storage.getUrl(args.storageId);
       return url;
     } catch (error) {
-      console.error("Failed to get URL:", error);
+      console.error("Failed to get URL for storageId:", args.storageId, error);
       return null;
     }
   },

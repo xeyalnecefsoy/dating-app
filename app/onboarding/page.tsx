@@ -21,6 +21,7 @@ import {
   COMM_STYLES 
 } from "@/lib/constants";
 import { AZERBAIJAN_REGIONS } from "@/lib/locations";
+import { processProfileImage } from "@/lib/image-utils";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -35,6 +36,7 @@ export default function OnboardingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const getUrlFromStorageId = useMutation(api.files.getUrlFromStorageId);
   
   const [formData, setFormData] = useState({
     firstName: "",
@@ -244,24 +246,30 @@ export default function OnboardingPage() {
           // 1. Get upload URL
           const postUrl = await generateUploadUrl();
           
-          // 2. Upload file
+          // 2. Process and Upload file
+          const processedBlob = await processProfileImage(formData.profilePhoto);
+          
           const result = await fetch(postUrl, {
             method: "POST",
-            headers: { "Content-Type": formData.profilePhoto.type },
-            body: formData.profilePhoto,
+            headers: { "Content-Type": "image/jpeg" },
+            body: processedBlob,
           });
           
           if (!result.ok) throw new Error("Upload failed");
           
           const { storageId } = await result.json();
           
-          // 3. Construct URL
-          const baseUrl = process.env.NEXT_PUBLIC_CONVEX_URL || "https://tremendous-partridge-845.convex.cloud";
-          avatarUrl = `${baseUrl}/api/storage/${storageId}`;
-          console.log("Constructed Avatar URL:", avatarUrl);
+          // 3. Get proper URL from Convex
+          const url = await getUrlFromStorageId({ storageId });
+          if (url) {
+            avatarUrl = url;
+            console.log("Got Avatar URL from Convex:", avatarUrl);
+          } else {
+             console.error("Failed to get URL from storageId");
+          }
         } catch (error) {
           console.error("Failed to upload photo:", error);
-          // Fallback to existing logic if upload fails (though this might still fail if too large, but at least we try)
+          // Fallback to existing logic if upload fails
         }
       }
       

@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/toast";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -88,7 +89,7 @@ const mockVerificationQueue = [
 ];
 
 export default function AdminPage() {
-
+  const { showToast } = useToast();
   const { user, isLoading: isUserLoading } = useUser();
   const router = useRouter();
 
@@ -102,11 +103,18 @@ export default function AdminPage() {
     }
   }, [user, isUserLoading, router]);
 
-  // Convex Queries
-  const stats = useQuery(api.admin.getPlatformStats, { adminEmail: user?.email || "" });
-  const allUsers = useQuery(api.admin.getAllUsers, { adminEmail: user?.email || "" });
-  const waitlistUsers = useQuery(api.admin.getWaitlistUsers, { adminEmail: user?.email || "" });
-  const recentActivity = useQuery(api.admin.getRecentActivity, { adminEmail: user?.email || "" });
+  // Convex Queries — skip if email not loaded yet to avoid Unauthorized error
+  const adminEmail = user?.email || "";
+  const stats = useQuery(api.admin.getPlatformStats, adminEmail ? { adminEmail } : "skip");
+  const allUsers = useQuery(api.admin.getAllUsers, adminEmail ? { adminEmail } : "skip");
+  const waitlistUsers = useQuery(api.admin.getWaitlistUsers, adminEmail ? { adminEmail } : "skip");
+  const recentActivity = useQuery(api.admin.getRecentActivity, adminEmail ? { adminEmail } : "skip");
+  const platformSettings = useQuery(api.admin.getPlatformSettings, adminEmail ? { adminEmail } : "skip");
+  const togglePaywall = useMutation(api.admin.togglePaywall);
+  const grantPremium = useMutation(api.admin.grantPremium);
+  const revokePremium = useMutation(api.admin.revokePremium);
+
+  const paywallEnabled = platformSettings?.PREMIUM_PAYWALL_ENABLED === "true";
 
   const [activeSection, setActiveSection] = useState("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
@@ -504,6 +512,7 @@ export default function AdminPage() {
                                   {user.name}
                                   {user.role === 'admin' && <ShieldCheck className="w-4 h-4 text-blue-500" />}
                                   {user.role === 'superadmin' && <Crown className="w-4 h-4 text-yellow-500" />}
+                                  {user.isPremium && <span title="Premium"><Crown className="w-3.5 h-3.5 text-orange-400" /></span>}
                                 </p>
                                 <p className="text-xs text-muted-foreground">{user.email || user.clerkId || "No email"}</p>
                               </div>
@@ -548,6 +557,23 @@ export default function AdminPage() {
                                 title={user.status === 'banned' ? 'İstifadəçi artıq bloklanıb' : 'İstifadəçini blokla'}
                               >
                                 <Ban className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className={`h-8 w-8 ${user.isPremium ? 'text-orange-500 hover:text-orange-600' : 'text-muted-foreground hover:text-orange-500'}`}
+                                onClick={async () => {
+                                  try {
+                                    if (user.isPremium) {
+                                      await revokePremium({ adminEmail, targetUserId: user._id });
+                                    } else {
+                                      await grantPremium({ adminEmail, targetUserId: user._id, plan: 'monthly' });
+                                    }
+                                  } catch (e) { console.error(e); }
+                                }}
+                                title={user.isPremium ? 'Premium-u ləğv et' : 'Premium ver'}
+                              >
+                                <Crown className="w-4 h-4" />
                               </Button>
                             </div>
                           </td>
@@ -804,16 +830,56 @@ export default function AdminPage() {
                 exit={{ opacity: 0, y: -20 }}
                 className="space-y-6"
               >
+                {/* Premium Paywall Toggle */}
+                <div className="bg-card border border-border rounded-2xl p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold flex items-center gap-2">
+                        <Crown className="w-5 h-5 text-yellow-500" />
+                        Premium Paywall
+                      </h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {paywallEnabled
+                          ? 'Paywall AKTİV — ödəniş tələb olunur'
+                          : 'Paywall SÖNDÜRÜLÜB — premium hamıya pulsuzdur'}
+                      </p>
+                    </div>
+                    <Button
+                      variant={paywallEnabled ? "destructive" : "default"}
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          await togglePaywall({ adminEmail, enabled: !paywallEnabled });
+                        } catch (e) { console.error(e); }
+                      }}
+                    >
+                      {paywallEnabled ? 'Söndür' : 'Aktivləşdir'}
+                    </Button>
+                  </div>
+                  <div className={`mt-4 p-3 rounded-xl text-sm ${paywallEnabled ? 'bg-red-500/10 text-red-600 dark:text-red-400' : 'bg-green-500/10 text-green-600 dark:text-green-400'}`}>
+                    {paywallEnabled
+                      ? '⚠️ İstifadəçilər premium aktivləşdirmək üçün ödəniş etməlidirlər (Epoint inteqrasiyası lazımdır)'
+                      : '✅ Bütün istifadəçilər premium-u pulsuz aktivləşdirə bilərlər'}
+                  </div>
+                </div>
+
+                {/* Other Settings */}
                 <div className="bg-card border border-border rounded-2xl divide-y divide-border">
                   {[
                     { title: "Qeydiyyat Tənzimləmələri", description: "Yeni istifadəçi qeydiyyatı üçün qaydalar" },
                     { title: "Məzmun Filterləri", description: "Avtomatik məzmun moderasiyası" },
                     { title: "Bildiriş Tənzimləmələri", description: "E-poçt və push bildirişləri" },
-                    { title: "Premium Planlar", description: "Abunəlik qiymətləri və xüsusiyyətlər" },
                     { title: "API Açarları", description: "Xarici xidmət inteqrasiyaları" },
                   ].map((setting, i) => (
                     <button
                       key={i}
+                      onClick={() => {
+                        showToast({
+                          type: "info",
+                          title: "Tezliklə",
+                          message: "Bu bölmə hələ hazırlanır.",
+                        });
+                      }}
                       className="w-full flex items-center justify-between p-4 hover:bg-muted/30 transition-colors text-left"
                     >
                       <div>

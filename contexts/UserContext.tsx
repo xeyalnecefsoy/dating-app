@@ -39,6 +39,7 @@ export type UserProfile = {
   seenMessageRequests: string[]; // Track seen message requests
   status?: "active" | "waitlist" | "banned"; // Waitlist status
   role?: "user" | "moderator" | "admin" | "superadmin"; // Admin role
+  isPremium?: boolean;
 };
 
 type UserContextType = {
@@ -54,7 +55,7 @@ type UserContextType = {
   matchUser: (userId: string) => void;
   markMatchAsRead: (userId: string) => void;
   markAllNotificationsAsRead: () => void;
-  sendMessageRequest: (userId: string) => void;
+  sendMessageRequest: (userId: string) => Promise<string | null>;
   cancelMessageRequest: (userId: string) => void;
   acceptMessageRequest: (userId: string) => void;
   declineMessageRequest: (userId: string) => void;
@@ -100,6 +101,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // Clerk hooks
   const { user: clerkUser, isLoaded: isClerkLoaded } = useClerkUser();
   const { isSignedIn } = useAuth();
+  const { isAuthenticated } = useConvexAuth();
 
   // Convex Hooks
   const createMatchMutation = useMutation(api.matches.create);
@@ -134,7 +136,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
        const timer = setTimeout(() => {
           import("@/lib/push-notifications").then(({ subscribeToPushNotifications }) => {
              subscribeToPushNotifications(storeSubscription).catch((err) => {
-               console.log("Push subscription skipped (auth may not be ready):", err);
+               // console.log("Push subscription skipped (auth may not be ready):", err);
              });
           });
        }, 8000); // 8 seconds to ensure auth is ready
@@ -270,14 +272,35 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
       
       if (savedUser) {
-        // Option 1: Restore from LocalStorage (for regular users)
+        // Option 1: localStorage has cached user data.
+        // BUT we must validate against DB first to handle account deletion.
+        
+        if (convexUser === undefined) {
+          // DB query still loading — wait before deciding.
+          return;
+        }
+        
+        if (convexUser === null) {
+          // DB says this user doesn't exist anymore (account was deleted).
+          // Clear the stale localStorage and redirect to onboarding.
+          console.log("localStorage has stale user data but DB record is gone. Clearing...");
+          localStorage.removeItem(storageKey);
+          setUser(null);
+          setIsOnboarded(false);
+          setIsLoading(false);
+          return;
+        }
+        
+        // DB confirms user exists — safe to restore from localStorage + merge DB data.
         const parsed = JSON.parse(savedUser);
         
-        // Merge Convex user data (role, etc.) if available
+        // Merge Convex user data (role, status, etc.) if available
         const mergedUser = {
           ...parsed,
           email: clerkEmail || parsed.email,
           role: convexUser?.role || parsed.role,
+          status: convexUser?.status || parsed.status,
+          isPremium: (convexUser as any)?.isPremium || false,
         };
         
         setUser(mergedUser);
@@ -340,6 +363,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
             seenMessageRequests: [],
             status: (convexUser.status as any) || "active",
             role: (convexUser.role as any) || (isSuperadmin ? 'superadmin' : 'user'),
+            isPremium: (convexUser as any).isPremium || false,
           };
 
           updateUserInternal(restoredUser, storageKey);
@@ -467,16 +491,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }, [clerkUser, getStorageKey, updateUserInternal, createOrUpdateUserMutation]);
 
-  // Auto-heal: Sync Local User to DB if missing (Placed here to avoid ReferenceError)
-  useEffect(() => {
-     // If we have a local user, are signed in, but Convex returns null (user deleted or not synced),
-     // trigger a re-sync to restore the user in the backend.
-     if (isSignedIn && isClerkLoaded && user && convexUser === null) {
-         console.log("User exists locally but not in DB. Triggering auto-sync...");
-         // We pass the current local user data to re-populate the DB
-         completeOnboarding(user);
-     }
-  }, [isSignedIn, isClerkLoaded, user, convexUser, completeOnboarding]);
+
+  // NOTE: Auto-heal removed. The main loading effect (above) now validates
+  // localStorage against Convex DB and clears stale data if the user was deleted.
 
   const addBadge = useCallback((badge: string) => {
     setUser(prev => {
@@ -598,9 +615,22 @@ export function UserProvider({ children }: { children: ReactNode }) {
       return prev;
     });
 
-    if (currentUserId) {
-        await sendRequestMutation({ senderId: currentUserId, receiverId: userId });
+    if (currentUserId && clerkUser) {
+        // Ensure Convex is authenticated
+        if (!isAuthenticated) {
+           console.log("Convex not authenticated yet, cannot send request.");
+           return null;
+        }
+
+        try {
+          const result = await sendRequestMutation({ senderId: currentUserId, receiverId: userId });
+          return result;
+        } catch (error) {
+          console.error("Failed to send request:", error);
+          return null;
+        }
     }
+    return null;
   }, [sendRequestMutation, clerkUser, getStorageKey]);
 
   const cancelMessageRequest = useCallback((userId: string) => {

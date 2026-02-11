@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Home, Compass, MessageCircle, User, Menu, ChevronLeft, Flame, LogOut, Search, Bell, Crown, MapPin } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { useUser as useClerkUser } from "@clerk/nextjs";
@@ -12,9 +12,14 @@ import { Button } from "@/components/ui/button";
 
 export function BottomNav() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { user, isOnboarded } = useUser();
   const { user: clerkUser } = useClerkUser();
   const { language } = useLanguage();
+  
+  // Hide if in a chat (userId param exists)
+  if (searchParams.get("userId")) return null;
+
   
   // Use Clerk avatar as fallback when user context is not yet loaded
   const avatarUrl = user?.avatar || clerkUser?.imageUrl;
@@ -102,9 +107,9 @@ export function BottomNav() {
               <img 
                 src={avatarUrl}
                 alt={user?.name || "Profile"}
-                className="w-full h-full rounded-full object-cover bg-muted"
+                className="w-full h-full object-cover"
                 onError={(e) => {
-                   e.currentTarget.src = '/placeholder-avatar.svg';
+                  e.currentTarget.src = '/placeholder-avatar.svg';
                 }}
               />
             ) : (

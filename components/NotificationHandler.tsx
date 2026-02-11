@@ -27,22 +27,15 @@ export function NotificationHandler() {
   const isInitializedRef = useRef(false);
   const initializationTimeRef = useRef(Date.now());
 
-  // Request notification permission on mount
+  // Request notification permission on mount - REMOVED to avoid Console Error
+  // Browser requires user gesture for this.
+  /* 
   useEffect(() => {
     if (typeof window !== "undefined" && "Notification" in window) {
-      if (Notification.permission === "granted") {
-        hasPermissionRef.current = true;
-      } else if (Notification.permission !== "denied") {
-        // Delay permission request to avoid blocking
-        const timeout = setTimeout(() => {
-          Notification.requestPermission().then((permission) => {
-            hasPermissionRef.current = permission === "granted";
-          });
-        }, 3000);
-        return () => clearTimeout(timeout);
-      }
+       // logic removed
     }
   }, []);
+  */
 
   // Get channel IDs for all matches
   const channelIds = user?.matches?.map((matchId) => 

@@ -181,10 +181,10 @@ export default function UserProfilePage() {
     router.push("/discovery");
   };
 
-  const handleMessage = () => {
+  const handleMessage = async () => {
     // If already matched, go to messages
     if (currentUser?.matches.includes(profile.id)) {
-      router.push(`/messages?chat=${profile.id}`);
+      router.push(`/messages?userId=${profile.id}`);
     } else if (currentUser?.sentMessageRequests?.includes(profile.id)) {
       // Already sent a request
       showToast({
@@ -194,7 +194,14 @@ export default function UserProfilePage() {
       });
     } else {
       // Send a message request
-      sendMessageRequest(profile.id);
+      const result = await sendMessageRequest(profile.id);
+      
+      // If Superadmin, redirect immediately (as it's auto-accepted)
+      if (result && (currentUser as any).role === "superadmin") {
+         router.push(`/messages?userId=${profile.id}`);
+         return;
+      }
+
       showToast({
         type: "success",
         title: language === 'az' ? 'Uğurlu!' : 'Success!',

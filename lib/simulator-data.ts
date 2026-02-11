@@ -20,7 +20,7 @@ export const scenarios: Scenario[] = [
     initialMessage: { en: "Hey, is this seat taken? It's so crowded today.", az: "Salam, bu yer boşdur? Bu gün çox adam var." },
     persona: {
       name: "Aylin",
-      role: { en: "Stranger", az: "Yabancı" },
+      role: { en: "Stranger", az: "Yad biri" },
       avatar: "/avatars/aysel.png",
       gender: "female",
     },
@@ -31,7 +31,7 @@ export const scenarios: Scenario[] = [
         "It is really crowded! Do you come here often?"
       ],
       az: [
-        "Xeyr, boşdur. Buyurun, əyləşin!",
+        "Bəli, boşdur. Buyurun, əyləşin!",
         "Bağışlayın, deyəsən orada kimsə oturub.",
         "Həqiqətən çox adam var! Bura tez-tez gəlirsiniz?"
       ]
@@ -63,7 +63,7 @@ export const scenarios: Scenario[] = [
   },
   {
     id: "networking",
-    title: { en: "Networking Event", az: "Netvorkinq Tədbiri" },
+    title: { en: "Networking Event", az: "Networking Tədbiri" },
     description: { en: "Introduce yourself to a potential mentor.", az: "Potensial mentora özünüzü təqdim edin." },
     initialMessage: { en: "Hi there! I saw you speaking earlier, really insightful points on AI ethics.", az: "Salam! Çıxışınızı izlədim, süni intellekt etikası barədə çox maraqlı məqamlara toxundunuz." },
     persona: {

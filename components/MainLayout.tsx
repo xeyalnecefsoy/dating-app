@@ -148,7 +148,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       {/* Desktop Sidebar */}
       <aside 
         className={cn(
-          "hidden md:flex flex-col fixed left-0 top-0 bottom-0 z-50 bg-card border-r border-border transition-all duration-300 ease-in-out",
+          "hidden md:flex flex-col fixed left-0 top-0 bottom-0 z-[60] bg-card border-r border-border transition-all duration-300 ease-in-out",
           isCollapsed ? "w-20" : "w-64"
         )}
       >

@@ -10,6 +10,7 @@ import {
   MessageSquare, 
   BarChart2, 
   RefreshCcw,
+  ArrowLeft,
   ChevronRight
 } from "lucide-react";
 
@@ -62,17 +63,10 @@ export default function CommunicationSimulator() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-80px)] md:h-[calc(100vh-100px)] lg:h-[calc(100vh-120px)] w-full max-w-6xl mx-auto border border-border rounded-xl overflow-hidden shadow-2xl bg-card min-w-0">
-      <Sidebar 
-        currentScenario={selectedScenario} 
-        onSelect={setSelectedScenario} 
-        avgEmpathy={avgEmpathy}
-        messageCount={userMessages.length}
-      />
+    <div className="flex h-[calc(100vh-80px)] md:h-[calc(100vh-100px)] lg:h-[calc(100vh-120px)] w-full max-w-4xl mx-auto border border-border rounded-xl overflow-hidden shadow-2xl bg-card min-w-0">
       <ChatInterface 
         scenario={selectedScenario} 
         onExit={() => setSelectedScenario(null)}
-        onSelect={setSelectedScenario}
         messages={messages}
         setMessages={setMessages}
         avgEmpathy={avgEmpathy}
@@ -148,28 +142,8 @@ import {
 } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
 
-function Sidebar({ 
-  currentScenario, 
-  onSelect, 
-  avgEmpathy,
-  messageCount 
-}: { 
-  currentScenario: Scenario, 
-  onSelect: (s: Scenario) => void,
-  avgEmpathy: number,
-  messageCount: number
-}) {
-  return (
-    <div className="hidden xl:flex flex-col w-72 2xl:w-80 shrink-0 bg-secondary/10 border-r border-border py-6 h-full transition-all duration-300">
-      <SidebarContent 
-        currentScenario={currentScenario}
-        onSelect={onSelect}
-        avgEmpathy={avgEmpathy}
-        messageCount={messageCount}
-      />
-    </div>
-  );
-}
+// Sidebar component removed as per user request
+
 
 function SidebarContent({
   currentScenario, 
@@ -263,11 +237,9 @@ function SidebarContent({
 }
 
 
-// Update ChatInterface props to include selection and stats for mobile menu
 function ChatInterface({ 
   scenario, 
   onExit,
-  onSelect,
   messages,
   setMessages,
   avgEmpathy,
@@ -275,7 +247,6 @@ function ChatInterface({
 }: { 
   scenario: Scenario, 
   onExit: () => void,
-  onSelect: (s: Scenario) => void,
   messages: Message[],
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>,
   avgEmpathy: number,
@@ -286,7 +257,6 @@ function ChatInterface({
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [currentTone, setCurrentTone] = useState<AnalysisResult["tone"]>("Neutral");
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   // Initialize with the scenario's starting message ONLY if empty (first load of scenario)
   useEffect(() => {
@@ -406,30 +376,9 @@ Initial Message: ${scenario.initialMessage[language]}
       {/* Header */}
       <div className="h-14 md:h-16 border-b border-border bg-card flex items-center justify-between px-4 md:px-6 shadow-sm z-10 shrink-0">
         <div className="flex items-center gap-3">
-            {/* Mobile/Tablet/Laptop Menu Trigger */}
-            <div className="xl:hidden">
-                <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-                    <SheetTrigger asChild>
-                        <Button variant="ghost" size="icon" className="-ml-2 mr-1">
-                            <Menu className="w-5 h-5" />
-                        </Button>
-                    </SheetTrigger>
-                    <SheetContent side="left" className="p-0 w-[85vw] sm:w-80 bg-background border-r">
-                         <SheetHeader className="px-6 pt-6 pb-2 text-left">
-                            <SheetTitle>
-                                {language === 'az' ? 'Ssenarilər' : 'Scenarios'}
-                            </SheetTitle>
-                         </SheetHeader>
-                        <SidebarContent 
-                            currentScenario={scenario} 
-                            onSelect={onSelect}
-                            avgEmpathy={avgEmpathy}
-                            messageCount={messageCount}
-                            onMobileClose={() => setIsMobileMenuOpen(false)}
-                        />
-                    </SheetContent>
-                </Sheet>
-            </div>
+            <Button variant="ghost" size="icon" onClick={onExit} className="-ml-2 mr-2">
+                <ArrowLeft className="w-5 h-5" />
+            </Button>
 
           <Avatar className="h-8 w-8 md:h-10 md:w-10">
             <AvatarImage src={scenario.persona.avatar} />
@@ -440,8 +389,8 @@ Initial Message: ${scenario.initialMessage[language]}
             <p className="text-[10px] md:text-xs text-muted-foreground">{scenario.persona.role[language]}</p>
           </div>
         </div>
-        <Button variant="ghost" size="sm" onClick={onExit} className="text-xs md:text-sm">
-           {language === 'az' ? 'Bitir' : 'End'}
+        <Button variant="ghost" size="sm" onClick={onExit} className="text-xs md:text-sm gap-2">
+            {language === 'az' ? 'Siyahıya Qayıt' : 'Back to List'}
         </Button>
       </div>
 
