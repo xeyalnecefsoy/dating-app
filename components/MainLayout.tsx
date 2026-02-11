@@ -316,7 +316,9 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Mobile Bottom Nav */}
-      <BottomNav />
+      <React.Suspense fallback={null}>
+        <BottomNav />
+      </React.Suspense>
 
 
 

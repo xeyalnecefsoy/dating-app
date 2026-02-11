@@ -35,7 +35,7 @@ type Conversation = {
   messages: ChatMessage[];
 };
 
-export default function MessagesPage() {
+function MessagesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isOnboarded, markMatchAsRead, acceptMessageRequest, declineMessageRequest, cancelMessageRequest } = useUser();
@@ -1041,6 +1041,14 @@ export default function MessagesPage() {
       {/* Modals */}
       {/* ... (Requests Modal etc would go here if not already present in full file) */}
     </div>
+  );
+}
+
+export default function MessagesPage() {
+  return (
+    <React.Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}>
+      <MessagesContent />
+    </React.Suspense>
   );
 }
 
