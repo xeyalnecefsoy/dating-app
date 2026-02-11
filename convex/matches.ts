@@ -18,22 +18,14 @@ export const create = mutation({
     // Check if match already exists (in either direction)
     const match1 = await ctx.db
       .query("matches")
-      .filter((q) => 
-        q.and(
-          q.eq(q.field("user1Id"), userId),
-          q.eq(q.field("user2Id"), args.user2Id)
-        )
-      )
+      .withIndex("by_user1", q => q.eq("user1Id", userId))
+      .filter(q => q.eq(q.field("user2Id"), args.user2Id))
       .first();
 
     const match2 = await ctx.db
       .query("matches")
-      .filter((q) => 
-        q.and(
-          q.eq(q.field("user1Id"), args.user2Id),
-          q.eq(q.field("user2Id"), userId)
-        )
-      )
+      .withIndex("by_user1", q => q.eq("user1Id", args.user2Id))
+      .filter(q => q.eq(q.field("user2Id"), userId))
       .first();
 
     if (match1 || match2) {
@@ -78,22 +70,14 @@ export const sendRequest = mutation({
     // Check if match already exists
     const match1 = await ctx.db
       .query("matches")
-      .filter((q) => 
-        q.and(
-          q.eq(q.field("user1Id"), senderId),
-          q.eq(q.field("user2Id"), receiverId)
-        )
-      )
+      .withIndex("by_user1", q => q.eq("user1Id", senderId))
+      .filter(q => q.eq(q.field("user2Id"), receiverId))
       .first();
 
     const match2 = await ctx.db
       .query("matches")
-      .filter((q) => 
-        q.and(
-          q.eq(q.field("user1Id"), receiverId),
-          q.eq(q.field("user2Id"), senderId)
-        )
-      )
+      .withIndex("by_user1", q => q.eq("user1Id", receiverId))
+      .filter(q => q.eq(q.field("user2Id"), senderId))
       .first();
 
     if (match1 || match2) {
@@ -152,13 +136,8 @@ export const acceptRequest = mutation({
     // Find the request where 'user1Id' was sender (targetId) and 'user2Id' was receiver (userId)
     const match = await ctx.db
       .query("matches")
-      .filter((q) => 
-        q.and(
-          q.eq(q.field("user1Id"), args.targetId),
-          q.eq(q.field("user2Id"), userId),
-          q.eq(q.field("status"), "request")
-        )
-      )
+      .withIndex("by_user1_status", q => q.eq("user1Id", args.targetId).eq("status", "request"))
+      .filter(q => q.eq(q.field("user2Id"), userId))
       .first();
 
     if (match) {
@@ -182,13 +161,8 @@ export const declineRequest = mutation({
 
      const match = await ctx.db
       .query("matches")
-      .filter((q) => 
-        q.and(
-          q.eq(q.field("user1Id"), args.targetId),
-          q.eq(q.field("user2Id"), userId),
-          q.eq(q.field("status"), "request")
-        )
-      )
+      .withIndex("by_user1_status", q => q.eq("user1Id", args.targetId).eq("status", "request"))
+      .filter(q => q.eq(q.field("user2Id"), userId))
       .first();
 
     if (match) {
@@ -208,12 +182,7 @@ export const getRequests = query({
 
     const requests = await ctx.db
       .query("matches")
-      .filter((q) => 
-        q.and(
-          q.eq(q.field("user2Id"), userId),
-          q.eq(q.field("status"), "request")
-        )
-      )
+      .withIndex("by_user2_status", q => q.eq("user2Id", userId).eq("status", "request"))
       .collect();
 
     return requests.map(r => r.user1Id);
@@ -231,23 +200,13 @@ export const list = query({
     // Find where user is user1
     const matches1 = await ctx.db
       .query("matches")
-      .filter((q) => 
-        q.and(
-          q.eq(q.field("user1Id"), userId),
-          q.eq(q.field("status"), "accepted")
-        )
-      )
+      .withIndex("by_user1_status", q => q.eq("user1Id", userId).eq("status", "accepted"))
       .collect();
 
     // Find where user is user2
     const matches2 = await ctx.db
       .query("matches")
-      .filter((q) => 
-         q.and(
-            q.eq(q.field("user2Id"), userId),
-            q.eq(q.field("status"), "accepted")
-         )
-      )
+      .withIndex("by_user2_status", q => q.eq("user2Id", userId).eq("status", "accepted"))
       .collect();
 
     // Combine and extract partner IDs
@@ -270,13 +229,13 @@ export const clearAll = mutation({
     // Find where user is user1
     const matches1 = await ctx.db
       .query("matches")
-      .filter((q) => q.eq(q.field("user1Id"), userId))
+      .withIndex("by_user1", q => q.eq("user1Id", userId))
       .collect();
 
     // Find where user is user2
     const matches2 = await ctx.db
       .query("matches")
-      .filter((q) => q.eq(q.field("user2Id"), userId))
+      .withIndex("by_user2", q => q.eq("user2Id", userId))
       .collect();
 
     // Delete all

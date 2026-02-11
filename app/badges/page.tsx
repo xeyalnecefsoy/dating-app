@@ -7,10 +7,13 @@ import { Button } from "@/components/ui/button";
 import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { BADGES, getBadgeIcon } from "@/lib/badges";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 export default function BadgesPage() {
   const { user } = useUser();
   const { language } = useLanguage();
+  const badgeProgress = useQuery(api.badges.getProgress) as Record<string, { current: number; target: number }> | undefined;
 
   if (!user) return null;
 
@@ -33,6 +36,10 @@ export default function BadgesPage() {
           {BADGES.map((badge) => {
             const isEarned = user.badges.some(b => b.toLowerCase().replace(/ /g, "-") === badge.id);
             const IconComponent = getBadgeIcon(badge.icon);
+            const progress = badgeProgress?.[badge.id];
+            const progressPercent = progress
+              ? Math.min(100, Math.round((progress.current / progress.target) * 100))
+              : 0;
             
             return (
               <div 
@@ -73,10 +80,23 @@ export default function BadgesPage() {
                   </p>
                 </div>
 
-                {/* Progress Bar (Example - for visual) */}
+                {/* Progress Bar */}
                 {!isEarned && (
-                  <div className="mt-3 h-1 w-full bg-secondary rounded-full overflow-hidden">
-                    <div className="h-full bg-primary/50 w-[0%]" />
+                  <div className="mt-3">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-[10px] text-muted-foreground">
+                        {progress ? `${progress.current}/${progress.target}` : ""}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground font-medium">
+                        {progressPercent}%
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-primary/70 rounded-full transition-all duration-500" 
+                        style={{ width: `${progressPercent}%` }} 
+                      />
+                    </div>
                   </div>
                 )}
               </div>

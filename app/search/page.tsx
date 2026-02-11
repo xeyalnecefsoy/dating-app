@@ -18,11 +18,6 @@ import { motion, AnimatePresence } from "framer-motion";
   const { user: currentUser, isOnboarded, likeUser } = useUser();
   const { t, language } = useLanguage();
   
-  // Fetch real users from DB
-  const dbUsers = useQuery(api.users.searchUsers, { 
-    currentUserId: currentUser?.clerkId 
-  });
-
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({ 
@@ -30,6 +25,16 @@ import { motion, AnimatePresence } from "framer-motion";
     maxAge: 50, 
     location: "all",
     communicationStyle: "all"
+  });
+
+  // Fetch users with server-side filters
+  const dbUsers = useQuery(api.users.searchUsersFiltered, { 
+    currentUserId: currentUser?.clerkId,
+    minAge: filters.minAge,
+    maxAge: filters.maxAge,
+    location: filters.location === "all" ? undefined : filters.location,
+    communicationStyle: filters.communicationStyle === "all" ? undefined : filters.communicationStyle,
+    lookingFor: currentUser && isOnboarded ? currentUser.lookingFor : undefined,
   });
 
   const allUsers = useMemo(() => {
@@ -57,23 +62,19 @@ import { motion, AnimatePresence } from "framer-motion";
       gallery: u.gallery || [],
       isVerified: u.role === "admin" || u.role === "superadmin",
       isPremium: u.isPremium,
+      username: u.username,
     }));
 
-    // Use only real users
     return realProfiles;
   }, [dbUsers]);
 
+  // Client-side: only filter by name search
   const availableUsers = useMemo(() => {
-    return allUsers.filter(u => {
-      // Basic filtering
-      if (currentUser && isOnboarded && u.gender !== currentUser.lookingFor) return false;
-      if (u.age < filters.minAge || u.age > filters.maxAge) return false;
-      if (filters.location !== "all" && u.location !== filters.location) return false;
-      if (filters.communicationStyle !== "all" && u.communicationStyle !== filters.communicationStyle) return false;
-      if (searchQuery && !u.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-      return true;
-    });
-  }, [currentUser?.lookingFor, isOnboarded, filters, searchQuery, allUsers]);
+    if (!searchQuery) return allUsers;
+    return allUsers.filter(u => 
+      u.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [searchQuery, allUsers]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col w-full items-center">

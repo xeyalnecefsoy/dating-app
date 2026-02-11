@@ -431,19 +431,19 @@ function MessagesContent() {
                   ) : (
                     <img 
                       src={participant?.avatar} 
-                      className="w-10 h-10 rounded-full" 
+                      className="w-10 h-10 rounded-full object-cover shadow-sm bg-muted" 
                       alt={participant?.name}
                     />
                   )}
                   <div className={cn(
-                    "absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background",
-                    isGeneral || friendPresence?.isOnline ? "bg-[#20D5A0]" : "bg-red-500"
+                    "absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-background shadow-sm",
+                    isGeneral || friendPresence?.isOnline ? "bg-[#20D5A0]" : "bg-muted-foreground/40"
                   )} />
                 </div>
                 <div>
-                  <h2 className="font-semibold">{isGeneral ? "Danyeri Community" : participant?.name}</h2>
-                  <p className={cn("text-xs", 
-                    isGeneral || friendPresence?.isOnline ? "text-[#20D5A0]" : "text-red-500"
+                  <h2 className="font-semibold text-sm sm:text-base">{isGeneral ? "Danyeri Community" : participant?.name}</h2>
+                  <p className={cn("text-[10px] sm:text-xs", 
+                    isGeneral || friendPresence?.isOnline ? "text-[#20D5A0]" : "text-muted-foreground"
                   )}>
                     {isGeneral 
                         ? txt.activeNow 

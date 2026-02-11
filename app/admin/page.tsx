@@ -15,6 +15,7 @@ import {
   Ban,
   CheckCircle,
   XCircle,
+  X,
   Eye,
   Trash2,
   TrendingUp,
@@ -75,12 +76,7 @@ const mockStats = {
   premiumUsers: 1284,
 };
 
-const mockReports = [
-  { id: "r1", reporterId: "user1", reportedId: "user2", reason: "Uyğunsuz şəkillər", status: "pending", date: "2026-01-20" },
-  { id: "r2", reporterId: "user3", reportedId: "user4", reason: "Spam mesajlar", status: "pending", date: "2026-01-20" },
-  { id: "r3", reporterId: "user5", reportedId: "user6", reason: "Saxta profil", status: "reviewed", date: "2026-01-19" },
-  { id: "r4", reporterId: "user7", reportedId: "user8", reason: "Təhqiredici davranış", status: "pending", date: "2026-01-20" },
-];
+
 
 const mockVerificationQueue = [
   { id: "v1", userId: "selcan", userName: "Selcan", photo: "/avatars/selcan.png", submittedAt: "2026-01-20 14:30", status: "pending" },
@@ -113,6 +109,11 @@ export default function AdminPage() {
   const togglePaywall = useMutation(api.admin.togglePaywall);
   const grantPremium = useMutation(api.admin.grantPremium);
   const revokePremium = useMutation(api.admin.revokePremium);
+
+  // Reports
+  const reports = useQuery(api.reports.getReports, adminEmail ? { statusFilter: "all" } : "skip");
+  const reportStats = useQuery(api.reports.getReportStats, adminEmail ? {} : "skip");
+  const updateReportStatusMut = useMutation(api.reports.updateReportStatus);
 
   const paywallEnabled = platformSettings?.PREMIUM_PAYWALL_ENABLED === "true";
 
@@ -585,7 +586,6 @@ export default function AdminPage() {
               </motion.div>
             )}
 
-            {/* Reports */}
             {activeSection === "reports" && (
               <motion.div
                 key="reports"
@@ -596,72 +596,89 @@ export default function AdminPage() {
               >
                 <div className="flex items-center justify-between">
                   <p className="text-muted-foreground">
-                    {mockReports.filter(r => r.status === "pending").length} gözləyən şikayət
+                    {reportStats?.pending || 0} gözləyən şikayət
                   </p>
-                  <Button variant="outline" className="gap-2">
-                    <RefreshCw className="w-4 h-4" />
-                    Yenilə
-                  </Button>
                 </div>
 
-                <div className="space-y-4">
-                  {mockReports.map((report) => (
-                    <div
-                      key={report.id}
-                      className="bg-card border border-border rounded-2xl p-5"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-4">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                            report.status === "pending" ? "bg-red-500/10" : "bg-green-500/10"
-                          }`}>
-                            <AlertTriangle className={`w-5 h-5 ${
-                              report.status === "pending" ? "text-red-500" : "text-green-500"
-                            }`} />
+                {(!reports || reports.length === 0) ? (
+                  <div className="text-center py-16 text-muted-foreground">
+                    <AlertTriangle className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                    <p>Heç bir şikayət yoxdur</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {reports.map((report: any) => (
+                      <div
+                        key={report._id}
+                        className="bg-card border border-border rounded-2xl p-5"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start gap-4">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                              report.status === "pending" ? "bg-red-500/10" : 
+                              report.status === "resolved" ? "bg-green-500/10" : "bg-muted"
+                            }`}>
+                              <AlertTriangle className={`w-5 h-5 ${
+                                report.status === "pending" ? "text-red-500" : 
+                                report.status === "resolved" ? "text-green-500" : "text-muted-foreground"
+                              }`} />
+                            </div>
+                            <div>
+                              <h4 className="font-semibold capitalize">{report.reason}</h4>
+                              {report.description && (
+                                <p className="text-sm text-muted-foreground mt-0.5">{report.description}</p>
+                              )}
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {report.reporterName} → {report.reportedName}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {new Date(report.createdAt).toLocaleDateString('az-AZ')}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <h4 className="font-semibold">{report.reason}</h4>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              Şikayət edən: {report.reporterId} → {report.reportedId}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {report.date}
-                            </p>
-                          </div>
+
+                          {report.status === "pending" && (
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1 text-green-500 hover:text-green-600"
+                                onClick={() => {
+                                  updateReportStatusMut({ reportId: report._id, status: "resolved" })
+                                    .then(() => showToast({ type: "success", title: "Şikayət həll edildi" }))
+                                    .catch(() => showToast({ type: "error", title: "Xəta baş verdi" }));
+                                }}
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                                Həll Et
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1 text-yellow-500 hover:text-yellow-600"
+                                onClick={() => {
+                                  updateReportStatusMut({ reportId: report._id, status: "dismissed" })
+                                    .then(() => showToast({ type: "success", title: "Şikayət rədd edildi" }))
+                                    .catch(() => showToast({ type: "error", title: "Xəta baş verdi" }));
+                                }}
+                              >
+                                <X className="w-4 h-4" />
+                                Rədd Et
+                              </Button>
+                            </div>
+                          )}
+
+                          {report.status === "resolved" && (
+                            <span className="text-xs text-green-500 font-medium">Həll edilib</span>
+                          )}
+                          {report.status === "dismissed" && (
+                            <span className="text-xs text-yellow-500 font-medium">Rədd edilib</span>
+                          )}
                         </div>
-
-                        {report.status === "pending" && (
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="gap-1 text-green-500 hover:text-green-600"
-                              onClick={() => simulateAction(() => {})}
-                              disabled={isLoading}
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                              Həll Et
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="gap-1 text-red-500 hover:text-red-600"
-                              onClick={() => simulateAction(() => {})}
-                              disabled={isLoading}
-                            >
-                              <Ban className="w-4 h-4" />
-                              Blokla
-                            </Button>
-                          </div>
-                        )}
-
-                        {report.status === "reviewed" && (
-                          <span className="text-xs text-green-500 font-medium">Həll edilib</span>
-                        )}
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </motion.div>
             )}
 

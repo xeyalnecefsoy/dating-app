@@ -261,14 +261,22 @@ export const getActiveUsers = query({
       .withIndex("by_status", (q) => q.eq("status", "active"))
       .take(200);
 
-    // Get current user's blocked list
+    // Get current user's blocked list + already-liked list
     let myBlockedUsers: string[] = [];
+    let myLikedUsers: Set<string> = new Set();
     if (args.currentUserId) {
       const currentUser = await ctx.db
         .query("users")
         .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.currentUserId))
         .first();
       myBlockedUsers = currentUser?.blockedUsers || [];
+
+      // Fetch already-liked users to exclude server-side
+      const myLikes = await ctx.db
+        .query("likes")
+        .withIndex("by_liker", q => q.eq("likerId", args.currentUserId!))
+        .collect();
+      myLikedUsers = new Set(myLikes.map(l => l.likedId));
     }
 
     const excludeSet = new Set(args.excludeIds || []);
@@ -281,6 +289,8 @@ export const getActiveUsers = query({
       if (u.clerkId === args.currentUserId) return false;
       // Exclude already-seen users
       if (u.clerkId && excludeSet.has(u.clerkId)) return false;
+      // Exclude already-liked users (server-side)
+      if (u.clerkId && myLikedUsers.has(u.clerkId)) return false;
       // Privacy: skip users who hid their profile
       if (u.hideProfile === true) return false;
       // Privacy: skip users I blocked
@@ -309,6 +319,41 @@ export const searchUsers = query({
       .collect();
 
     return users.filter(u => u.clerkId !== args.currentUserId);
+  },
+});
+
+/**
+ * Server-side filtered search — filters applied at the database level
+ */
+export const searchUsersFiltered = query({
+  args: {
+    currentUserId: v.optional(v.string()),
+    minAge: v.optional(v.number()),
+    maxAge: v.optional(v.number()),
+    location: v.optional(v.string()),
+    communicationStyle: v.optional(v.string()),
+    lookingFor: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const users = await ctx.db
+      .query("users")
+      .withIndex("by_status", (q) => q.eq("status", "active"))
+      .collect();
+
+    return users.filter((u) => {
+      // Exclude self
+      if (u.clerkId === args.currentUserId) return false;
+      // Age filter
+      if (args.minAge && (u.age || 0) < args.minAge) return false;
+      if (args.maxAge && (u.age || 0) > args.maxAge) return false;
+      // Location filter
+      if (args.location && args.location !== "all" && u.location !== args.location) return false;
+      // Communication style filter
+      if (args.communicationStyle && args.communicationStyle !== "all" && u.communicationStyle !== args.communicationStyle) return false;
+      // LookingFor gender filter
+      if (args.lookingFor && u.gender !== args.lookingFor) return false;
+      return true;
+    });
   },
 });
 

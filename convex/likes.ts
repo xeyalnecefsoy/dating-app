@@ -28,6 +28,18 @@ export const like = mutation({
       return { alreadyLiked: false, isMatch: false, error: "Cannot like yourself" };
     }
 
+    // Rate limiting — max 30 likes per minute
+    const oneMinuteAgo = Date.now() - 60 * 1000;
+    const recentLikes = await ctx.db
+      .query("likes")
+      .withIndex("by_liker", q => q.eq("likerId", likerId))
+      .filter(q => q.gt(q.field("createdAt"), oneMinuteAgo))
+      .collect();
+
+    if (recentLikes.length >= 30) {
+      return { alreadyLiked: false, isMatch: false, error: "Rate limit exceeded" };
+    }
+
     // Check if already liked
     const existing = await ctx.db
       .query("likes")

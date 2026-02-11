@@ -15,7 +15,8 @@ export const list = query({
     const messages = await ctx.db
       .query("messages")
       .withIndex("by_channel", (q) => q.eq("channelId", channelId))
-      .collect();
+      .order("desc")
+      .take(50);
 
     // Soft delete handling & text localization & image URL resolution
     const messagesWithUrls = await Promise.all(messages.map(async (msg) => {
@@ -45,7 +46,7 @@ export const list = query({
       };
     }));
     
-    return messagesWithUrls;
+    return messagesWithUrls.reverse();
   },
 });
 

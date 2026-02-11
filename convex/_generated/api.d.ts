@@ -10,6 +10,7 @@
 
 import type * as admin from "../admin.js";
 import type * as ai from "../ai.js";
+import type * as badges from "../badges.js";
 import type * as blocks from "../blocks.js";
 import type * as files from "../files.js";
 import type * as http from "../http.js";
@@ -20,6 +21,7 @@ import type * as notifications from "../notifications.js";
 import type * as premium from "../premium.js";
 import type * as presence from "../presence.js";
 import type * as push from "../push.js";
+import type * as reports from "../reports.js";
 import type * as subscriptions from "../subscriptions.js";
 import type * as users from "../users.js";
 
@@ -32,6 +34,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   ai: typeof ai;
+  badges: typeof badges;
   blocks: typeof blocks;
   files: typeof files;
   http: typeof http;
@@ -42,6 +45,7 @@ declare const fullApi: ApiFromModules<{
   premium: typeof premium;
   presence: typeof presence;
   push: typeof push;
+  reports: typeof reports;
   subscriptions: typeof subscriptions;
   users: typeof users;
 }>;

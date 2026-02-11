@@ -77,7 +77,7 @@ export function ConversationRow({ participantId, currentUserId, isSelected, onSe
         <img 
           src={participant.avatar}
           alt={participant.name}
-          className="w-14 h-14 rounded-full object-cover"
+          className="w-14 h-14 rounded-full object-cover shadow-sm bg-muted"
         />
         {/* Helper: Online indicator */}
         {presence?.isOnline && (

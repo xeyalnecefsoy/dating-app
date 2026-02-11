@@ -34,6 +34,8 @@ export default defineSchema({
     isPremium: v.optional(v.boolean()),
     premiumPlan: v.optional(v.string()), // 'monthly' | 'quarterly' | 'yearly'
     premiumExpiresAt: v.optional(v.number()), // timestamp — null = lifetime/admin-granted
+    // Badges
+    badges: v.optional(v.array(v.string())), // earned badge IDs
   }).index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"])
     .index("by_username", ["username"])
@@ -57,7 +59,10 @@ export default defineSchema({
     user1Id: v.string(),
     user2Id: v.string(),
     status: v.string(), // 'pending', 'accepted', 'rejected'
-  }),
+  }).index("by_user1", ["user1Id"])
+    .index("by_user2", ["user2Id"])
+    .index("by_user1_status", ["user1Id", "status"])
+    .index("by_user2_status", ["user2Id", "status"]),
 
   presence: defineTable({
     userId: v.string(),
@@ -96,4 +101,17 @@ export default defineSchema({
     key: v.string(),
     value: v.string(),
   }).index("by_key", ["key"]),
+
+  reports: defineTable({
+    reporterId: v.string(),       // Clerk ID of reporter
+    reportedId: v.string(),       // Clerk ID of reported user
+    reason: v.string(),           // 'fake', 'harassment', 'spam', 'inappropriate', 'other'
+    description: v.optional(v.string()),
+    status: v.string(),           // 'pending', 'reviewed', 'resolved', 'dismissed'
+    createdAt: v.number(),
+    reviewedBy: v.optional(v.string()),
+    reviewedAt: v.optional(v.number()),
+  }).index("by_status", ["status"])
+    .index("by_reported", ["reportedId"])
+    .index("by_reporter", ["reporterId"]),
 });

@@ -109,6 +109,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const acceptRequestMutation = useMutation(api.matches.acceptRequest);
   const declineRequestMutation = useMutation(api.matches.declineRequest);
   const createOrUpdateUserMutation = useMutation(api.users.createOrUpdateUser);
+  const pingPresence = useMutation(api.presence.ping);
   
   // Query to get user from Convex DB
   const convexUser = useQuery(
@@ -118,8 +119,25 @@ export function UserProvider({ children }: { children: ReactNode }) {
   
   const convexMatches = useQuery(api.matches.list, user ? { userId: user.id } : "skip");
   const convexRequests = useQuery(api.matches.getRequests, user ? { userId: user.id } : "skip");
+
+  // Presence heartbeat — ping every 60 seconds to mark user as online
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) return;
+    // Initial ping
+    pingPresence({ userId: user.id }).catch(() => {});
+    const interval = setInterval(() => {
+      pingPresence({ userId: user.id }).catch(() => {});
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, user?.id, pingPresence]);
+
+  // Badge check — run once when user is authenticated
+  const checkBadges = useMutation(api.badges.checkAndAwardBadges);
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) return;
+    checkBadges({}).catch(() => {});
+  }, [isAuthenticated, user?.id, checkBadges]);
   
-  const ping = useMutation(api.presence.ping);
 
   // Generate storage key based on Clerk user ID
   const getStorageKey = useCallback((clerkId: string) => {
@@ -144,19 +162,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }, [user, isSignedIn, storeSubscription]);
 
-  // Heartbeat to keep presence active
-  useEffect(() => {
-    if (user?.id) {
-        // Ping immediately
-        ping({ userId: user.id });
-        
-        // Ping every minute
-        const interval = setInterval(() => {
-            ping({ userId: user.id });
-        }, 60000);
-        return () => clearInterval(interval);
-    }
-  }, [user?.id, ping]);
+
 
   // Sync Convex matches with local matches
   useEffect(() => {
