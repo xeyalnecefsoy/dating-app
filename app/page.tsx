@@ -11,10 +11,12 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { BottomNav } from "@/components/Navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { HomeBannerSlider } from "@/components/ui/HomeBannerSlider";
 
 export default function HomePage() {
   const { user, isOnboarded, isLoading, isAuthenticated } = useUser();
   const { t, language } = useLanguage();
+  const notificationsCount = useQuery(api.notifications.getUnreadCount) || 0;
 
   // Text translations
   const txt = {
@@ -94,9 +96,9 @@ export default function HomePage() {
               <div className="w-9 h-9 rounded-full bg-secondary/50 flex items-center justify-center hover:bg-secondary transition-colors">
                 <div className="relative">
                   <Bell className="w-5 h-5 text-foreground" />
-                  {((user?.unreadMatches?.length || 0) + (user?.messageRequests?.filter(id => !user?.seenMessageRequests?.includes(id)).length || 0)) > 0 && (
+                  {notificationsCount > 0 && (
                     <span className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-primary text-[10px] font-bold text-primary-foreground flex items-center justify-center border-2 border-background">
-                      {((user?.unreadMatches?.length || 0) + (user?.messageRequests?.filter(id => !user?.seenMessageRequests?.includes(id)).length || 0))}
+                      {notificationsCount > 9 ? "9+" : notificationsCount}
                     </span>
                   )}
                 </div>
@@ -109,6 +111,9 @@ export default function HomePage() {
       </header>
 
       <main className="w-full max-w-5xl mx-auto px-4 py-6 pb-24">
+        {/* Banner Slider */}
+        <HomeBannerSlider />
+        
         {/* Quick Actions */}
         <section className="grid grid-cols-2 gap-3 mb-8">
           <Link href="/discovery">
@@ -136,9 +141,9 @@ export default function HomePage() {
               <div className="absolute top-4 right-4 w-12 h-12 rounded-full bg-[#20D5A0] flex items-center justify-center">
                 <MessageCircle className="w-6 h-6 text-white" />
               </div>
-              {user && user.matches.length > 0 && (
-                <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-primary text-[10px] font-bold flex items-center justify-center">
-                  {user.matches.length}
+              {((user?.unreadMatches?.length || 0) + (user?.messageRequests?.filter(id => !user?.seenMessageRequests?.includes(id)).length || 0)) > 0 && (
+                <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-primary text-[10px] font-bold text-white flex items-center justify-center">
+                  {((user?.unreadMatches?.length || 0) + (user?.messageRequests?.filter(id => !user?.seenMessageRequests?.includes(id)).length || 0))}
                 </div>
               )}
               <div className="absolute bottom-4 left-4">
@@ -218,7 +223,7 @@ export default function HomePage() {
           <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-2 -mx-4 px-4">
             {[
               { id: 1, names: language === 'az' ? "Aysel və Rəşad" : "Aysel & Rashad", duration: language === 'az' ? "8 ay birlikdə" : "Together 8 months", img1: "Aysel", img2: "Rashad" },
-              { id: 2, names: language === 'az' ? "Nərmin və Tural" : "Narmin & Tural", duration: language === 'az' ? "Nişanlı" : "Engaged", img1: "Narmin", img2: "Tural" },
+              { id: 2, names: language === 'az' ? "Nərmin və Tural" : "Narmin & Tural", duration: language === 'az' ? "Adaqlı" : "Engaged", img1: "Narmin", img2: "Tural" },
               { id: 3, names: language === 'az' ? "Leyla və Emil" : "Leyla & Emil", duration: language === 'az' ? "1 il birlikdə" : "Together 1 year", img1: "Leyla", img2: "Emil" },
             ].map((story) => (
               <Link href="/stories" key={story.id}>
@@ -399,11 +404,58 @@ function WelcomeScreen() {
 
 function DailyQuestionMini({ language }: { language: string }) {
   const questions = [
-    { en: "What does your ideal date look like?", az: "İdeal görüşünüz necə olardı?" },
-    { en: "What's your love language?", az: "Sizin sevgi diliniz nədir?" },
-    { en: "What values matter most to you?", az: "Sizin üçün hansı dəyərlər ən vacibdir?" },
+    { 
+      en: "What does your ideal weekend look like?", 
+      az: "İdeal həftəsonunuz necə olardı?",
+      enPurpose: "Reveals their lifestyle, energy levels, and how they recharge.",
+      azPurpose: "Həyat tərzini, enerjisini və necə istirahət etmək istədiyini göstərir."
+    },
+    { 
+      en: "What's the most spontaneous thing you've ever done?", 
+      az: "İndiyə qədər etdiyiniz ən spontan (anidən qərar verilmiş) şey nədir?",
+      enPurpose: "Shows their adventurous side and willingness to take risks.",
+      azPurpose: "Macəra ruhunu və risk alma ehtimalını göstərir."
+    },
+    { 
+      en: "How do you usually handle stress or difficult days?", 
+      az: "Stresli və çətin günlərlə adətən necə başa çıxırsınız?",
+      enPurpose: "Indicates emotional maturity and coping mechanisms.",
+      azPurpose: "Emosional yetkinliyini və çətinliklərdən çıxış yollarını göstərir."
+    },
+    { 
+      en: "What's a topic you could talk about for hours?", 
+      az: "Hansı mövzuda saatlarla danışa bilərsiniz?",
+      enPurpose: "Reveals their true passions and intellectual interests.",
+      azPurpose: "Əsl ehtiraslarını və intellektual maraqlarını kəşf etməyə kömək edir."
+    },
+    { 
+      en: "What is your primary love language?", 
+      az: "Sevginizi ən çox hansı formada (sevgi dili) göstərirsiniz?",
+      enPurpose: "Helps understand how they give and receive affection.",
+      azPurpose: "Sevgini necə verib alacağını və sizə uyğunluğunu anlamağa kömək edir."
+    },
+    { 
+      en: "What is a boundary that is absolutely non-negotiable for you?", 
+      az: "Sizin üçün heç vaxt güzəştə getməyəcəyiniz qırmızı xətt (sərhəd) nədir?",
+      enPurpose: "Shows self-respect and basic relationship expectations.",
+      azPurpose: "Özünə hörmətini və münasibətlərdəki əsas gözləntilərini göstərir."
+    },
+    { 
+      en: "What does support look like to you when you are going through a hard time?", 
+      az: "Çətin vaxtlarınızda qarşı tərəfdən necə bir dəstək görmək istəyirsiniz?",
+      enPurpose: "Essential for knowing how to be there for them during tough times.",
+      azPurpose: "Çətin anlarda onun yanında necə olmalı olduğunuzu öyrədir."
+    }
   ];
-  const question = questions[0];
+
+  // Rotate based on the day of the year so everyone sees the same question on a given day
+  const today = new Date();
+  const start = new Date(today.getFullYear(), 0, 0);
+  const diff = (today.getTime() - start.getTime()) + ((start.getTimezoneOffset() - today.getTimezoneOffset()) * 60 * 1000);
+  const oneDay = 1000 * 60 * 60 * 24;
+  const currentDayOfYear = Math.floor(diff / oneDay);
+  
+  const question = questions[currentDayOfYear % questions.length];
 
   return (
     <motion.div 
@@ -414,13 +466,21 @@ function DailyQuestionMini({ language }: { language: string }) {
         <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
           <Sparkles className="w-6 h-6 text-primary" />
         </div>
-        <div>
-          <p className="text-sm text-muted-foreground mb-1">
+        <div className="flex-1">
+          <p className="text-sm font-semibold text-primary mb-1">
             {language === 'az' ? 'Günün sualı' : "Today's question"}
           </p>
-          <p className="font-medium">
+          <p className="font-medium text-foreground mb-2">
             {language === 'az' ? question.az : question.en}
           </p>
+          <div className="flex items-start gap-1.5 mt-2 bg-secondary/30 p-2.5 rounded-xl border border-border/50">
+            <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider shrink-0 mt-0.5">
+              {language === 'az' ? 'Məqsəd:' : 'Purpose:'}
+            </span>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {language === 'az' ? question.azPurpose : question.enPurpose}
+            </p>
+          </div>
         </div>
       </div>
     </motion.div>

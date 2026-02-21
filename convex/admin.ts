@@ -71,6 +71,7 @@ export const getAllUsers = query({
       avatar: u.avatar,
       role: u.role || "user",
       status: u.status || "active",
+      username: u.username,
       createdAt: u.createdAt,
     }));
   },
@@ -205,23 +206,61 @@ export const getPlatformStats = query({
       throw new Error("Unauthorized: Admin access required");
     }
     
-    // Fetch all data (optimization: could happen in separate dedicated stats table later)
+    // Fetch all data
     const users = await ctx.db.query("users").collect();
     const matches = await ctx.db.query("matches").collect();
     const messages = await ctx.db.query("messages").collect();
+    const reports = await ctx.db.query("reports").collect();
     
     const maleUsers = users.filter(u => u.gender === "male").length;
     const femaleUsers = users.filter(u => u.gender === "female").length;
     const waitlistUsers = users.filter(u => u.status === "waitlist").length;
     const bannedUsers = users.filter(u => u.status === "banned").length;
+    const premiumUsers = users.filter(u => u.isPremium === true).length;
     
     // Active users = not banned, not waitlisted, not rejected
     const activeUsers = users.filter(u => u.status === "active").length;
     
-    // Messages today
+    // Time boundaries
+    const now = Date.now();
     const todayStart = new Date();
     todayStart.setHours(0,0,0,0);
+    const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
+    const twoWeeksAgo = now - 14 * 24 * 60 * 60 * 1000;
+    
+    // Messages today
     const todayMessages = messages.filter(m => m._creationTime > todayStart.getTime()).length;
+    
+    // Pending reports — real count from reports table
+    const pendingReports = reports.filter(r => r.status === "pending").length;
+    
+    // Growth metrics (this week vs last week)
+    const newUsersThisWeek = users.filter(u => (u.createdAt || u._creationTime) > weekAgo).length;
+    const newUsersLastWeek = users.filter(u => {
+      const t = u.createdAt || u._creationTime;
+      return t > twoWeeksAgo && t <= weekAgo;
+    }).length;
+    
+    // Active users who joined this week vs last week
+    const activeThisWeek = users.filter(u => u.status === "active" && (u.createdAt || u._creationTime) > weekAgo).length;
+    const activeLastWeek = users.filter(u => {
+      const t = u.createdAt || u._creationTime;
+      return u.status === "active" && t > twoWeeksAgo && t <= weekAgo;
+    }).length;
+    
+    // Messages this week vs last week
+    const messagesThisWeek = messages.filter(m => m._creationTime > weekAgo).length;
+    const messagesLastWeek = messages.filter(m => m._creationTime > twoWeeksAgo && m._creationTime <= weekAgo).length;
+    
+    // Match growth
+    const matchesThisWeek = matches.filter(m => m._creationTime > weekAgo).length;
+    const matchesLastWeek = matches.filter(m => m._creationTime > twoWeeksAgo && m._creationTime <= weekAgo).length;
+    
+    // Calculate growth percentages
+    const calcGrowth = (current: number, previous: number) => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return Math.round(((current - previous) / previous) * 100 * 10) / 10;
+    };
 
     return {
       totalUsers: users.length,
@@ -234,9 +273,105 @@ export const getPlatformStats = query({
       totalMessages: messages.length,
       todayMessages,
       genderRatio: femaleUsers > 0 ? (maleUsers / femaleUsers).toFixed(2) : "N/A",
-      pendingReports: 0, // Placeholder
+      pendingReports,
       pendingVerifications: waitlistUsers, 
-      premiumUsers: 0, // Placeholder
+      premiumUsers,
+      // Growth percentages (week over week)
+      userGrowth: calcGrowth(newUsersThisWeek, newUsersLastWeek),
+      activeGrowth: calcGrowth(activeThisWeek, activeLastWeek),
+      messageGrowth: calcGrowth(messagesThisWeek, messagesLastWeek),
+      matchGrowth: calcGrowth(matchesThisWeek, matchesLastWeek),
+    };
+  },
+});
+
+/**
+ * Get detailed message statistics (admin only)
+ */
+export const getMessageStats = query({
+  args: { adminEmail: v.string() },
+  handler: async (ctx, args) => {
+    // Basic authorization check
+    const isAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
+    let hasRole = false;
+    if (!isAdmin) {
+       const user = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", args.adminEmail))
+        .first();
+       if (user && (user.role === 'admin' || user.role === 'superadmin')) {
+         hasRole = true;
+       }
+    }
+    if (!isAdmin && !hasRole) {
+      throw new Error("Unauthorized: Admin access required");
+    }
+    
+    const messages = await ctx.db.query("messages").collect();
+    const now = Date.now();
+    const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
+    
+    // Messages per day for last 7 days
+    const dailyBreakdown: { date: string; count: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const dayStart = new Date(now - i * 24 * 60 * 60 * 1000);
+      dayStart.setHours(0,0,0,0);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setHours(23,59,59,999);
+      
+      const count = messages.filter(m => 
+        m._creationTime >= dayStart.getTime() && m._creationTime <= dayEnd.getTime()
+      ).length;
+      
+      dailyBreakdown.push({
+        date: dayStart.toLocaleDateString('az-AZ', { weekday: 'short', day: 'numeric' }),
+        count,
+      });
+    }
+    
+    const weeklyMessages = messages.filter(m => m._creationTime > weekAgo).length;
+    const dailyAverage = Math.round(weeklyMessages / 7);
+    
+    // Average response time calculation
+    // Group messages by channelId, then find time between consecutive messages from different users
+    const channelMessages: Record<string, typeof messages> = {};
+    for (const msg of messages) {
+      const ch = msg.channelId || "general";
+      if (!channelMessages[ch]) channelMessages[ch] = [];
+      channelMessages[ch].push(msg);
+    }
+    
+    let totalResponseTime = 0;
+    let responseCount = 0;
+    
+    for (const ch of Object.keys(channelMessages)) {
+      // Skip general channel — only private chats
+      if (ch === "general") continue;
+      
+      const sorted = channelMessages[ch].sort((a, b) => a._creationTime - b._creationTime);
+      for (let i = 1; i < sorted.length; i++) {
+        if (sorted[i].userId !== sorted[i-1].userId) {
+          const diff = sorted[i]._creationTime - sorted[i-1]._creationTime;
+          // Only count responses within 24 hours to avoid skewing
+          if (diff < 24 * 60 * 60 * 1000) {
+            totalResponseTime += diff;
+            responseCount++;
+          }
+        }
+      }
+    }
+    
+    // Average response time in hours
+    const avgResponseTimeHours = responseCount > 0
+      ? Math.round((totalResponseTime / responseCount / (1000 * 60 * 60)) * 10) / 10
+      : 0;
+    
+    return {
+      totalMessages: messages.length,
+      weeklyMessages,
+      dailyAverage,
+      avgResponseTimeHours,
+      dailyBreakdown,
     };
   },
 });
@@ -280,6 +415,7 @@ export const getWaitlistUsers = query({
       age: u.age,
       location: u.location,
       bio: u.bio,
+      username: u.username,
       avatar: u.avatar,
       createdAt: u.createdAt,
     }));

@@ -9,6 +9,8 @@ import { useUser as useClerkUser } from "@clerk/nextjs";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 export function BottomNav() {
   const pathname = usePathname();
@@ -135,13 +137,14 @@ export function SideNav() {
   const { user, isOnboarded, logout } = useUser();
   const { language } = useLanguage();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const notificationsCount = useQuery(api.notifications.getUnreadCount) || 0;
 
   const navItems = [
     { href: "/", icon: Home, labelEn: "Home", labelAz: "Ana Səhifə" },
     { href: "/discovery", icon: Compass, labelEn: "Discover", labelAz: "Kəşf" },
     { href: "/search", icon: Search, labelEn: "Search", labelAz: "Axtar" },
-    { href: "/messages", icon: MessageCircle, labelEn: "Chat", labelAz: "Mesaj", badge: user?.unreadMatches?.length || 0 },
-    { href: "/notifications", icon: Bell, labelEn: "Alerts", labelAz: "Bildiriş", badge: (user?.unreadMatches?.length || 0) + (user?.messageRequests?.filter(id => !user?.seenMessageRequests?.includes(id)).length || 0) },
+    { href: "/messages", icon: MessageCircle, labelEn: "Chat", labelAz: "Mesaj", badge: (user?.unreadMatches?.length || 0) + (user?.messageRequests?.filter(id => !user?.seenMessageRequests?.includes(id)).length || 0) },
+    { href: "/notifications", icon: Bell, labelEn: "Alerts", labelAz: "Bildiriş", badge: notificationsCount },
     { href: "/venues", icon: MapPin, labelEn: "Venues", labelAz: "Məkan" },
     { href: "/premium", icon: Crown, labelEn: "Premium", labelAz: "Premium" },
     { href: isOnboarded ? "/profile" : "/onboarding", icon: User, labelEn: "Profile", labelAz: "Profil" },

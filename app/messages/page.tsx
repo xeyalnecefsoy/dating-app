@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Send, Search, Heart, MoreVertical, Phone, Video, Image as ImageIcon, Check, X as XIcon, Mail, Clock, Trash2, Pencil, Camera, Loader2 } from "lucide-react";
+import { ArrowLeft, Send, Search, Heart, MoreVertical, Phone, Video, Image as ImageIcon, Check, X as XIcon, Mail, Clock, Trash2, Pencil, Camera, Loader2, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useUser } from "@/contexts/UserContext";
@@ -18,7 +18,7 @@ import { ConversationRow } from "@/components/messages/ConversationRow";
 // GiftModal removed
 import { StoriesBar } from "@/components/stories";
 import { PARTNER_VENUES } from "@/lib/partner-venues";
-import { ICEBREAKERS } from "@/lib/icebreakers";
+import { ICEBREAKERS, GLOBAL_ICEBREAKERS } from "@/lib/icebreakers";
 import { useToast } from "@/components/ui/toast";
 import { Sparkles, Calendar, MapPin } from "lucide-react";
 
@@ -38,7 +38,7 @@ type Conversation = {
 function MessagesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, isOnboarded, markMatchAsRead, acceptMessageRequest, declineMessageRequest, cancelMessageRequest } = useUser();
+  const { user, isOnboarded, markMatchAsRead, acceptMessageRequest, declineMessageRequest, cancelMessageRequest, markMessageRequestsAsSeen } = useUser();
   const { language } = useLanguage();
   const { showToast } = useToast();
   const deleteMessageMutation = useMutation(api.messages.deleteMessage);
@@ -59,6 +59,15 @@ function MessagesContent() {
   const [showRequestsModal, setShowRequestsModal] = useState(false);
   const [showIcebreakerModal, setShowIcebreakerModal] = useState(false);
   const [showVenueModal, setShowVenueModal] = useState(false);
+
+  // Mentions State
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionCursorIndex, setMentionCursorIndex] = useState<number | null>(null);
+  
+  const mentionResults = useQuery(
+    api.users.searchUsersForMention, 
+    mentionQuery !== null ? { query: mentionQuery, currentUserId: user?.id || "" } : "skip"
+  );
   
   // Mark as read when opening conversation
   useEffect(() => {
@@ -86,7 +95,9 @@ function MessagesContent() {
     decline: language === 'az' ? 'Rədd Et' : 'Decline',
     wantsToChat: language === 'az' ? 'sizinlə söhbət etmək istəyir' : 'wants to chat with you',
     now: language === 'az' ? 'İndi' : 'Now',
-    publicChat: language === 'az' ? 'Hər kəs üçün açıq söhbət' : 'Public chat for everyone',
+    yourTurn: language === 'az' ? 'Sizin növbəniz' : 'Your turn',
+    publicChat: language === 'az' ? 'Söhbətgah' : 'Public Chat',
+    publicChatDesc: language === 'az' ? 'Hər kəs üçün açıq söhbət' : 'Open chat for everyone',
     matchMessage: language === 'az' ? 'Söhbətə başlayın!' : 'Start the conversation!',
     loading: language === 'az' ? 'Yüklənir...' : 'Loading...',
     incomingRequests: language === 'az' ? 'Gələn İstəklər' : 'Incoming Requests',
@@ -114,9 +125,10 @@ function MessagesContent() {
     const userIdParam = searchParams.get("userId");
     if (userIdParam) {
       if (userIdParam === 'general') {
-         if (!selectedConv || selectedConv.id !== 'general') {
+          if (!selectedConv || selectedConv.id !== 'general') {
+             // Fetch general chat history from Convex directly, don't rely on local state
              setSelectedConv(generalChatConv);
-         }
+          }
       } else {
           // If we have a userId param, we want to open a chat with this user.
           if (!selectedConv || selectedConv.participantId !== userIdParam) {
@@ -376,7 +388,7 @@ function MessagesContent() {
     }
   };
 
-  // Add a "General Chat" option to the conversation list
+  // Add a "Söhbətgah" option to the conversation list
   const generalChatConv: Conversation = {
      id: "general",
      participantId: "community",
@@ -416,10 +428,7 @@ function MessagesContent() {
                 variant="ghost" 
                 size="icon" 
                 className="rounded-full"
-                onClick={() => {
-                    setSelectedConv(null);
-                    router.push('/messages');
-                }} // Go back to list
+                onClick={() => router.push('/messages')} // Go back to list
               >
                 <ArrowLeft className="w-5 h-5" />
               </Button>
@@ -427,7 +436,9 @@ function MessagesContent() {
               <div className="flex items-center gap-3">
                 <div className="relative">
                   {isGeneral ? (
-                    <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold">A</div>
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center text-white shadow-lg shadow-pink-500/20">
+                      <MessageCircle className="w-5 h-5 text-white" />
+                    </div>
                   ) : (
                     <img 
                       src={participant?.avatar} 
@@ -441,7 +452,7 @@ function MessagesContent() {
                   )} />
                 </div>
                 <div>
-                  <h2 className="font-semibold text-sm sm:text-base">{isGeneral ? "Danyeri Community" : participant?.name}</h2>
+                  <h2 className="font-semibold text-sm sm:text-base">{isGeneral ? "Söhbətgah" : participant?.name}</h2>
                   <p className={cn("text-[10px] sm:text-xs", 
                     isGeneral || friendPresence?.isOnline ? "text-[#20D5A0]" : "text-muted-foreground"
                   )}>
@@ -687,9 +698,9 @@ function MessagesContent() {
            <div ref={messagesEndRef} />
         </main>
 
-        {/* Input - Flex-none ensures it sits at the bottom of the flex container */}
-        <div className="flex-none glass border-t border-border/50 p-4 safe-bottom z-[70]">
-          <div className="flex items-center gap-3">
+        {/* Input - Floating Bar Design */}
+        <div className="flex-none glass border border-border/50 mx-4 mb-4 rounded-3xl p-3 z-[70] overflow-visible shadow-lg">
+          <div className="flex items-center gap-3 relative">
              <input 
                 type="file" 
                 ref={fileInputRef} 
@@ -711,7 +722,10 @@ function MessagesContent() {
               variant="ghost" 
               size="icon" 
               className="rounded-full shrink-0"
-              onClick={() => setShowIcebreakerModal(true)}
+              onClick={() => {
+                setShowIcebreakerModal(true);
+                setShowVenueModal(false);
+              }}
               title="Icebreaker"
             >
               <Sparkles className="w-5 h-5 text-blue-500" />
@@ -720,7 +734,10 @@ function MessagesContent() {
               variant="ghost" 
               size="icon" 
               className="rounded-full shrink-0"
-              onClick={() => setShowVenueModal(true)}
+              onClick={() => {
+                setShowVenueModal(true);
+                setShowIcebreakerModal(false);
+              }}
               title="Invite to Date"
             >
               <Calendar className="w-5 h-5 text-rose-500" />
@@ -728,7 +745,33 @@ function MessagesContent() {
             <Input 
               placeholder={txt.messagePlaceholder}
               value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setNewMessage(val);
+                
+                // Cursor position
+                const cursor = e.target.selectionStart || val.length;
+                
+                // Find active word
+                // Look backwards from cursor to find a space or start
+                const lastAt = val.lastIndexOf("@", cursor - 1);
+                
+                if (lastAt !== -1) {
+                  const textAfterAt = val.substring(lastAt + 1, cursor);
+                  // Check if there is a space in the text after @ - if so, we closed the mention
+                  if (textAfterAt.includes(" ")) {
+                     setMentionQuery(null);
+                     setMentionCursorIndex(null);
+                  } else {
+                     // We are typing a mention
+                     setMentionQuery(textAfterAt);
+                     setMentionCursorIndex(lastAt + 1); // cursor at @ + 1
+                  }
+                } else {
+                   setMentionQuery(null);
+                   setMentionCursorIndex(null);
+                }
+              }}
               onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                       e.preventDefault();
@@ -737,6 +780,41 @@ function MessagesContent() {
               }}
               className="bg-card border-border rounded-full"
             />
+            
+            {/* Mentions Dropdown */}
+            {mentionQuery !== null && mentionResults && mentionResults.length > 0 && (
+               <div className="absolute bottom-full mb-3 left-12 w-64 bg-popover border border-border rounded-xl shadow-xl overflow-hidden z-[100] animate-in fade-in slide-in-from-bottom-2">
+                 <div className="p-2 border-b border-border/50 text-xs font-medium text-muted-foreground bg-muted/30">
+                   {language === 'az' ? 'İstifadəçilər' : 'Members'}
+                 </div>
+                 <div className="max-h-48 overflow-y-auto">
+                   {mentionResults.map(u => (
+                     <button
+                       key={u._id}
+                       className="w-full flex items-center gap-2 p-2 hover:bg-muted text-left transition-colors"
+                       onClick={() => {
+                         if (mentionCursorIndex === null) return;
+                         const before = newMessage.substring(0, mentionCursorIndex);
+                         const after = newMessage.substring(mentionCursorIndex + mentionQuery.length + 1); // +1 because mentionQuery excludes @
+                         
+                         const newValue = before + u.username + " " + after;
+                         setNewMessage(newValue);
+                         setMentionQuery(null);
+                         setMentionCursorIndex(null);
+                         // Focus back
+                         // requestAnimationFrame(() => inputRef.current?.focus()); // Need ref for generic input?
+                       }}
+                     >
+                       <img src={u.avatar || "/placeholder-avatar.svg"} className="w-8 h-8 rounded-full object-cover bg-muted" />
+                       <div className="flex flex-col min-w-0">
+                         <span className="text-sm font-medium truncate">{u.name}</span>
+                         <span className="text-xs text-muted-foreground truncate">@{u.username}</span>
+                       </div>
+                     </button>
+                   ))}
+                 </div>
+               </div>
+            )}
             <Button 
               size="icon"
               onClick={handleSendMessage}
@@ -757,14 +835,14 @@ function MessagesContent() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+              className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
               onClick={() => setShowIcebreakerModal(false)}
             >
                <motion.div
-                  initial={{ y: 100, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  exit={{ y: 100, opacity: 0 }}
-                  className="w-full max-w-sm bg-background border border-border rounded-3xl p-6 shadow-xl max-h-[80vh] overflow-hidden flex flex-col"
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.95, opacity: 0 }}
+                  className="w-full max-w-sm bg-background border border-border rounded-3xl p-6 shadow-2xl max-h-[80vh] flex flex-col pointer-events-auto"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-center justify-between mb-4">
@@ -776,7 +854,7 @@ function MessagesContent() {
                   </div>
                   
                   <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-                    {ICEBREAKERS.map((ib: any) => (
+                    {((activeChannelId === 'general' ? GLOBAL_ICEBREAKERS : ICEBREAKERS) || []).map((ib: any) => (
                       <button
                         key={ib.id}
                         onClick={async () => {
@@ -813,14 +891,14 @@ function MessagesContent() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+              className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
               onClick={() => setShowVenueModal(false)}
             >
                <motion.div
-                  initial={{ y: 100, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  exit={{ y: 100, opacity: 0 }}
-                  className="w-full max-w-md bg-background border border-border rounded-3xl p-6 shadow-xl max-h-[80vh] overflow-hidden flex flex-col"
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.95, opacity: 0 }}
+                  className="w-full max-w-sm bg-background border border-border rounded-3xl p-6 shadow-2xl max-h-[80vh] flex flex-col pointer-events-auto"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-center justify-between mb-4">
@@ -918,19 +996,24 @@ function MessagesContent() {
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
       <header className="sticky top-0 z-40 glass border-b border-border/50">
-        <div className="max-w-lg mx-auto px-4 h-14 flex items-center justify-between">
+        <div className="max-w-lg mx-auto px-4 h-14 flex items-center justify-between relative">
           <Link href="/">
-            <Button variant="ghost" size="icon" className="rounded-full">
+            <Button variant="ghost" size="icon" className="rounded-full relative z-10">
               <ArrowLeft className="w-5 h-5" />
             </Button>
           </Link>
           
-          <h1 className="font-bold text-lg">{txt.messages}</h1>
+          <div className="absolute left-1/2 -translate-x-1/2 flex justify-center items-center pointer-events-none">
+            <h1 className="font-bold text-lg">{txt.messages}</h1>
+          </div>
           
           {/* Instagram-style Requests Button */}
           <button 
-            onClick={() => setShowRequestsModal(true)}
-            className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-card border border-border hover:bg-muted transition-colors text-sm font-medium"
+            onClick={() => {
+              setShowRequestsModal(true);
+              markMessageRequestsAsSeen();
+            }}
+            className="relative z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-card border border-border hover:bg-muted transition-colors text-sm font-medium"
           >
             <Mail className="w-4 h-4" />
             <span className="hidden sm:inline">{txt.incomingRequests}</span>
@@ -969,20 +1052,20 @@ function MessagesContent() {
                   setSelectedConv(generalChatConv);
                   router.push('/messages?userId=general');
               }}
-              className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-card transition-colors bg-primary/5 border border-primary/10 mb-2"
+              className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-card transition-colors bg-gradient-to-r from-pink-500/5 to-rose-500/5 border border-pink-500/10 mb-2 group"
             >
               <div className="relative">
-                <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center text-white font-bold text-xl">
-                  A
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center text-white shadow-lg shadow-pink-500/20 group-hover:scale-105 transition-transform duration-300">
+                  <MessageCircle className="w-7 h-7 text-white" />
                 </div>
               </div>
               <div className="flex-1 text-left min-w-0">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="font-semibold">{txt.publicChat}</span>
+                  <span className="font-semibold text-foreground/90">{txt.publicChat}</span>
                   <span className="text-xs text-muted-foreground">{txt.now}</span>
                 </div>
-                <p className="text-sm text-muted-foreground truncate">
-                   Danyeri Community
+                <p className="text-sm text-muted-foreground truncate group-hover:text-pink-500 transition-colors">
+                   {txt.publicChatDesc}
                 </p>
               </div>
             </button>
@@ -1017,12 +1100,7 @@ function MessagesContent() {
                     const fakeConv: Conversation = {
                         id: `conv-${match.clerkId || match._id}`, 
                         participantId: match.clerkId || match._id,
-                        messages: [{
-                            id: "intro",
-                            senderId: match.clerkId || match._id,
-                            text: language === 'az' ? 'Salam! Uyğunluq tapmağımız çox yaxşı oldu 👋' : 'Hey! Great to match with you 👋',
-                            timestamp: new Date()
-                        }]
+                        messages: [] // Empty messages — let Convex fetch real history
                     };
                     setSelectedConv(fakeConv);
                     router.push(`/messages?userId=${match.clerkId || match._id}`);
@@ -1039,7 +1117,138 @@ function MessagesContent() {
       {/* Navigation */}
       <BottomNav />
       {/* Modals */}
-      {/* ... (Requests Modal etc would go here if not already present in full file) */}
+      <AnimatePresence>
+        {showRequestsModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
+            onClick={() => setShowRequestsModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="w-full max-w-md bg-card border border-border rounded-3xl shadow-xl max-h-[85vh] overflow-hidden flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-4 border-b border-border">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <Mail className="w-5 h-5 text-primary" />
+                  {txt.messageRequests}
+                </h3>
+                <button onClick={() => setShowRequestsModal(false)} className="p-2 rounded-full hover:bg-muted"><XIcon className="w-5 h-5" /></button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                {/* Incoming Requests */}
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider px-1">
+                    {txt.incomingRequests} ({(user?.messageRequests?.length || 0)})
+                  </h4>
+                  
+                  {user?.messageRequests && user.messageRequests.length > 0 ? (
+                    <div className="space-y-2">
+                      {user.messageRequests.map((reqId) => {
+                        // Normally we would fetch the user's details based on reqId.
+                        // Here we use a generic placeholder or find it from matchProfiles if possible.
+                        const profile = matchProfiles?.find((p: any) => p.clerkId === reqId || p._id === reqId);
+                        
+                        return (
+                           <div key={reqId} className="flex items-center justify-between p-3 bg-muted/30 rounded-2xl border border-border border-dashed">
+                             <div className="flex items-center gap-3 min-w-0">
+                               <img src={profile?.avatar || "/placeholder-avatar.svg"} className="w-10 h-10 rounded-full object-cover bg-muted" />
+                               <div className="flex flex-col min-w-0">
+                                 <span className="font-semibold text-sm truncate">{profile?.name || "User"}</span>
+                                 <span className="text-xs text-muted-foreground truncate">{txt.wantsToChat}</span>
+                               </div>
+                             </div>
+                             
+                             <div className="flex items-center gap-1 shrink-0 ml-2">
+                               <Button 
+                                 size="icon" 
+                                 variant="ghost" 
+                                 className="h-8 w-8 rounded-full hover:bg-red-500/10 hover:text-red-500"
+                                 onClick={async () => {
+                                   await declineMessageRequest(reqId);
+                                   showToast({ title: txt.requestDeclined, type: "info", duration: 2000 });
+                                 }}
+                               >
+                                 <XIcon className="w-4 h-4" />
+                               </Button>
+                               <Button 
+                                 size="icon" 
+                                 className="h-8 w-8 rounded-full gradient-brand border-0"
+                                 onClick={async () => {
+                                   await acceptMessageRequest(reqId);
+                                   showToast({ title: txt.requestAccepted, type: "success", duration: 2000 });
+                                   // Optionally close and redirect to chat:
+                                   setShowRequestsModal(false);
+                                   router.push(`/messages?userId=${reqId}`);
+                                 }}
+                               >
+                                 <Check className="w-4 h-4 text-white" />
+                               </Button>
+                             </div>
+                           </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 px-4 bg-muted/20 rounded-2xl border border-border border-dashed">
+                      <Mail className="w-6 h-6 text-muted-foreground mx-auto mb-2 opacity-50" />
+                      <p className="text-sm text-muted-foreground">{txt.noRequests}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Sent Requests */}
+                <div className="space-y-3 pt-4 border-t border-border/50">
+                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider px-1">
+                    {txt.sentRequests} ({(user?.sentMessageRequests?.length || 0)})
+                  </h4>
+                  
+                  {user?.sentMessageRequests && user.sentMessageRequests.length > 0 ? (
+                    <div className="space-y-2">
+                      {user.sentMessageRequests.map((reqId) => {
+                         const profile = matchProfiles?.find((p: any) => p.clerkId === reqId || p._id === reqId);
+                         return (
+                           <div key={reqId} className="flex items-center justify-between p-3 bg-muted/10 rounded-2xl border border-border border-dashed opacity-70 hover:opacity-100 transition-opacity">
+                             <div className="flex items-center gap-3 min-w-0">
+                               <img src={profile?.avatar || "/placeholder-avatar.svg"} className="w-8 h-8 rounded-full object-cover bg-muted grayscale" />
+                               <div className="flex flex-col min-w-0">
+                                 <span className="font-semibold text-sm truncate">{profile?.name || "User"}</span>
+                                 <span className="text-[10px] uppercase font-bold text-yellow-500">{txt.pending}</span>
+                               </div>
+                             </div>
+                             
+                             <Button 
+                               size="sm" 
+                               variant="ghost" 
+                               className="text-xs text-muted-foreground hover:text-red-500 rounded-full h-7 px-3"
+                               onClick={async () => {
+                                 await cancelMessageRequest(reqId);
+                               }}
+                             >
+                               {txt.decline || "Cancel"}
+                             </Button>
+                           </div>
+                         );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 px-4">
+                      <p className="text-xs text-muted-foreground">{txt.noSentRequests}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

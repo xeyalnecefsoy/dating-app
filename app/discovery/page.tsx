@@ -38,11 +38,19 @@ export default function DiscoveryPage() {
   });
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [profileToBlock, setProfileToBlock] = useState<UserProfile | null>(null);
+  const [shuffleSeed, setShuffleSeed] = useState<number>(0);
 
   // Restore state from sessionStorage on mount
   React.useEffect(() => {
     const savedIndex = sessionStorage.getItem("discovery_currentIndex");
     const savedFilters = sessionStorage.getItem("discovery_filters");
+    
+    let savedSeed = sessionStorage.getItem("discovery_shuffle_seed");
+    if (!savedSeed) {
+       savedSeed = Math.random().toString();
+       sessionStorage.setItem("discovery_shuffle_seed", savedSeed);
+    }
+    setShuffleSeed(parseFloat(savedSeed));
 
     if (savedIndex) {
       setCurrentIndex(parseInt(savedIndex, 10));
@@ -113,12 +121,13 @@ export default function DiscoveryPage() {
   const isLoading = convexUsers === undefined;
 
   const availableUsers = useMemo(() => {
-    // If loading, don't return anything yet to prevent flash of mock content
-    if (isLoading) return [];
+    // If loading or seed not ready, don't return anything yet to prevent flash of mock content
+    if (isLoading || shuffleSeed === 0) return [];
 
     // Convert Convex users to UserProfile format
     const realUsers: UserProfile[] = (convexUsers || []).map((u: any) => ({
       id: u.clerkId || u._id,
+      username: u.username,
       name: u.name,
       age: u.age || 25,
       gender: u.gender as "male" | "female",
@@ -139,11 +148,16 @@ export default function DiscoveryPage() {
     // Use shuffled real users
     let uniqueUsers = [...realUsers];
 
-    // Shuffle users (Fisher-Yates) for random order
-    for (let i = uniqueUsers.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [uniqueUsers[i], uniqueUsers[j]] = [uniqueUsers[j], uniqueUsers[i]];
-    }
+    // Deterministic shuffle using seed to keep order stable when navigating back
+    const seededHash = (str: string, seed: number) => {
+        let h = seed * 0x811c9dc5;
+        for (let i = 0; i < str.length; i++) {
+           h ^= str.charCodeAt(i);
+           h = (h * 16777619) >>> 0;
+        }
+        return h;
+    };
+    uniqueUsers.sort((a, b) => seededHash(a.id, shuffleSeed) - seededHash(b.id, shuffleSeed));
 
     return uniqueUsers.filter(u => {
       if (currentUser?.likes.includes(u.id)) return false;
@@ -154,7 +168,7 @@ export default function DiscoveryPage() {
       return true;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, isOnboarded, currentUser?.lookingFor, convexUsers, isLoading]);
+  }, [filters, isOnboarded, currentUser?.lookingFor, convexUsers, isLoading, shuffleSeed]);
 
   const currentProfile = availableUsers[currentIndex];
 
@@ -409,7 +423,7 @@ export default function DiscoveryPage() {
                     <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5 text-white z-20">
                       {/* Clickable name/location area - taps navigate to profile */}
                       <Link
-                        href={`/user/${(currentProfile as any).username || currentProfile.id}`}
+                        href={`/user/${currentProfile.username || currentProfile.id}`}
                         onClick={(e) => e.stopPropagation()}
                         className="block active:opacity-80 transition-opacity"
                       >
@@ -471,7 +485,7 @@ export default function DiscoveryPage() {
                           <Ban className="w-4 h-4 text-white" />
                         </button>
                         <Link
-                          href={`/user/${(currentProfile as any).username || currentProfile.id}`}
+                          href={`/user/${currentProfile.username || currentProfile.id}`}
                           onClick={(e) => e.stopPropagation()}
                           className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center border border-white/20 hover:bg-white/40 transition-colors"
                         >

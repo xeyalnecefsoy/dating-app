@@ -8,10 +8,11 @@ import { UserStories } from "@/lib/stories";
 import { StoryViewer } from "./StoryViewer";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUser } from "@/contexts/UserContext";
-import { useMutation } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { getChannelId } from "@/lib/utils";
+import { AddStoryDialog } from "./AddStoryDialog";
 import { useToast } from "@/components/ui/toast";
+import { getChannelId } from "@/lib/utils";
 
 type StoriesBarProps = {
   filterByMatches?: boolean; // If true, only show stories from matched users
@@ -19,31 +20,39 @@ type StoriesBarProps = {
 
 export function StoriesBar({ filterByMatches = true }: StoriesBarProps) {
   const { language } = useLanguage();
-  const { user, sendMessageRequest, matchUser } = useUser();
+  const { user, sendMessageRequest } = useUser();
   const { showToast } = useToast();
   const [selectedUserIndex, setSelectedUserIndex] = useState<number | null>(null);
+  const [isAddOpen, setIsAddOpen] = useState(false);
   const sendMessageMutation = useMutation(api.messages.send);
 
-    // Get all user stories
-  // TODO: Replace with real stories from API
-  const allUserStories: UserStories[] = []; 
+  // Get all user stories from backend
+  const storiesFromApi = useQuery(api.stories.getFeed) || [];
 
-  // Mock logic removed
-  /*
-  let allUserStories = getStoriesByUser(MOCK_STORIES, MOCK_USERS);
-  // ... filtering logic ...
-  */
+  // Map backend raw data to the structure StoryViewer expects
+  const allUserStories: UserStories[] = storiesFromApi.map(u => ({
+    userId: u.userId,
+    userName: u.userName,
+    userAvatar: u.userAvatar,
+    hasUnviewed: u.hasUnviewed,
+    stories: u.stories.map((s: any) => ({
+      id: s.id,
+      userId: s.userId,
+      mediaUrl: s.mediaUrl,
+      mediaType: s.mediaType,
+      caption: s.caption,
+      createdAt: s.createdAt,
+      expiresAt: s.expiresAt,
+      viewedBy: s.viewedBy,
+    }))
+  }));
 
   const handleStoryClick = (index: number) => {
     setSelectedUserIndex(index);
   };
 
   const handleAddStory = () => {
-    showToast({
-      type: "info",
-      title: language === "az" ? "Tezliklə" : "Coming Soon",
-      message: language === "az" ? "Hekayə əlavə etmə funksiyası tezliklə əlavə olunacaq!" : "Story creation feature coming soon!",
-    });
+    setIsAddOpen(true);
   };
 
   const handleReply = async (userId: string, message: string, storyUrl?: string) => {
@@ -171,6 +180,11 @@ export function StoriesBar({ filterByMatches = true }: StoriesBarProps) {
           />
         )}
       </AnimatePresence>
+
+      <AddStoryDialog 
+        isOpen={isAddOpen} 
+        onClose={() => setIsAddOpen(false)} 
+      />
     </>
   );
 }

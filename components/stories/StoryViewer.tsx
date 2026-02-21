@@ -7,6 +7,8 @@ import { UserStories, Story, getTimeAgo } from "@/lib/stories";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 type StoryViewerProps = {
   userStories: UserStories[];
@@ -41,7 +43,7 @@ export function StoryViewer({ userStories, initialUserIndex, onClose, onReply }:
       setLikedStories(newSet);
     } else {
       // Like
-      const newSet = new Set(likedStories);
+    const newSet = new Set(likedStories);
       newSet.add(currentStory.id);
       setLikedStories(newSet);
       setShowHeartAnimation(true);
@@ -52,6 +54,16 @@ export function StoryViewer({ userStories, initialUserIndex, onClose, onReply }:
       }
     }
   };
+
+  const markViewed = useMutation(api.stories.markViewed);
+
+  // Mark story as viewed when it becomes active
+  useEffect(() => {
+    if (currentStory && currentStory.id && !currentStory.id.includes("story-")) {
+      // Don't call on mock data which has "story-" prefix
+      markViewed({ storyId: currentStory.id as any }).catch(console.error);
+    }
+  }, [currentStory, markViewed]);
 
   // Progress bar animation
   useEffect(() => {

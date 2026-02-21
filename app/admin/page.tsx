@@ -1,49 +1,48 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  LayoutDashboard,
-  Users,
-  MessageSquare,
-  Flag,
-  ShieldCheck,
-  BarChart3,
-  Settings,
-  Search,
-  MoreVertical,
-  Ban,
-  CheckCircle,
-  XCircle,
-  X,
-  Eye,
-  Trash2,
-  TrendingUp,
-  TrendingDown,
-  Heart,
-  UserCheck,
-  AlertTriangle,
-  Clock,
-  ArrowLeft,
-  RefreshCw,
-  Filter,
-  Download,
-  Bell,
-  Shield,
-  Crown,
-  Image as ImageIcon,
-  Mail,
-  Calendar,
-  MapPin,
-  ChevronRight,
-  ChevronLeft,
-  Menu,
-  Loader2,
-} from "lucide-react";
+
+// Direct imports to avoid barrel file HMR issues
+import LayoutDashboard from "lucide-react/dist/esm/icons/layout-dashboard";
+import UsersIcon from "lucide-react/dist/esm/icons/users";
+import MessageSquare from "lucide-react/dist/esm/icons/message-square";
+import FlagIcon from "lucide-react/dist/esm/icons/flag";
+import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
+import BarChart3 from "lucide-react/dist/esm/icons/bar-chart-3";
+import SettingsIcon from "lucide-react/dist/esm/icons/settings";
+import SearchIcon from "lucide-react/dist/esm/icons/search";
+import MoreVertical from "lucide-react/dist/esm/icons/more-vertical";
+import Ban from "lucide-react/dist/esm/icons/ban";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import XCircle from "lucide-react/dist/esm/icons/x-circle";
+import XIcon from "lucide-react/dist/esm/icons/x";
+import EyeIcon from "lucide-react/dist/esm/icons/eye";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import TrendingUp from "lucide-react/dist/esm/icons/trending-up";
+import TrendingDown from "lucide-react/dist/esm/icons/trending-down";
+import Heart from "lucide-react/dist/esm/icons/heart";
+import UserCheck from "lucide-react/dist/esm/icons/user-check";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
+import FilterIcon from "lucide-react/dist/esm/icons/filter";
+import Download from "lucide-react/dist/esm/icons/download";
+import Bell from "lucide-react/dist/esm/icons/bell";
+import Shield from "lucide-react/dist/esm/icons/shield";
+import Crown from "lucide-react/dist/esm/icons/crown";
+import ImageIcon from "lucide-react/dist/esm/icons/image";
+import Mail from "lucide-react/dist/esm/icons/mail";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
+import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left";
+import Menu from "lucide-react/dist/esm/icons/menu";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
-
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
@@ -51,38 +50,39 @@ import { api } from "@/convex/_generated/api";
 import { useUser } from "@/contexts/UserContext";
 import { Badge } from "@/components/ui/badge";
 
+const Spinner = ({ className }: { className?: string }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+  </svg>
+);
+
+import { BannersAdmin } from "./BannersAdmin";
+
 // Admin sidebar items
 const sidebarItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "users", label: "İstifadəçilər", icon: Users },
-  { id: "reports", label: "Şikayətlər", icon: Flag },
+  { id: "users", label: "İstifadəçilər", icon: UsersIcon },
+  { id: "reports", label: "Şikayətlər", icon: FlagIcon },
   { id: "verification", label: "Təsdiq Növbəsi", icon: ShieldCheck },
+  { id: "banners", label: "Qalereya & Slaydlar", icon: ImageIcon },
   { id: "messages", label: "Mesajlar", icon: MessageSquare },
   { id: "analytics", label: "Analitika", icon: BarChart3 },
-  { id: "settings", label: "Tənzimləmələr", icon: Settings },
+  { id: "settings", label: "Tənzimləmələr", icon: SettingsIcon },
 ];
 
 // Mock data for admin
-const mockStats = {
-  totalUsers: 12847,
-  activeUsers: 8392,
-  newUsersToday: 127,
-  totalMessages: 284729,
-  messagesPerDay: 8420,
-  totalMatches: 42891,
-  matchRate: 34.2,
-  pendingVerifications: 23,
-  pendingReports: 8,
-  premiumUsers: 1284,
-};
-
-
-
-const mockVerificationQueue = [
-  { id: "v1", userId: "selcan", userName: "Selcan", photo: "/avatars/selcan.png", submittedAt: "2026-01-20 14:30", status: "pending" },
-  { id: "v2", userId: "nigar", userName: "Nigar", photo: "/avatars/nigar.png", submittedAt: "2026-01-20 12:15", status: "pending" },
-  { id: "v3", userId: "leyla", userName: "Leyla", photo: "/avatars/leyla.png", submittedAt: "2026-01-19 18:45", status: "pending" },
-];
+// All data now comes from real-time Convex queries — no mock data
 
 export default function AdminPage() {
   const { showToast } = useToast();
@@ -106,6 +106,7 @@ export default function AdminPage() {
   const waitlistUsers = useQuery(api.admin.getWaitlistUsers, adminEmail ? { adminEmail } : "skip");
   const recentActivity = useQuery(api.admin.getRecentActivity, adminEmail ? { adminEmail } : "skip");
   const platformSettings = useQuery(api.admin.getPlatformSettings, adminEmail ? { adminEmail } : "skip");
+  const messageStats = useQuery(api.admin.getMessageStats, adminEmail ? { adminEmail } : "skip");
   const togglePaywall = useMutation(api.admin.togglePaywall);
   const grantPremium = useMutation(api.admin.grantPremium);
   const revokePremium = useMutation(api.admin.revokePremium);
@@ -123,6 +124,13 @@ export default function AdminPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Prevent hydration mismatch: wait for client mount 
+  useEffect(() => { setMounted(true); }, []);
+
+  // Data loading state — true when queries haven't returned yet
+  const isDataLoading = stats === undefined || allUsers === undefined;
 
   // Use real data or fall back to safe defaults
   const displayStats = stats || {
@@ -139,6 +147,10 @@ export default function AdminPage() {
     pendingReports: 0,
     pendingVerifications: 0,
     premiumUsers: 0,
+    userGrowth: 0,
+    activeGrowth: 0,
+    messageGrowth: 0,
+    matchGrowth: 0,
   };
 
   // Filter users based on search
@@ -201,7 +213,15 @@ export default function AdminPage() {
     }
   };
 
-  if (isUserLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin" /></div>;
+  // Full-page loading: wait for mount + auth + initial data
+  // Returns null during SSR to prevent hydration mismatch
+  if (!mounted || isUserLoading || isDataLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Spinner className="w-8 h-8 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex overflow-hidden">
@@ -259,7 +279,7 @@ export default function AdminPage() {
             >
               <item.icon className="w-5 h-5 shrink-0" />
               {!isCollapsed && <span>{item.label}</span>}
-              {!isCollapsed && item.id === "reports" && mockStats.pendingReports > 0 && (
+              {!isCollapsed && item.id === "reports" && (displayStats.pendingReports || 0) > 0 && (
                 <span className="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
                   {displayStats.pendingReports}
                 </span>
@@ -331,6 +351,11 @@ export default function AdminPage() {
 
         <div className="flex-1 overflow-auto p-4 md:p-6 pb-20">
           <AnimatePresence mode="wait">
+            {/* Banners */}
+            {activeSection === "banners" && (
+              <BannersAdmin key="banners" />
+            )}
+
             {/* Dashboard */}
             {activeSection === "dashboard" && (
               <motion.div
@@ -341,43 +366,64 @@ export default function AdminPage() {
                 className="space-y-6"
               >
                 {/* Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <StatCard
-                    title="Ümumi İstifadəçilər"
-                    value={displayStats.totalUsers.toLocaleString('en-US')}
-                    change={+12.5}
-                    icon={Users}
-                    color="blue"
-                  />
-                  <StatCard
-                    title="Aktiv İstifadəçilər"
-                    value={displayStats.activeUsers.toLocaleString('en-US')}
-                    change={+8.3}
-                    icon={UserCheck}
-                    color="green"
-                  />
-                  <StatCard
-                    title="Bugünkü Mesajlar"
-                    value={displayStats.todayMessages?.toLocaleString('en-US') || "0"} 
-                    change={0}
-                    icon={MessageSquare}
-                    color="purple"
-                  />
-                  <StatCard
-                    title="Uyğunluq Sayı"
-                    value={displayStats.totalMatches?.toString() || "0"}
-                    change={+5.7}
-                    icon={Heart}
-                    color="pink"
-                  />
-                </div>
+                {isDataLoading ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div key={i} className="bg-card border border-border rounded-2xl p-5">
+                        <div className="flex justify-between items-start">
+                          <div className="w-12 h-12 bg-muted/60 rounded-xl animate-pulse" />
+                          <div className="w-14 h-5 bg-muted/60 rounded animate-pulse" />
+                        </div>
+                        <div className="mt-4 space-y-2">
+                          <div className="w-20 h-8 bg-muted/60 rounded animate-pulse" />
+                          <div className="w-28 h-4 bg-muted/40 rounded animate-pulse" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <StatCard
+                      title="Ümumi İstifadəçilər"
+                      value={displayStats.totalUsers.toLocaleString('en-US')}
+                      change={displayStats.userGrowth}
+                      icon={UsersIcon}
+                      color="blue"
+                    />
+                    <StatCard
+                      title="Aktiv İstifadəçilər"
+                      value={displayStats.activeUsers.toLocaleString('en-US')}
+                      change={displayStats.activeGrowth}
+                      icon={UserCheck}
+                      color="green"
+                    />
+                    <StatCard
+                      title="Bugünkü Mesajlar"
+                      value={displayStats.todayMessages?.toLocaleString('en-US') || "0"} 
+                      change={displayStats.messageGrowth}
+                      icon={MessageSquare}
+                      color="purple"
+                    />
+                    <StatCard
+                      title="Uyğunluq Sayı"
+                      value={displayStats.totalMatches?.toLocaleString('en-US') || "0"}
+                      change={displayStats.matchGrowth}
+                      icon={Heart}
+                      color="pink"
+                    />
+                  </div>
+                )}
 
                 {/* Quick Actions */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-card border border-border rounded-2xl p-5">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="font-semibold">Gözləyən Şikayətlər</h3>
-                      <span className="text-2xl font-bold text-red-500">{displayStats.pendingReports || 0}</span>
+                      {isDataLoading ? (
+                        <div className="w-10 h-8 bg-muted/60 rounded animate-pulse" />
+                      ) : (
+                        <span className="text-2xl font-bold text-red-500">{displayStats.pendingReports || 0}</span>
+                      )}
                     </div>
                     <Button 
                       variant="outline" 
@@ -391,7 +437,11 @@ export default function AdminPage() {
                   <div className="bg-card border border-border rounded-2xl p-5">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="font-semibold">Təsdiq Növbəsi</h3>
-                      <span className="text-2xl font-bold text-orange-500">{displayStats.pendingVerifications || 0}</span>
+                      {isDataLoading ? (
+                        <div className="w-10 h-8 bg-muted/60 rounded animate-pulse" />
+                      ) : (
+                        <span className="text-2xl font-bold text-orange-500">{displayStats.pendingVerifications || 0}</span>
+                      )}
                     </div>
                     <Button 
                       variant="outline" 
@@ -405,7 +455,11 @@ export default function AdminPage() {
                   <div className="bg-card border border-border rounded-2xl p-5">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="font-semibold">Ban Edilənlər</h3>
-                      <span className="text-2xl font-bold text-yellow-500">{displayStats.bannedUsers || 0}</span>
+                      {isDataLoading ? (
+                        <div className="w-10 h-8 bg-muted/60 rounded animate-pulse" />
+                      ) : (
+                        <span className="text-2xl font-bold text-yellow-500">{displayStats.bannedUsers || 0}</span>
+                      )}
                     </div>
                     <Button 
                       variant="outline" 
@@ -421,14 +475,26 @@ export default function AdminPage() {
                 <div className="bg-card border border-border rounded-2xl p-5">
                   <h3 className="font-semibold mb-4">Son Fəaliyyətlər</h3>
                   <div className="space-y-3">
-                    {recentActivity && recentActivity.length > 0 ? (
+                    {isDataLoading || recentActivity === undefined ? (
+                      <div className="space-y-4">
+                        {[1, 2, 3].map((i) => (
+                          <div key={i} className="flex items-center gap-3 py-2">
+                            <div className="w-9 h-9 rounded-full bg-muted/60 animate-pulse" />
+                            <div className="flex-1 space-y-2">
+                              <div className="w-32 h-3 bg-muted/60 rounded animate-pulse" />
+                              <div className="w-20 h-2 bg-muted/40 rounded animate-pulse" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : recentActivity.length > 0 ? (
                       recentActivity.slice(0, 6).map((activity: any) => {
                         const getIcon = () => {
                           switch(activity.actionType) {
                             case 'banned': return { icon: Ban, color: 'text-red-500' };
                             case 'verified': return { icon: CheckCircle, color: 'text-green-500' };
                             case 'waitlist': return { icon: Clock, color: 'text-orange-500' };
-                            default: return { icon: Users, color: 'text-blue-500' };
+                            default: return { icon: UsersIcon, color: 'text-blue-500' };
                           }
                         };
                         const { icon: Icon, color } = getIcon();
@@ -465,7 +531,7 @@ export default function AdminPage() {
                 {/* Search and Filters */}
                 <div className="flex items-center gap-4">
                   <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
                       placeholder="İstifadəçi axtar..."
                       value={searchQuery}
@@ -474,7 +540,7 @@ export default function AdminPage() {
                     />
                   </div>
                   <Button variant="outline" className="gap-2">
-                    <Filter className="w-4 h-4" />
+                    <FilterIcon className="w-4 h-4" />
                     Filtr
                   </Button>
                   <Button variant="outline" className="gap-2">
@@ -500,25 +566,30 @@ export default function AdminPage() {
                         <tr key={user._id} className="hover:bg-muted/30 transition-colors">
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-3">
-                              <img
-                                src={user.avatar || '/placeholder-avatar.svg'}
-                                alt={user.name}
-                                className="w-10 h-10 rounded-full object-cover bg-muted"
-                                onError={(e) => {
-                                  e.currentTarget.src = '/placeholder-avatar.svg';
-                                }}
-                              />
-                              <div>
-                                <p className="font-medium flex items-center gap-2">
-                                  {user.name}
-                                  {user.role === 'admin' && <ShieldCheck className="w-4 h-4 text-blue-500" />}
-                                  {user.role === 'superadmin' && <Crown className="w-4 h-4 text-yellow-500" />}
-                                  {user.isPremium && <span title="Premium"><Crown className="w-3.5 h-3.5 text-orange-400" /></span>}
-                                </p>
-                                <p className="text-xs text-muted-foreground">{user.email || user.clerkId || "No email"}</p>
-                              </div>
+                              <Link href={`/user/${user.username || user.clerkId}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                                <img
+                                  src={user.avatar || '/placeholder-avatar.svg'}
+                                  alt={user.name}
+                                  className="w-10 h-10 rounded-full object-cover bg-muted"
+                                  onError={(e) => {
+                                    e.currentTarget.src = '/placeholder-avatar.svg';
+                                  }}
+                                />
+                                <div>
+                                  <p className="font-medium flex items-center gap-2">
+                                    {user.name}
+                                    {user.role === 'admin' && <ShieldCheck className="w-4 h-4 text-blue-500" />}
+                                    {user.role === 'superadmin' && <Crown className="w-4 h-4 text-yellow-500" />}
+                                    {user.isPremium && <span title="Premium"><Crown className="w-3.5 h-3.5 text-orange-400" /></span>}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {user.username ? `@${user.username}` : user.email || user.clerkId || "No email"}
+                                  </p>
+                                </div>
+                              </Link>
                             </div>
                           </td>
+
                           <td className="px-4 py-3">
                             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
                               user.status === 'banned' ? 'bg-red-500/10 text-red-500' :
@@ -548,7 +619,7 @@ export default function AdminPage() {
                                 onClick={() => setSelectedUser(user)}
                                 title="İstifadəçi məlumatlarını gör"
                               >
-                                <Eye className="w-4 h-4" />
+                                <EyeIcon className="w-4 h-4" />
                               </Button>
                               <Button
                                 variant="ghost"
@@ -662,7 +733,7 @@ export default function AdminPage() {
                                     .catch(() => showToast({ type: "error", title: "Xəta baş verdi" }));
                                 }}
                               >
-                                <X className="w-4 h-4" />
+                                <XIcon className="w-4 h-4" />
                                 Rədd Et
                               </Button>
                             </div>
@@ -723,8 +794,12 @@ export default function AdminPage() {
                         </div>
                       </div>
                       <div className="p-4">
-                        <h4 className="font-semibold">{item.name}</h4>
-                        <p className="text-xs text-muted-foreground">{item.email}</p>
+                        <Link href={`/user/${item.username || item.clerkId}`} className="hover:underline">
+                          <h4 className="font-semibold">{item.name}</h4>
+                        </Link>
+                        <p className="text-xs text-muted-foreground">
+                          {item.username ? `@${item.username}` : item.email}
+                        </p>
                         <p className="text-xs text-muted-foreground mt-1">
                           {item.location} • {item.age} yaş
                         </p>
@@ -751,7 +826,7 @@ export default function AdminPage() {
                             }}
                             disabled={isLoading}
                           >
-                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                            {isLoading ? <Spinner className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                             Təsdiqlə
                           </Button>
                           <Button
@@ -795,44 +870,111 @@ export default function AdminPage() {
                 exit={{ opacity: 0, y: -20 }}
                 className="space-y-6"
               >
+                {/* Message Activity Chart */}
+                <div className="bg-card border border-border rounded-2xl p-5">
+                  <h3 className="font-semibold mb-4">Son 7 Gün Mesaj Fəaliyyəti</h3>
+                  {messageStats ? (
+                    <div className="h-64 flex items-end justify-between gap-2 px-2">
+                      {messageStats.dailyBreakdown.map((day, i) => {
+                        const maxCount = Math.max(...messageStats.dailyBreakdown.map(d => d.count), 1);
+                        const heightPct = (day.count / maxCount) * 100;
+                        return (
+                          <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                            <span className="text-xs font-medium text-muted-foreground">{day.count}</span>
+                            <div className="w-full rounded-t-lg bg-gradient-to-t from-purple-600 to-pink-500 transition-all duration-500" 
+                              style={{ height: `${Math.max(heightPct, 4)}%` }} />
+                            <span className="text-[10px] text-muted-foreground">{day.date}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="h-64 flex items-center justify-center">
+                      <Spinner className="w-6 h-6 animate-spin" />
+                    </div>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Chart Placeholder */}
+                  {/* User Distribution */}
                   <div className="bg-card border border-border rounded-2xl p-5">
-                    <h3 className="font-semibold mb-4">İstifadəçi Artımı</h3>
-                    <div className="h-64 flex items-center justify-center bg-muted/30 rounded-xl">
-                      <div className="text-center text-muted-foreground">
-                        <BarChart3 className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">Qrafik göstərişi</p>
+                    <h3 className="font-semibold mb-4">İstifadəçi Paylanması</h3>
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Kişi</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-500 rounded-full" style={{ width: `${displayStats.totalUsers ? (displayStats.maleUsers / displayStats.totalUsers) * 100 : 0}%` }} />
+                          </div>
+                          <span className="text-sm font-medium w-12 text-right">{displayStats.maleUsers}</span>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Qadın</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-pink-500 rounded-full" style={{ width: `${displayStats.totalUsers ? (displayStats.femaleUsers / displayStats.totalUsers) * 100 : 0}%` }} />
+                          </div>
+                          <span className="text-sm font-medium w-12 text-right">{displayStats.femaleUsers}</span>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Premium</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-yellow-500 rounded-full" style={{ width: `${displayStats.totalUsers ? (displayStats.premiumUsers / displayStats.totalUsers) * 100 : 0}%` }} />
+                          </div>
+                          <span className="text-sm font-medium w-12 text-right">{displayStats.premiumUsers}</span>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Gözləmədə</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-orange-500 rounded-full" style={{ width: `${displayStats.totalUsers ? (displayStats.waitlistUsers / displayStats.totalUsers) * 100 : 0}%` }} />
+                          </div>
+                          <span className="text-sm font-medium w-12 text-right">{displayStats.waitlistUsers}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
 
+                  {/* Match Stats */}
                   <div className="bg-card border border-border rounded-2xl p-5">
                     <h3 className="font-semibold mb-4">Uyğunluq Statistikası</h3>
-                    <div className="h-64 flex items-center justify-center bg-muted/30 rounded-xl">
-                      <div className="text-center text-muted-foreground">
-                        <Heart className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">Qrafik göstərişi</p>
+                    <div className="space-y-4">
+                      <div className="text-center p-4 bg-muted/30 rounded-xl">
+                        <p className="text-3xl font-bold">{displayStats.totalMatches.toLocaleString('en-US')}</p>
+                        <p className="text-sm text-muted-foreground mt-1">Ümumi Uyğunluqlar</p>
+                      </div>
+                      <div className="text-center p-4 bg-muted/30 rounded-xl">
+                        <p className="text-3xl font-bold">{displayStats.genderRatio}</p>
+                        <p className="text-sm text-muted-foreground mt-1">Cins Nisbəti (K/Q)</p>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Metrics */}
+                {/* Əsas Göstəricilər — real data */}
                 <div className="bg-card border border-border rounded-2xl p-5">
                   <h3 className="font-semibold mb-4">Əsas Göstəricilər</h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {[
-                      { label: "Orta Sessiya Müddəti", value: "12 dəq" },
-                      { label: "Günlük Aktiv İstifadəçi", value: "8,392" },
-                      { label: "Çevrilmə Nisbəti", value: "4.2%" },
-                      { label: "Saxlama Nisbəti", value: "67%" },
-                    ].map((metric, i) => (
-                      <div key={i} className="text-center p-4 bg-muted/30 rounded-xl">
-                        <p className="text-2xl font-bold">{metric.value}</p>
-                        <p className="text-xs text-muted-foreground mt-1">{metric.label}</p>
-                      </div>
-                    ))}
+                    <div className="text-center p-4 bg-muted/30 rounded-xl">
+                      <p className="text-2xl font-bold">{displayStats.totalMessages.toLocaleString('en-US')}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Ümumi Mesajlar</p>
+                    </div>
+                    <div className="text-center p-4 bg-muted/30 rounded-xl">
+                      <p className="text-2xl font-bold">{displayStats.activeUsers.toLocaleString('en-US')}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Aktiv İstifadəçilər</p>
+                    </div>
+                    <div className="text-center p-4 bg-muted/30 rounded-xl">
+                      <p className="text-2xl font-bold">{displayStats.premiumUsers.toLocaleString('en-US')}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Premium İstifadəçilər</p>
+                    </div>
+                    <div className="text-center p-4 bg-muted/30 rounded-xl">
+                      <p className="text-2xl font-bold">{displayStats.bannedUsers.toLocaleString('en-US')}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Ban Edilənlər</p>
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -922,24 +1064,45 @@ export default function AdminPage() {
                 <div className="bg-card border border-border rounded-2xl p-6">
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="font-semibold">Mesaj Statistikası</h3>
-                    <Button variant="outline" size="sm">Son 7 Gün</Button>
+                    <span className="text-xs text-muted-foreground">Real-time</span>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="p-4 bg-muted/30 rounded-xl text-center">
-                      <p className="text-3xl font-bold">{displayStats.totalMessages.toLocaleString('en-US')}</p>
+                      <p className="text-3xl font-bold">{(messageStats?.totalMessages ?? displayStats.totalMessages).toLocaleString('en-US')}</p>
                       <p className="text-sm text-muted-foreground mt-1">Ümumi Mesajlar</p>
                     </div>
                     <div className="p-4 bg-muted/30 rounded-xl text-center">
-                      <p className="text-3xl font-bold">{Math.round((displayStats.totalMessages || 0) / 30).toLocaleString('en-US')}</p>
-                      <p className="text-sm text-muted-foreground mt-1">Günlük Ortalama</p>
+                      <p className="text-3xl font-bold">{(messageStats?.dailyAverage ?? 0).toLocaleString('en-US')}</p>
+                      <p className="text-sm text-muted-foreground mt-1">Günlük Ortalama (Son 7 Gün)</p>
                     </div>
                     <div className="p-4 bg-muted/30 rounded-xl text-center">
-                      <p className="text-3xl font-bold">2.3</p>
+                      <p className="text-3xl font-bold">{messageStats?.avgResponseTimeHours ?? 0}</p>
                       <p className="text-sm text-muted-foreground mt-1">Orta Cavab Müddəti (saat)</p>
                     </div>
                   </div>
                 </div>
+
+                {/* Daily Breakdown Chart */}
+                {messageStats?.dailyBreakdown && (
+                  <div className="bg-card border border-border rounded-2xl p-6">
+                    <h3 className="font-semibold mb-4">Son 7 Gün Mesaj Fəaliyyəti</h3>
+                    <div className="h-48 flex items-end justify-between gap-2 px-2">
+                      {messageStats.dailyBreakdown.map((day, i) => {
+                        const maxCount = Math.max(...messageStats.dailyBreakdown.map(d => d.count), 1);
+                        const heightPct = (day.count / maxCount) * 100;
+                        return (
+                          <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                            <span className="text-xs font-medium text-muted-foreground">{day.count}</span>
+                            <div className="w-full rounded-t-lg bg-gradient-to-t from-purple-600 to-pink-500 transition-all duration-500" 
+                              style={{ height: `${Math.max(heightPct, 4)}%` }} />
+                            <span className="text-[10px] text-muted-foreground">{day.date}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -976,8 +1139,6 @@ export default function AdminPage() {
                   <div>
                     <h3 className="text-xl font-bold flex items-center gap-2">
                       {selectedUser.name}
-                      {/* {selectedUser.age && `, ${selectedUser.age}`} */} 
-                      {/* Age might not be directly available in user list depending on schema sync */}
                       <Badge variant="outline" className="ml-2">{selectedUser.role || "User"}</Badge>
                     </h3>
                     <p className="text-muted-foreground flex items-center gap-1 mt-1">
@@ -993,7 +1154,7 @@ export default function AdminPage() {
                 <div className="mt-6 pt-6 border-t border-border flex flex-col gap-3">
                   <div className="flex gap-3">
                     <Button className="flex-1" variant="outline" onClick={() => window.open(`/users/${selectedUser._id}`, '_blank')}>
-                        <Eye className="w-4 h-4 mr-2" />
+                        <EyeIcon className="w-4 h-4 mr-2" />
                         Profili Gör
                     </Button>
                     <Button 

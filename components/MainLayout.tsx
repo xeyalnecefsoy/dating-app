@@ -8,6 +8,8 @@ import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
 import { BottomNav } from "./Navigation";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
@@ -16,6 +18,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const { user, isOnboarded, isAuthenticated, isLoading } = useUser();
   const { language } = useLanguage();
   const [isCollapsed, setIsCollapsed] = useState(true); // Default collapsed
+  const notificationsCount = useQuery(api.notifications.getUnreadCount) || 0;
   
   // Check if avatar is valid (reachable)
   const [isAvatarBroken, setIsAvatarBroken] = useState(false);
@@ -131,8 +134,8 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     { href: "/", icon: Home, labelEn: "Home", labelAz: "Ana Səhifə" },
     { href: "/discovery", icon: Compass, labelEn: "Discover", labelAz: "Kəşf" },
     { href: "/search", icon: Search, labelEn: "Search", labelAz: "Axtar" },
-    { href: "/messages", icon: MessageCircle, labelEn: "Chat", labelAz: "Mesaj", badge: user?.unreadMatches?.length || 0 },
-    { href: "/notifications", icon: Bell, labelEn: "Alerts", labelAz: "Bildiriş" },
+    { href: "/messages", icon: MessageCircle, labelEn: "Chat", labelAz: "Mesaj", badge: (user?.unreadMatches?.length || 0) + (user?.messageRequests?.filter(id => !user?.seenMessageRequests?.includes(id)).length || 0) },
+    { href: "/notifications", icon: Bell, labelEn: "Alerts", labelAz: "Bildiriş", badge: notificationsCount },
   ];
 
   // Profile item ayrı - avatar şəkli üçün

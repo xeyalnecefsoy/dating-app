@@ -36,6 +36,9 @@ export default defineSchema({
     premiumExpiresAt: v.optional(v.number()), // timestamp — null = lifetime/admin-granted
     // Badges
     badges: v.optional(v.array(v.string())), // earned badge IDs
+    // Unread match notifications
+    unreadMatches: v.optional(v.array(v.string())), // IDs of newest matches to show in badge
+    seenMessageRequests: v.optional(v.array(v.string())), // Avoid showing badges for requests already seen
   }).index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"])
     .index("by_username", ["username"])
@@ -93,7 +96,7 @@ export default defineSchema({
     body: v.string(),
     data: v.optional(v.any()), // Extra data (e.g. matchId, url)
     read: v.boolean(),
-    createdAt: v.number(),
+    createdAt: v.optional(v.number()),
   }).index("by_user", ["userId"])
     .index("by_user_read", ["userId", "read"]),
 
@@ -114,4 +117,35 @@ export default defineSchema({
   }).index("by_status", ["status"])
     .index("by_reported", ["reportedId"])
     .index("by_reporter", ["reporterId"]),
+
+  stories: defineTable({
+    userId: v.string(), // Clerk ID of the creator
+    storageId: v.optional(v.id("_storage")), // Convex storage ID
+    mediaUrl: v.string(), // Public URL of the media
+    mediaType: v.string(), // 'image' or 'video'
+    caption: v.optional(v.string()),
+    isPublic: v.boolean(), // true = public, false = matches only
+    createdAt: v.number(),
+    expiresAt: v.number(), // +24 hours from creation
+    viewers: v.optional(v.array(v.string())), // Clerk IDs of users who viewed this
+  }).index("by_user", ["userId"])
+    .index("by_expiresAt", ["expiresAt"]),
+
+  banners: defineTable({
+    titleAz: v.optional(v.string()),
+    titleEn: v.optional(v.string()),
+    descriptionAz: v.optional(v.string()),
+    descriptionEn: v.optional(v.string()),
+    ctaTextAz: v.optional(v.string()),
+    ctaTextEn: v.optional(v.string()),
+    ctaLink: v.optional(v.string()),
+    storageId: v.optional(v.id("_storage")), // For uploaded image
+    imageUrl: v.optional(v.string()), // Resolved public URL
+    gradient: v.optional(v.string()), // e.g. "from-pink-500 to-rose-500"
+    isActive: v.boolean(),
+    order: v.number(), // Sort order
+    createdAt: v.number(),
+    createdBy: v.string(), // Admin's clerkId
+  }).index("by_active", ["isActive"])
+    .index("by_order", ["order"]),
 });

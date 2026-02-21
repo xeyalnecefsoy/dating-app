@@ -10,6 +10,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
 
 export default function MatchesPage() {
@@ -65,7 +66,13 @@ export default function MatchesPage() {
       </header>
 
       <main className="w-full max-w-5xl mx-auto px-4 py-6">
-        {matchedUsers.length > 0 ? (
+        {matchIds.length > 0 && dbMatches === undefined ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="w-full aspect-[3/4] rounded-3xl" />
+            ))}
+          </div>
+        ) : matchedUsers.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {matchedUsers.map((match, index) => (
               <motion.div

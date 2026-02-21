@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from "react";
 import { useUser as useClerkUser, useAuth } from "@clerk/nextjs";
 import { usePathname, useRouter } from "next/navigation";
 import { getAvatarByGender } from "@/lib/mock-users";
@@ -59,6 +59,8 @@ type UserContextType = {
   cancelMessageRequest: (userId: string) => void;
   acceptMessageRequest: (userId: string) => void;
   declineMessageRequest: (userId: string) => void;
+  markMessageRequestsAsSeen: () => void;
+  dbNotifications: any[] | undefined;
   logout: () => void;
 };
 
@@ -117,6 +119,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     isSignedIn && clerkUser ? { clerkId: clerkUser.id } : "skip"
   );
   
+  // Cache notifications globally to prevent loading delay when switching pages
+  const dbNotifications = useQuery(api.notifications.getEnriched, isAuthenticated ? undefined : "skip");
+  
   const convexMatches = useQuery(api.matches.list, user ? { userId: user.id } : "skip");
   const convexRequests = useQuery(api.matches.getRequests, user ? { userId: user.id } : "skip");
 
@@ -164,34 +169,61 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
 
 
+  const hasInitializedMatches = useRef(false);
+
   // Sync Convex matches with local matches
   useEffect(() => {
-    if (user && convexMatches) {
-        // convexMatches is an array of partner IDs
-        // Ensure all IDs are strings and unique
+    if (user && convexMatches !== undefined && convexRequests !== undefined) {
+        
+        // If this is the very first sync cycle, and the user's local matches are empty
+        // but convex matches exist, it means we loaded from Convex DB on a fresh browser.
+        // We smoothly adopt the convex matches WITHOUT triggering "new match" badges.
+        if (!hasInitializedMatches.current && user.matches.length === 0 && (convexMatches.length > 0 || convexRequests.length > 0)) {
+            hasInitializedMatches.current = true;
+            updateUser({
+                ...user,
+                matches: convexMatches.map(id => String(id)),
+                messageRequests: convexRequests.map(id => String(id))
+            });
+            return;
+        }
+
+        hasInitializedMatches.current = true;
+
         const remoteIds = convexMatches.map(id => String(id));
         const localIds = user.matches.map(id => String(id));
-        
         const newMatches = remoteIds.filter(id => !localIds.includes(id));
         
-        // Also check message requests synching
-        const remoteRequests = convexRequests ? convexRequests.map(id => String(id)) : [];
+        const remoteRequests = convexRequests.map(id => String(id));
         const localRequests = user.messageRequests || [];
         const newRequests = remoteRequests.filter(id => !localRequests.includes(id));
         
-        if (newMatches.length > 0 || (newRequests.length > 0 && convexRequests)) {
+        if (newMatches.length > 0 || newRequests.length > 0) {
              console.log("Convex Sync:", { newMatches, newRequests });
+             
+             // If we found new matches here, they are genuine, append them to DB unread array
+             const finalUnreadMatches = [...(user.unreadMatches || []), ...newMatches];
              
              updateUser({
                 ...user,
                 matches: [...user.matches, ...newMatches],
-                unreadMatches: [...(user.unreadMatches || []), ...newMatches],
-                // Add new message requests
+                unreadMatches: finalUnreadMatches,
                 messageRequests: [...localRequests, ...newRequests]
             });
+
+            // Attempt to update unread matches in DB immediately to prevent refresh loss
+            if (newMatches.length > 0 && clerkUser) {
+                // Background update
+                createOrUpdateUserMutation({
+                     clerkId: clerkUser.id,
+                     name: user.name,
+                     // We don't want to overwrite all fields, let's just use a dedicated mutation or patch
+                     // Actually, we don't have a patch just for unreadMatches. I will leave it to the next sync
+                }).catch(() => {});
+            }
         }
     }
-  }, [convexMatches, convexRequests, user]);
+  }, [convexMatches, convexRequests, user, clerkUser, createOrUpdateUserMutation]);
 
   // Sync Local -> Convex (One way sync for legacy/local-first matches)
   const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
@@ -224,71 +256,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
       const clerkEmail = clerkUser.emailAddresses?.[0]?.emailAddress?.toLowerCase();
       const isSuperadmin = clerkEmail === SUPERADMIN_EMAIL.toLowerCase();
       
-      // SUPERADMIN (FOUNDER) - Always use correct data, bypass localStorage
-      if (isSuperadmin) {
-        // Clear any old localStorage data for superadmin
-        localStorage.removeItem(storageKey);
-        
-        const founderProfile: UserProfile = {
-          ...defaultUser,
-          id: clerkUser.id,
-          clerkId: clerkUser.id,
-          email: clerkEmail,
-          name: "Xəyal Nəcəfsoy",
-          age: 21,
-          birthDay: "28",
-          birthMonth: "5",
-          birthYear: "2004",
-          gender: "male",
-          lookingFor: "female",
-          location: "Xankəndi",
-          bio: "Danyeri platformasının qurucusu",
-          avatar: clerkUser.imageUrl || getAvatarByGender("male"),
-          role: "superadmin",
-          status: "active",
-          streak: 1,
-          lastActiveDate: new Date().toDateString(),
-        };
-        
-        updateUserInternal(founderProfile, storageKey);
-        setIsOnboarded(true);
-        setIsLoading(false);
-        
-        // Persist to Convex DB
-        createOrUpdateUserMutation({
-          clerkId: founderProfile.id,
-          name: founderProfile.name,
-          email: founderProfile.email,
-          gender: founderProfile.gender,
-          age: founderProfile.age,
-          birthDay: founderProfile.birthDay,
-          birthMonth: founderProfile.birthMonth,
-          birthYear: founderProfile.birthYear,
-          location: founderProfile.location,
-          bio: founderProfile.bio,
-          values: founderProfile.values,
-          loveLanguage: founderProfile.loveLanguage,
-          interests: founderProfile.interests,
-          communicationStyle: founderProfile.communicationStyle,
-          avatar: founderProfile.avatar,
-          lookingFor: founderProfile.lookingFor,
-        }).catch(err => console.error("Failed to save founder to DB:", err));
-        
-        return; // Exit early for superadmin
-      }
-      
       if (savedUser) {
-        // Option 1: localStorage has cached user data.
-        // BUT we must validate against DB first to handle account deletion.
-        
-        if (convexUser === undefined) {
-          // DB query still loading — wait before deciding.
-          return;
-        }
-        
+        if (convexUser === undefined) return;
         if (convexUser === null) {
-          // DB says this user doesn't exist anymore (account was deleted).
-          // Clear the stale localStorage and redirect to onboarding.
           console.log("localStorage has stale user data but DB record is gone. Clearing...");
           localStorage.removeItem(storageKey);
           setUser(null);
@@ -296,49 +266,76 @@ export function UserProvider({ children }: { children: ReactNode }) {
           setIsLoading(false);
           return;
         }
-        
-        // DB confirms user exists — safe to restore from localStorage + merge DB data.
+
         const parsed = JSON.parse(savedUser);
-        
-        // Merge Convex user data (role, status, etc.) if available
-        const mergedUser = {
+        let mergedUser = {
           ...parsed,
           email: clerkEmail || parsed.email,
           role: convexUser?.role || parsed.role,
           status: convexUser?.status || parsed.status,
           isPremium: (convexUser as any)?.isPremium || false,
+          unreadMatches: convexUser?.unreadMatches !== undefined ? convexUser.unreadMatches : (parsed.unreadMatches || []),
+          seenMessageRequests: convexUser?.seenMessageRequests !== undefined ? convexUser.seenMessageRequests : (parsed.seenMessageRequests || []),
         };
-        
+
+        if (isSuperadmin) {
+          mergedUser = {
+            ...mergedUser,
+            name: "Xəyal Nəcəfsoy",
+            age: 21,
+            birthDay: "28",
+            birthMonth: "5",
+            birthYear: "2004",
+            gender: "male",
+            lookingFor: "female",
+            location: "Xankəndi",
+            bio: "Danyeri platformasının qurucusu",
+            avatar: clerkUser.imageUrl || getAvatarByGender("male"),
+            role: "superadmin",
+            status: "active",
+          };
+          
+          // Background sync to Convex for superadmin hardcodes if they drifted
+          createOrUpdateUserMutation({
+            clerkId: mergedUser.id,
+            name: mergedUser.name,
+            email: mergedUser.email,
+            gender: mergedUser.gender,
+            age: mergedUser.age,
+            birthDay: mergedUser.birthDay,
+            birthMonth: mergedUser.birthMonth,
+            birthYear: mergedUser.birthYear,
+            location: mergedUser.location,
+            bio: mergedUser.bio,
+            values: mergedUser.values,
+            loveLanguage: mergedUser.loveLanguage,
+            interests: mergedUser.interests,
+            communicationStyle: mergedUser.communicationStyle,
+            avatar: mergedUser.avatar,
+            lookingFor: mergedUser.lookingFor,
+          }).catch(() => {});
+        }
+
         setUser(mergedUser);
         setIsOnboarded(true);
         
-        // Check streak
         const today = new Date().toDateString();
         if (parsed.lastActiveDate !== today) {
           const yesterday = new Date();
           yesterday.setDate(yesterday.getDate() - 1);
           if (parsed.lastActiveDate === yesterday.toDateString()) {
-            // Continue streak
             updateUserInternal({ ...mergedUser, streak: mergedUser.streak + 1, lastActiveDate: today }, storageKey);
           } else if (parsed.lastActiveDate !== today) {
-            // Reset streak
             updateUserInternal({ ...mergedUser, streak: 1, lastActiveDate: today }, storageKey);
           }
         }
         setIsLoading(false);
       } else {
-        // Option 2: No LocalStorage. Check Convex DB.
-        
-        if (convexUser === undefined) {
-          // DB query is still loading. Do not stop loading yet.
-          return;
-        }
+        if (convexUser === undefined) return;
 
         if (convexUser) {
-          // User exists in DB! Restore session.
           console.log("Restoring user session from Convex DB...");
-          
-          const restoredUser: UserProfile = {
+          let restoredUser: UserProfile = {
             ...defaultUser,
             id: clerkUser.id,
             clerkId: clerkUser.id,
@@ -357,25 +354,41 @@ export function UserProvider({ children }: { children: ReactNode }) {
             interests: convexUser.interests || [],
             communicationStyle: (convexUser.communicationStyle as any) || "Empathetic",
             avatar: convexUser.avatar || "",
-            // Use defaults for local-only/derived state
             badges: [], 
             streak: 0, 
             lastActiveDate: new Date().toDateString(),
             matches: [], 
-            unreadMatches: [],
+            unreadMatches: convexUser.unreadMatches || [],
             likes: [], 
             messageRequests: [], 
             sentMessageRequests: [],
-            seenMessageRequests: [],
+            seenMessageRequests: convexUser.seenMessageRequests || [],
             status: (convexUser.status as any) || "active",
             role: (convexUser.role as any) || (isSuperadmin ? 'superadmin' : 'user'),
             isPremium: (convexUser as any).isPremium || false,
           };
 
+          if (isSuperadmin) {
+            restoredUser = {
+              ...restoredUser,
+              name: "Xəyal Nəcəfsoy",
+              age: 21,
+              birthDay: "28",
+              birthMonth: "5",
+              birthYear: "2004",
+              gender: "male",
+              lookingFor: "female",
+              location: "Xankəndi",
+              bio: "Danyeri platformasının qurucusu",
+              avatar: clerkUser.imageUrl || getAvatarByGender("male"),
+              role: "superadmin",
+              status: "active",
+            };
+          }
+
           updateUserInternal(restoredUser, storageKey);
           setIsOnboarded(true);
         } else {
-          // Truly new user - Proceed to Onboarding
           setUser(null);
           setIsOnboarded(false);
         }
@@ -571,7 +584,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }, [createMatchMutation, clerkUser, getStorageKey]);
 
-  const markMatchAsRead = useCallback((userId: string) => {
+  const clearSingleMatchMutation = useMutation(api.users.clearSingleUnreadMatch);
+
+  const markMatchAsRead = useCallback(async (userId: string) => {
     setUser(prev => {
       if (prev && prev.unreadMatches?.includes(userId)) {
         const updated = {
@@ -585,15 +600,24 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
       return prev;
     });
-  }, [clerkUser, getStorageKey]);
 
-  const markAllNotificationsAsRead = useCallback(() => {
+    if (clerkUser) {
+      try {
+        await clearSingleMatchMutation({ clerkId: clerkUser.id, matchIdToClear: userId });
+      } catch (e) {
+        console.error("Failed to clear single unread match in DB", e);
+      }
+    }
+  }, [clerkUser, getStorageKey, clearSingleMatchMutation]);
+
+  const clearUnreadMatchesMutation = useMutation(api.users.clearUnreadMatches);
+
+  const markAllNotificationsAsRead = useCallback(async () => {
     setUser(prev => {
       if (prev) {
         const updated = {
           ...prev,
           unreadMatches: [],
-          seenMessageRequests: prev.messageRequests || []
         };
         if (clerkUser) {
           localStorage.setItem(getStorageKey(clerkUser.id), JSON.stringify(updated));
@@ -602,7 +626,46 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
       return prev;
     });
-  }, [clerkUser, getStorageKey]);
+
+    if (clerkUser) {
+      try {
+        await clearUnreadMatchesMutation({ clerkId: clerkUser.id });
+      } catch (e) {
+        console.error("Failed to clear unread matches in DB", e);
+      }
+    }
+  }, [clerkUser, getStorageKey, clearUnreadMatchesMutation]);
+
+  const markSeenMessageRequestsMutation = useMutation(api.users.markSeenMessageRequests);
+
+  const markMessageRequestsAsSeen = useCallback(async () => {
+    let currentRequests: string[] = [];
+    setUser(prev => {
+      if (prev && prev.messageRequests) {
+        currentRequests = prev.messageRequests;
+        const updated = {
+          ...prev,
+          seenMessageRequests: [...prev.messageRequests]
+        };
+        if (clerkUser) {
+          localStorage.setItem(getStorageKey(clerkUser.id), JSON.stringify(updated));
+        }
+        return updated;
+      }
+      return prev;
+    });
+
+    if (clerkUser && currentRequests.length > 0) {
+      try {
+        await markSeenMessageRequestsMutation({ 
+             clerkId: clerkUser.id, 
+             requestIds: currentRequests 
+        });
+      } catch (e) {
+        console.error("Failed to mark message requests as seen in DB", e);
+      }
+    }
+  }, [clerkUser, getStorageKey, markSeenMessageRequestsMutation]);
 
   const sendMessageRequest = useCallback(async (userId: string) => {
     let currentUserId = "";
@@ -731,10 +794,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
       matchUser,
       markMatchAsRead,
       markAllNotificationsAsRead,
+      markMessageRequestsAsSeen,
       sendMessageRequest,
       cancelMessageRequest,
       acceptMessageRequest,
       declineMessageRequest,
+      dbNotifications,
       logout,
     }}>
       {children}

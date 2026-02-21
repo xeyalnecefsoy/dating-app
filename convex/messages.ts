@@ -116,6 +116,47 @@ export const send = mutation({
           });
        }
     }
+
+    // Handle @mentions in General Chat (or any chat)
+    const mentionRegex = /@(\w+)/g;
+    const mentions = Array.from(args.body.matchAll(mentionRegex)).map(m => m[1]); // Extract usernames
+    
+    if (mentions.length > 0) {
+      // Deduplicate mentions
+      const uniqueUsernames = [...new Set(mentions)];
+      
+      for (const username of uniqueUsernames) {
+        const mentionedUser = await ctx.db
+          .query("users")
+          .withIndex("by_username", (q) => q.eq("username", username))
+          .first();
+          
+        if (mentionedUser && mentionedUser.clerkId !== userId) {
+           // Create Notification
+           await ctx.db.insert("notifications", {
+             userId: mentionedUser.clerkId || mentionedUser._id,
+             type: "mention",
+             title: "Sizi etiketlədilər",
+             body: `@${mentionedUser.username} ${channelId === 'general' ? 'Söhbətgahda' : 'söhbətdə'}: ${args.body.substring(0, 50)}...`,
+             data: { 
+               channelId, 
+               senderId: userId,
+               link: `/messages?userId=${channelId === 'general' ? 'general' : userId}`
+             },
+             read: false,
+             createdAt: Date.now()
+           });
+
+           // Push Notification
+           await ctx.scheduler.runAfter(0, api.push.sendPush, {
+             userId: mentionedUser.clerkId || mentionedUser._id,
+             title: "Sizi etiketlədilər",
+             body: `${channelId === 'general' ? 'Söhbətgahda' : 'Bir mesajda'} adınız çəkildi.`,
+             url: `/messages?userId=${channelId === 'general' ? 'general' : userId}`
+           });
+        }
+      }
+    }
   },
 });
 
@@ -182,3 +223,5 @@ export const editMessage = mutation({
     });
   },
 });
+
+

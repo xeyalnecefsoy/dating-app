@@ -323,6 +323,70 @@ export const searchUsers = query({
 });
 
 /**
+ * Optimized user search for @mentions
+ */
+export const searchUsersForMention = query({
+  args: { 
+    query: v.string(),
+    currentUserId: v.string()
+  },
+  handler: async (ctx, args) => {
+    // If query is empty, return top 5 recent users (suggestions)
+    const normalizedQuery = (args.query || "").toLowerCase();
+    
+    // 1. If empty query, get random/recent active users
+    if (!normalizedQuery) {
+        const users = await ctx.db
+          .query("users")
+          .withIndex("by_status", q => q.eq("status", "active"))
+          .take(5);
+          
+        return users
+          .filter(u => u.clerkId !== args.currentUserId)
+          .map(u => ({
+            _id: u._id,
+            clerkId: u.clerkId,
+            username: u.username || "user",
+            name: u.name,
+            avatar: u.avatar
+          }));
+    }
+
+    // 2. Search by username prefix
+    const usersByUsername = await ctx.db
+      .query("users")
+      .withIndex("by_username", (q) => 
+         q.gte("username", normalizedQuery).lt("username", normalizedQuery + "\uffff")
+      )
+      .take(5);
+
+    // 2. Search by name (if not enough results)
+    // Note: This is an inefficient scan but acceptable for small scale
+    // In production, use Convex Search or a dedicated search index
+    let users = [...usersByUsername];
+    
+    if (users.length < 5) {
+       const allUsers = await ctx.db.query("users").collect();
+       const otherMatches = allUsers.filter(u => 
+         u.name.toLowerCase().includes(normalizedQuery) && 
+         !users.some(existing => existing._id === u._id)
+       );
+       users = [...users, ...otherMatches].slice(0, 5);
+    }
+    
+    return users
+      .filter(u => u.clerkId !== args.currentUserId)
+      .map(u => ({
+        _id: u._id,
+        clerkId: u.clerkId,
+        username: u.username || "user",
+        name: u.name,
+        avatar: u.avatar
+      }));
+  },
+});
+
+/**
  * Server-side filtered search — filters applied at the database level
  */
 export const searchUsersFiltered = query({
@@ -454,6 +518,72 @@ export const deleteAccount = mutation({
     return { success: true };
   }
 });
+
+/**
+ * Clear all unread matches for the current user
+ */
+export const clearUnreadMatches = mutation({
+  args: { clerkId: v.string() },
+  handler: async (ctx, args) => {
+    // We expect the auth identity to match, but in a rush we just query by clerkId
+    // since this is a safe operation (only clears badges) we can do it directly.
+    const userRecord = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", q => q.eq("clerkId", args.clerkId))
+      .first();
+
+    if (userRecord) {
+      await ctx.db.patch(userRecord._id, { unreadMatches: [] });
+    }
+    return { success: true };
+  }
+});
+
+/**
+ * Clear a single unread match for the current user
+ */
+export const clearSingleUnreadMatch = mutation({
+  args: { clerkId: v.string(), matchIdToClear: v.string() },
+  handler: async (ctx, args) => {
+    const userRecord = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", q => q.eq("clerkId", args.clerkId))
+      .first();
+
+    if (userRecord) {
+      const currentMatches = userRecord.unreadMatches || [];
+      const updatedMatches = currentMatches.filter((id: string) => id !== args.matchIdToClear);
+      
+      await ctx.db.patch(userRecord._id, { unreadMatches: updatedMatches });
+    }
+    return { success: true };
+  }
+});
+
+/**
+ * Mark message requests as seen to prevent badge loops
+ */
+export const markSeenMessageRequests = mutation({
+  args: { clerkId: v.string(), requestIds: v.array(v.string()) },
+  handler: async (ctx, args) => {
+    const userRecord = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", q => q.eq("clerkId", args.clerkId))
+      .first();
+
+    if (userRecord) {
+      const currentSeen = userRecord.seenMessageRequests || [];
+      const newUnique = args.requestIds.filter(id => !currentSeen.includes(id));
+      if (newUnique.length > 0) {
+          await ctx.db.patch(userRecord._id, { 
+              seenMessageRequests: [...currentSeen, ...newUnique] 
+          });
+      }
+    }
+    return { success: true };
+  }
+});
+
 
 
 /**

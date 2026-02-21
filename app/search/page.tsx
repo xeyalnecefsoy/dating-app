@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
   import { useQuery } from "convex/react";
   import { api } from "@/convex/_generated/api";
+  import { Skeleton } from "@/components/ui/skeleton";
 
   export default function SearchPage() {
   const { user: currentUser, isOnboarded, likeUser } = useUser();
@@ -114,7 +115,13 @@ import { motion, AnimatePresence } from "framer-motion";
         </div>
 
         {/* Results Grid */}
-        {availableUsers.length === 0 ? (
+        {dbUsers === undefined ? (
+          <div className="grid grid-cols-2 gap-3">
+            {[...Array(6)].map((_, i) => (
+              <Skeleton key={i} className="w-full aspect-[3/4] rounded-2xl" />
+            ))}
+          </div>
+        ) : availableUsers.length === 0 ? (
             <div className="text-center py-20 text-muted-foreground">
               {language === 'az' ? 'İstifadəçi tapılmadı' : 'No users found'}
             </div>
