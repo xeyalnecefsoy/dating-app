@@ -388,6 +388,55 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
           updateUserInternal(restoredUser, storageKey);
           setIsOnboarded(true);
+        } else if (isSuperadmin) {
+          // Auto-register superadmin without onboarding
+          console.log("Auto-registering superadmin user...");
+          const superadminProfile: UserProfile = {
+            ...defaultUser,
+            id: clerkUser.id,
+            clerkId: clerkUser.id,
+            email: clerkEmail,
+            name: "Xəyal Nəcəfsoy",
+            age: 21,
+            birthDay: "28",
+            birthMonth: "5",
+            birthYear: "2004",
+            gender: "male",
+            lookingFor: "female",
+            location: "Xankəndi",
+            bio: "Danyeri platformasının qurucusu",
+            values: ["Ehrlichkeit", "Empathie", "Humor"],
+            loveLanguage: "Quality Time",
+            interests: ["Tech", "Music", "Travel"],
+            communicationStyle: "Direct",
+            avatar: clerkUser.imageUrl || getAvatarByGender("male"),
+            role: "superadmin",
+            status: "active",
+            lastActiveDate: new Date().toDateString(),
+          };
+          
+          // Create the user in Convex DB
+          createOrUpdateUserMutation({
+            clerkId: clerkUser.id,
+            name: superadminProfile.name,
+            email: superadminProfile.email,
+            gender: superadminProfile.gender,
+            age: superadminProfile.age,
+            birthDay: superadminProfile.birthDay,
+            birthMonth: superadminProfile.birthMonth,
+            birthYear: superadminProfile.birthYear,
+            location: superadminProfile.location,
+            bio: superadminProfile.bio,
+            values: superadminProfile.values,
+            loveLanguage: superadminProfile.loveLanguage,
+            interests: superadminProfile.interests,
+            communicationStyle: superadminProfile.communicationStyle,
+            avatar: superadminProfile.avatar,
+            lookingFor: superadminProfile.lookingFor,
+          }).catch((err) => console.error("Failed to auto-register superadmin:", err));
+          
+          updateUserInternal(superadminProfile, storageKey);
+          setIsOnboarded(true);
         } else {
           setUser(null);
           setIsOnboarded(false);
