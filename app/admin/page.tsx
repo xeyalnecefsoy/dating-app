@@ -3,42 +3,43 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-// Direct imports to avoid barrel file HMR issues
-import LayoutDashboard from "lucide-react/dist/esm/icons/layout-dashboard";
-import UsersIcon from "lucide-react/dist/esm/icons/users";
-import MessageSquare from "lucide-react/dist/esm/icons/message-square";
-import FlagIcon from "lucide-react/dist/esm/icons/flag";
-import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
-import BarChart3 from "lucide-react/dist/esm/icons/bar-chart-3";
-import SettingsIcon from "lucide-react/dist/esm/icons/settings";
-import SearchIcon from "lucide-react/dist/esm/icons/search";
-import MoreVertical from "lucide-react/dist/esm/icons/more-vertical";
-import Ban from "lucide-react/dist/esm/icons/ban";
-import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
-import XCircle from "lucide-react/dist/esm/icons/x-circle";
-import XIcon from "lucide-react/dist/esm/icons/x";
-import EyeIcon from "lucide-react/dist/esm/icons/eye";
-import Trash2 from "lucide-react/dist/esm/icons/trash-2";
-import TrendingUp from "lucide-react/dist/esm/icons/trending-up";
-import TrendingDown from "lucide-react/dist/esm/icons/trending-down";
-import Heart from "lucide-react/dist/esm/icons/heart";
-import UserCheck from "lucide-react/dist/esm/icons/user-check";
-import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
-import Clock from "lucide-react/dist/esm/icons/clock";
-import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
-import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
-import FilterIcon from "lucide-react/dist/esm/icons/filter";
-import Download from "lucide-react/dist/esm/icons/download";
-import Bell from "lucide-react/dist/esm/icons/bell";
-import Shield from "lucide-react/dist/esm/icons/shield";
-import Crown from "lucide-react/dist/esm/icons/crown";
-import ImageIcon from "lucide-react/dist/esm/icons/image";
-import Mail from "lucide-react/dist/esm/icons/mail";
-import Calendar from "lucide-react/dist/esm/icons/calendar";
-import MapPin from "lucide-react/dist/esm/icons/map-pin";
-import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
-import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left";
-import Menu from "lucide-react/dist/esm/icons/menu";
+import {
+  LayoutDashboard,
+  UsersIcon,
+  MessageSquare,
+  FlagIcon,
+  ShieldCheck,
+  BarChart3,
+  SettingsIcon,
+  SearchIcon,
+  MoreVertical,
+  Ban,
+  CheckCircle,
+  XCircle,
+  XIcon,
+  EyeIcon,
+  Trash2,
+  TrendingUp,
+  TrendingDown,
+  Heart,
+  UserCheck,
+  AlertTriangle,
+  Clock,
+  ArrowLeft,
+  RefreshCw,
+  FilterIcon,
+  Download,
+  Bell,
+  Shield,
+  Crown,
+  ImageIcon,
+  Mail,
+  Calendar,
+  MapPin,
+  ChevronRight,
+  ChevronLeft,
+  Menu
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
