@@ -9,8 +9,32 @@ export const list = query({
     // Authenticated users only
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return [];
-
     const channelId = args.channelId || "general";
+
+    let otherUserReadAt: number | null = null;
+    
+    if (channelId.startsWith("match-")) {
+       const parts = channelId.split("-");
+       const user1Id = parts[1];
+       const user2Id = parts[2];
+       
+       const match = await ctx.db
+          .query("matches")
+          .withIndex("by_user1", (q) => q.eq("user1Id", user1Id))
+          .filter((q) => q.eq(q.field("user2Id"), user2Id))
+          .first() 
+          || await ctx.db
+          .query("matches")
+          .withIndex("by_user1", (q) => q.eq("user1Id", user2Id))
+          .filter((q) => q.eq(q.field("user2Id"), user1Id))
+          .first();
+
+       if (match) {
+          const isUser1 = match.user1Id === identity.subject;
+          // We want the other person's read timestamp to know if OUR messages were read
+          otherUserReadAt = isUser1 ? (match.lastReadUser2 || null) : (match.lastReadUser1 || null);
+       }
+    }
 
     const messages = await ctx.db
       .query("messages")
@@ -43,6 +67,7 @@ export const list = query({
       return {
         ...msg,
         imageUrl, // Field to store the signed URL
+        isRead: otherUserReadAt !== null && msg._creationTime <= otherUserReadAt,
       };
     }));
     
@@ -224,4 +249,42 @@ export const editMessage = mutation({
   },
 });
 
+// Mark messages as read in a channel
+export const markRead = mutation({
+  args: { channelId: v.string(), userId: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return;
+    
+    // Only handle private matches
+    if (!args.channelId.startsWith("match-")) return;
+    
+    const parts = args.channelId.split("-");
+    const user1Id = parts[1];
+    const user2Id = parts[2];
+    
+    // Find the match record
+    const match = await ctx.db
+      .query("matches")
+      .withIndex("by_user1", (q) => q.eq("user1Id", user1Id))
+      .filter((q) => q.eq(q.field("user2Id"), user2Id))
+      .first() 
+      || await ctx.db
+      .query("matches")
+      .withIndex("by_user1", (q) => q.eq("user1Id", user2Id))
+      .filter((q) => q.eq(q.field("user2Id"), user1Id))
+      .first();
+      
+    if (!match) return;
 
+    const now = Date.now();
+    const isUser1 = match.user1Id === args.userId;
+    const isUser2 = match.user2Id === args.userId;
+
+    if (isUser1) {
+      await ctx.db.patch(match._id, { lastReadUser1: now });
+    } else if (isUser2) {
+      await ctx.db.patch(match._id, { lastReadUser2: now });
+    }
+  },
+});

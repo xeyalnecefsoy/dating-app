@@ -1,7 +1,7 @@
 // Danyeri Service Worker
 // This is a minimal service worker to prevent 404 errors
 
-const CACHE_NAME = 'danyeri-cache-v1';
+const CACHE_NAME = 'danyeri-cache-v2';
 
 // Install event - cache essential files
 self.addEventListener('install', (event) => {

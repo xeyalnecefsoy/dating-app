@@ -9,6 +9,7 @@ export default defineSchema({
     username: v.optional(v.string()), // Unique username for profile URLs
     usernameChangedAt: v.optional(v.number()), // Last username change timestamp
     image: v.optional(v.string()),
+    isVerified: v.optional(v.boolean()), // Verified (blue tick) status
     bio: v.optional(v.string()),
     interests: v.optional(v.array(v.string())),
     gender: v.optional(v.string()),
@@ -39,6 +40,9 @@ export default defineSchema({
     // Unread match notifications
     unreadMatches: v.optional(v.array(v.string())), // IDs of newest matches to show in badge
     seenMessageRequests: v.optional(v.array(v.string())), // Avoid showing badges for requests already seen
+    // Swipe Limits
+    dailySwipeCount: v.optional(v.number()),
+    lastSwipeDate: v.optional(v.string()), // YYYY-MM-DD
   }).index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"])
     .index("by_username", ["username"])
@@ -62,6 +66,8 @@ export default defineSchema({
     user1Id: v.string(),
     user2Id: v.string(),
     status: v.string(), // 'pending', 'accepted', 'rejected'
+    lastReadUser1: v.optional(v.number()), // Timestamp when user1 last read messages
+    lastReadUser2: v.optional(v.number()), // Timestamp when user2 last read messages
   }).index("by_user1", ["user1Id"])
     .index("by_user2", ["user2Id"])
     .index("by_user1_status", ["user1Id", "status"])
@@ -148,4 +154,16 @@ export default defineSchema({
     createdBy: v.string(), // Admin's clerkId
   }).index("by_active", ["isActive"])
     .index("by_order", ["order"]),
+
+  systemAlerts: defineTable({
+    type: v.string(), // 'info', 'maintenance'
+    titleAz: v.string(),
+    titleEn: v.string(),
+    messageAz: v.string(),
+    messageEn: v.string(),
+    blocksAccess: v.boolean(), // true = maintenance mode (blocks users from entering)
+    isActive: v.boolean(),
+    createdAt: v.number(),
+    createdBy: v.string(), // Admin's clerkId
+  }).index("by_active", ["isActive"]),
 });

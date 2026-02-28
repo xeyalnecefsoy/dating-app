@@ -129,16 +129,68 @@ export const hasLiked = query({
   },
 });
 
-// Get all users that liked a specific user
-export const getLikesReceived = query({
+// Get all users that liked a specific user (Səni Bəyənənlər)
+// Returns full user detail but filters out those we are already matched with
+export const getWhoLikedMe = query({
   args: {
     userId: v.string(),
   },
   handler: async (ctx, args) => {
-    const likes = await ctx.db
+    // 1. Get all likes from others to me
+    const likesReceived = await ctx.db
       .query("likes")
       .withIndex("by_liked", q => q.eq("likedId", args.userId))
       .collect();
-    return likes.map(l => l.likerId);
+
+    if (likesReceived.length === 0) return [];
+
+    // 2. Get my matches where I am user1
+    const matches1 = await ctx.db
+      .query("matches")
+      .withIndex("by_user1", q => q.eq("user1Id", args.userId))
+      .collect();
+
+    // 3. Get my matches where I am user2
+    const matches2 = await ctx.db
+      .query("matches")
+      .withIndex("by_user2", q => q.eq("user2Id", args.userId))
+      .collect();
+
+    const matchedIds = new Set([
+      ...matches1.map(m => m.user2Id),
+      ...matches2.map(m => m.user1Id)
+    ]);
+
+    // 4. Filter likes that are NOT in my matched set
+    const pendingLikerIds = likesReceived
+      .map(l => l.likerId)
+      .filter(id => !matchedIds.has(id));
+
+    if (pendingLikerIds.length === 0) return [];
+
+    // 5. Fetch user data for these likers
+    const result = [];
+    for (const likerId of pendingLikerIds) {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", q => q.eq("clerkId", likerId))
+        .first();
+        
+      if (user) {
+        // Return minimal public profile info
+        result.push({
+          id: user.clerkId,
+          name: user.name,
+          username: user.username,
+          age: user.age,
+          location: user.location,
+          avatar: user.avatar,
+          isPremium: user.isPremium,
+          isVerified: user.role === "admin" || user.role === "superadmin" || (user as any).isVerified
+        });
+      }
+    }
+
+    return result;
   },
 });

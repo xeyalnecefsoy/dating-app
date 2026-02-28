@@ -30,7 +30,7 @@ export function BottomNav() {
     { href: "/", icon: Home, labelEn: "Home", labelAz: "Ana Səhifə" },
     { href: "/discovery", icon: Compass, labelEn: "Discover", labelAz: "Kəşf" },
     { href: "/search", icon: Search, labelEn: "Search", labelAz: "Axtar" },
-    { href: "/messages", icon: MessageCircle, labelEn: "Chat", labelAz: "Mesaj", badge: (user?.unreadMatches?.length || 0) + (user?.messageRequests?.filter(id => !user?.seenMessageRequests?.includes(id)).length || 0) },
+    { href: "/messages", icon: MessageCircle, labelEn: "Chat", labelAz: "Mesaj", badge: (user?.unreadMatches?.filter(id => user?.matches?.includes(id))?.length || 0) + (user?.messageRequests?.filter(id => !user?.seenMessageRequests?.includes(id)).length || 0) },
   ];
 
   // Profile item ayrı
@@ -143,7 +143,7 @@ export function SideNav() {
     { href: "/", icon: Home, labelEn: "Home", labelAz: "Ana Səhifə" },
     { href: "/discovery", icon: Compass, labelEn: "Discover", labelAz: "Kəşf" },
     { href: "/search", icon: Search, labelEn: "Search", labelAz: "Axtar" },
-    { href: "/messages", icon: MessageCircle, labelEn: "Chat", labelAz: "Mesaj", badge: (user?.unreadMatches?.length || 0) + (user?.messageRequests?.filter(id => !user?.seenMessageRequests?.includes(id)).length || 0) },
+    { href: "/messages", icon: MessageCircle, labelEn: "Chat", labelAz: "Mesaj", badge: (user?.unreadMatches?.filter(id => user?.matches?.includes(id))?.length || 0) + (user?.messageRequests?.filter(id => !user?.seenMessageRequests?.includes(id)).length || 0) },
     { href: "/notifications", icon: Bell, labelEn: "Alerts", labelAz: "Bildiriş", badge: notificationsCount },
     { href: "/venues", icon: MapPin, labelEn: "Venues", labelAz: "Məkan" },
     { href: "/premium", icon: Crown, labelEn: "Premium", labelAz: "Premium" },

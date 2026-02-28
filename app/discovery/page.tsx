@@ -39,6 +39,11 @@ export default function DiscoveryPage() {
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [profileToBlock, setProfileToBlock] = useState<UserProfile | null>(null);
   const [shuffleSeed, setShuffleSeed] = useState<number>(0);
+  
+  // Undo & Limits state
+  const [previousProfile, setPreviousProfile] = useState<UserProfile | null>(null);
+  const [showLimitModal, setShowLimitModal] = useState(false);
+  const [limitStatus, setLimitStatus] = useState<{ count: number, limit: number, remaining: number, limitReached: boolean, isPremium: boolean } | null>(null);
 
   // Restore state from sessionStorage on mount
   React.useEffect(() => {
@@ -187,9 +192,18 @@ export default function DiscoveryPage() {
 
   const [isSwiping, setIsSwiping] = useState(false);
   
-  // Convex mutation for likes
+  // Convex mutations & queries
   const likeMutation = useMutation(api.likes.like);
   const blockMutation = useMutation(api.blocks.blockUser);
+  const logSwipeMutation = useMutation(api.users.logSwipe);
+  const swipeStatusQuery = useQuery(api.users.getSwipeStatus, currentUser ? { clerkId: currentUser.id } : "skip");
+
+  // Sync server limit state
+  React.useEffect(() => {
+    if (swipeStatusQuery) {
+      setLimitStatus(swipeStatusQuery);
+    }
+  }, [swipeStatusQuery]);
 
   const handleBlock = async () => {
     if (!profileToBlock || !isSignedIn) return;
@@ -210,8 +224,17 @@ export default function DiscoveryPage() {
   const handleSwipe = async (dir: "left" | "right" | "up") => {
     if (!currentProfile || isSwiping || !currentUser) return;
     
+    // Check limits for positive swipes (Right, Up)
+    if (dir === "right" || dir === "up") {
+       if (limitStatus?.limitReached) {
+           setShowLimitModal(true);
+           return;
+       }
+    }
+    
     setIsSwiping(true);
     setSwipeDirection(dir);
+    setPreviousProfile(currentProfile); // Store for Undo
     
     // Right = Like, Up = Super Like
     if (dir === "right" || dir === "up") {
@@ -221,6 +244,17 @@ export default function DiscoveryPage() {
 
       if (isSignedIn) {
         try {
+          // Log swipe to decrease remaining count
+          const swipeResult = await logSwipeMutation({ clerkId: currentUser.id });
+          if (swipeResult.success) {
+             setLimitStatus(prev => prev ? { 
+                ...prev, 
+                count: swipeResult.count || 0, 
+                remaining: swipeResult.remaining || 0,
+                limitReached: swipeResult.limitReached || false
+             } : null);
+          }
+
           const result = await likeMutation({
             likerId: currentUser.id,
             likedId: currentProfile.id,
@@ -253,6 +287,16 @@ export default function DiscoveryPage() {
   
   const handleSuperLike = () => {
      handleSwipe("up");
+  };
+
+  const handleUndo = () => {
+     if (!previousProfile || isSwiping) return;
+     // Revert local view state (only works for left swipes/skips locally because likes are sent to server)
+     // BUT for UX we allow basic visual undo for the session
+     setCurrentIndex(prev => Math.max(0, prev - 1));
+     setPreviousProfile(null);
+     setShowDetails(false);
+     setDragX(0);
   };
 
   const handleDrag = (event: any, info: PanInfo) => {
@@ -519,25 +563,49 @@ export default function DiscoveryPage() {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center justify-center gap-6 py-3 pb-4 shrink-0 relative z-30">
+          <div className="flex items-center justify-center gap-4 py-3 pb-4 shrink-0 relative z-30">
+            {/* Undo Button */}
             <div className="flex flex-col items-center gap-1">
-              <button disabled={isSwiping} onClick={() => handleSwipe("left")} className="w-12 h-12 rounded-full bg-card border border-border flex items-center justify-center active:scale-95 transition-transform hover:bg-red-500/10 disabled:opacity-50 disabled:pointer-events-none">
+              <button 
+                disabled={isSwiping || !previousProfile} 
+                onClick={handleUndo} 
+                className="w-10 h-10 rounded-full bg-card border border-border flex items-center justify-center active:scale-95 transition-transform hover:bg-muted disabled:opacity-40 disabled:pointer-events-none shadow-sm"
+              >
+                <RotateCcw className="w-4 h-4 text-orange-400" />
+              </button>
+              <span className="text-[10px] text-muted-foreground">{language === 'az' ? 'Geri' : 'Undo'}</span>
+            </div>
+
+            {/* Skip */}
+            <div className="flex flex-col items-center gap-1">
+              <button disabled={isSwiping} onClick={() => handleSwipe("left")} className="w-12 h-12 rounded-full bg-card border border-border flex items-center justify-center active:scale-95 transition-transform hover:bg-red-500/10 disabled:opacity-50 disabled:pointer-events-none shadow-sm">
                 <X className="w-5 h-5 text-red-500" />
               </button>
               <span className="text-[10px] text-muted-foreground">{language === 'az' ? 'Keç' : 'Skip'}</span>
             </div>
+
+            {/* Like */}
             <div className="flex flex-col items-center gap-1">
-              <button disabled={isSwiping} onClick={() => handleSwipe("right")} className="w-14 h-14 rounded-full gradient-brand flex items-center justify-center active:scale-95 transition-transform shadow-lg shadow-primary/30 disabled:opacity-50 disabled:pointer-events-none">
+              <button disabled={isSwiping} onClick={() => handleSwipe("right")} className="w-14 h-14 rounded-full gradient-brand flex items-center justify-center active:scale-95 transition-transform shadow-lg shadow-primary/30 disabled:opacity-50 disabled:pointer-events-none relative overflow-visible">
+                {limitStatus && !limitStatus.isPremium && (
+                   <div className="absolute -top-1 -right-1 bg-black text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-white/20 shadow-md">
+                     {limitStatus.remaining}
+                   </div>
+                )}
                 <Heart className="w-6 h-6 text-white" />
               </button>
               <span className="text-[10px] text-muted-foreground">{language === 'az' ? 'Bəyən' : 'Like'}</span>
             </div>
+
+            {/* Super Like */}
             <div className="flex flex-col items-center gap-1">
-              <button disabled={isSwiping} onClick={handleSuperLike} className="w-12 h-12 rounded-full bg-card border border-border flex items-center justify-center active:scale-95 transition-transform hover:bg-yellow-500/10 disabled:opacity-50 disabled:pointer-events-none">
+              <button disabled={isSwiping} onClick={handleSuperLike} className="w-12 h-12 rounded-full bg-card border border-border flex items-center justify-center active:scale-95 transition-transform hover:bg-yellow-500/10 disabled:opacity-50 disabled:pointer-events-none shadow-sm">
                 <Star className="w-5 h-5 text-yellow-500" />
               </button>
               <span className="text-[10px] text-muted-foreground">{language === 'az' ? 'Super' : 'Super'}</span>
             </div>
+            
+            <div className="w-6"></div> {/* Spacer for symmetry */}
           </div>
       
       </main>
@@ -701,6 +769,59 @@ export default function DiscoveryPage() {
                     {language === 'az' ? 'Ləğv et' : 'Cancel'}
                   </Button>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Out of Swipes Modal */}
+      <AnimatePresence>
+        {showLimitModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+            onClick={() => setShowLimitModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm bg-card border border-border overflow-hidden rounded-[2.5rem] p-8 text-center relative shadow-2xl"
+            >
+              <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-primary/20 to-transparent" />
+              <div className="relative z-10">
+                 <div className="w-20 h-20 mx-auto bg-gradient-to-tr from-orange-400 to-rose-500 rounded-full flex items-center justify-center mb-6 shadow-xl shadow-rose-500/20">
+                    <Heart className="w-10 h-10 text-white fill-white/20" />
+                 </div>
+                 
+                 <h2 className="text-2xl font-bold mb-3 bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-rose-500">
+                    {language === 'az' ? 'Bəyənmə limiti doldu' : 'Out of likes!'}
+                 </h2>
+                 <p className="text-muted-foreground text-sm mb-8 leading-relaxed">
+                    {language === 'az' 
+                      ? 'Gündəlik bəyənmə limitinizə (50 lik) çatdınız. Limitləri qaldırmaq və istədiyiniz qədər profil bəyənmək üçün Premium ala bilərsiniz və ya sabahadək gözləyə bilərsiniz.'
+                      : "You've reached your daily like limit (50). Get Premium to unlock unlimited likes, or wait until tomorrow."}
+                 </p>
+                 
+                 <div className="space-y-3">
+                    <Link href="/premium" className="block w-full">
+                      <Button className="w-full h-14 rounded-2xl gradient-brand text-lg font-bold shadow-lg shadow-primary/30 hover:shadow-primary/50 transition-all">
+                        <Crown className="w-5 h-5 mr-2" />
+                        {language === 'az' ? 'Premium Al' : 'Get Premium'}
+                      </Button>
+                    </Link>
+                    <Button 
+                      variant="ghost" 
+                      onClick={() => setShowLimitModal(false)}
+                      className="w-full h-12 rounded-2xl text-muted-foreground font-medium"
+                    >
+                      {language === 'az' ? 'Sabahadək Gözlə' : 'Wait until tomorrow'}
+                    </Button>
+                 </div>
               </div>
             </motion.div>
           </motion.div>

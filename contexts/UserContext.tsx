@@ -274,7 +274,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           role: convexUser?.role || parsed.role,
           status: convexUser?.status || parsed.status,
           isPremium: (convexUser as any)?.isPremium || false,
-          unreadMatches: convexUser?.unreadMatches !== undefined ? convexUser.unreadMatches : (parsed.unreadMatches || []),
+          unreadMatches: (convexUser?.unreadMatches !== undefined ? convexUser.unreadMatches : (parsed.unreadMatches || [])).filter((id: string) => parsed.matches?.includes(id)),
           seenMessageRequests: convexUser?.seenMessageRequests !== undefined ? convexUser.seenMessageRequests : (parsed.seenMessageRequests || []),
         };
 

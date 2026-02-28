@@ -17,6 +17,8 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
 import { useToast } from "@/components/ui/toast";
+import { ReportModal } from "@/components/ReportModal";
+import { AlertTriangle } from "lucide-react";
 
 export default function UserProfilePage() {
   const params = useParams();
@@ -25,6 +27,7 @@ export default function UserProfilePage() {
   const { language } = useLanguage();
   const { showToast } = useToast();
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+  const [showReportModal, setShowReportModal] = useState(false);
   
   const handleNextImage = (e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -272,6 +275,15 @@ export default function UserProfilePage() {
             <Share2 className="w-5 h-5 text-white" />
           </button>
 
+          {/* Report Button */}
+          <button 
+            onClick={() => setShowReportModal(true)}
+            className="absolute top-16 right-4 w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center hover:bg-red-500/80 transition-colors z-20"
+            title={language === 'az' ? 'Şikayət et' : 'Report user'}
+          >
+            <AlertTriangle className="w-4 h-4 text-white" />
+          </button>
+
           {/* Compatibility Badge */}
           {compatibility && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-sm px-4 py-2 rounded-full flex items-center gap-2 shadow-lg">
@@ -285,8 +297,8 @@ export default function UserProfilePage() {
             <div className="flex items-center gap-2 mb-1">
               <h1 className="text-3xl font-bold text-foreground drop-shadow-md">{profile.name}, {profile.age}</h1>
               {profile.isVerified && (
-                <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center" title="Verified">
-                  <CheckCircle2 className="w-4 h-4 text-white" />
+                <div title="Verified">
+                  <CheckCircle2 className="w-6 h-6 text-blue-500 bg-white rounded-full p-0.5" />
                 </div>
               )}
               {profile.isPremium && (
@@ -516,6 +528,18 @@ export default function UserProfilePage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Report Modal */}
+        <AnimatePresence>
+          {showReportModal && profile && (
+            <ReportModal
+              reportedId={profile.id}
+              reportedName={profile.name}
+              onClose={() => setShowReportModal(false)}
+            />
+          )}
+        </AnimatePresence>
+
       </div>
     </div>
   );

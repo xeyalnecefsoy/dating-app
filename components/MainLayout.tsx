@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Compass, MessageCircle, User, Menu, ChevronLeft, Flame, ChevronRight, Search, Bell, Camera } from "lucide-react";
+import { Home, Compass, MessageCircle, User, Menu, ChevronLeft, Flame, ChevronRight, Search, Bell, Camera, AlertTriangle } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,9 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(true); // Default collapsed
   const notificationsCount = useQuery(api.notifications.getUnreadCount) || 0;
   
+  // System Alerts
+  const activeAlert = useQuery(api.systemAlerts.getActiveAlert);
+
   // Check if avatar is valid (reachable)
   const [isAvatarBroken, setIsAvatarBroken] = useState(false);
   const [isCheckingAvatar, setIsCheckingAvatar] = useState(true);
@@ -125,9 +128,28 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       );
   }
 
-  // Prevent flash of content for waitlisted users (after load)
   if (isRestrictedForWaitlist) {
     return null; 
+  }
+
+  // Handle Maintenance Mode (blocks access unless admin)
+  const isMaintenanceMode = activeAlert?.type === 'maintenance' && activeAlert?.blocksAccess;
+  const isAdminUser = user?.role === 'admin' || user?.role === 'superadmin' || user?.email === 'xeyalnecefsoy@gmail.com';
+  
+  if (isMaintenanceMode && !isAdminUser && !isAuthPage) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background p-6 text-center">
+        <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mb-6 border border-red-500/20">
+           <AlertTriangle className="w-10 h-10 text-red-500" />
+        </div>
+        <h1 className="text-2xl md:text-3xl font-bold mb-4">
+           {language === 'az' ? activeAlert.titleAz : activeAlert.titleEn}
+        </h1>
+        <p className="text-muted-foreground max-w-md mx-auto text-lg leading-relaxed">
+           {language === 'az' ? activeAlert.messageAz : activeAlert.messageEn}
+        </p>
+      </div>
+    );
   }
 
   const navItems = [
@@ -315,6 +337,12 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       <div 
          className="flex-1 flex flex-col min-h-screen md:pl-20 pb-20 md:pb-0 transition-all duration-300 ease-in-out min-w-0 overflow-x-hidden"
       >
+        {activeAlert && !isMaintenanceMode && (
+          <div className="bg-primary px-4 py-3 text-primary-foreground text-sm font-medium flex items-center justify-center gap-3 text-center z-50">
+            <Bell className="w-4 h-4 shrink-0" />
+            <span>{language === 'az' ? activeAlert.messageAz : activeAlert.messageEn}</span>
+          </div>
+        )}
         {children}
       </div>
 

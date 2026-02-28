@@ -38,7 +38,8 @@ import {
   MapPin,
   ChevronRight,
   ChevronLeft,
-  Menu
+  Menu,
+  CheckCircle2
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -69,6 +70,7 @@ const Spinner = ({ className }: { className?: string }) => (
 );
 
 import { BannersAdmin } from "./BannersAdmin";
+import { SystemAlertsAdmin } from "./SystemAlertsAdmin";
 
 // Admin sidebar items
 const sidebarItems = [
@@ -78,6 +80,7 @@ const sidebarItems = [
   { id: "verification", label: "Təsdiq Növbəsi", icon: ShieldCheck },
   { id: "banners", label: "Qalereya & Slaydlar", icon: ImageIcon },
   { id: "messages", label: "Mesajlar", icon: MessageSquare },
+  { id: "system-alerts", label: "Sistem Bildirişləri", icon: AlertTriangle },
   { id: "analytics", label: "Analitika", icon: BarChart3 },
   { id: "settings", label: "Tənzimləmələr", icon: SettingsIcon },
 ];
@@ -111,6 +114,7 @@ export default function AdminPage() {
   const togglePaywall = useMutation(api.admin.togglePaywall);
   const grantPremium = useMutation(api.admin.grantPremium);
   const revokePremium = useMutation(api.admin.revokePremium);
+  const verifyUserMut = useMutation(api.admin.verifyUser);
 
   // Reports
   const reports = useQuery(api.reports.getReports, adminEmail ? { statusFilter: "all" } : "skip");
@@ -121,6 +125,7 @@ export default function AdminPage() {
 
   const [activeSection, setActiveSection] = useState("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
+  const [userFilterStatus, setUserFilterStatus] = useState<"all" | "verified" | "premium" | "admin" | "banned">("all");
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -154,12 +159,60 @@ export default function AdminPage() {
     matchGrowth: 0,
   };
 
-  // Filter users based on search
+  // Filter users based on search and status
   const userList = allUsers || [];
-  const filteredUsers = userList.filter((u: any) => 
-    u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (u.email && u.email.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredUsers = userList.filter((u: any) => {
+    const searchLower = searchQuery.toLowerCase();
+    const matchesSearch = 
+      (u.name && u.name.toLowerCase().includes(searchLower)) ||
+      (u.email && u.email.toLowerCase().includes(searchLower)) ||
+      (u.username && u.username.toLowerCase().includes(searchLower));
+
+    const matchesFilter = 
+      userFilterStatus === "all" ? true :
+      userFilterStatus === "verified" ? !!u.isVerified :
+      userFilterStatus === "premium" ? !!u.isPremium :
+      userFilterStatus === "admin" ? (u.role === "admin" || u.role === "superadmin") :
+      userFilterStatus === "banned" ? (u.status === "banned" || !!u.isBanned) : true;
+
+    return matchesSearch && matchesFilter;
+  });
+
+  const handleExportUsers = () => {
+    if (!filteredUsers || filteredUsers.length === 0) {
+      showToast({ title: "İxrac ediləcək istifadəçi tapılmadı.", type: "error" });
+      return;
+    }
+    
+    const headers = ["ID", "Ad/Soyad", "Email", "İstifadəçi Adı", "Rol", "Status", "Qeydiyyat Tarixi", "Təsdiqlidir?", "Premium?"];
+    const csvRows = [
+      headers.join(","),
+      ...filteredUsers.map((u: any) => {
+        const row = [
+          u._id,
+          `"${u.name ? String(u.name).replace(/"/g, '""') : ''}"`,
+          `"${u.email || ''}"`,
+          u.username || '',
+          u.role || 'user',
+          u.status === 'banned' || u.isBanned ? 'Banned' : (u.status || 'Active'),
+          new Date(u.createdAt).toLocaleDateString('az-AZ'),
+          u.isVerified ? 'Təsdiqli' : 'Xeyr',
+          u.isPremium ? 'Premium' : 'Xeyr'
+        ];
+        return row.join(",");
+      })
+    ];
+
+    const csvString = csvRows.join("\n");
+    const blob = new Blob([`\ufeff${csvString}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `danyeri_users_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const simulateAction = (callback: () => void) => {
     setIsLoading(true);
@@ -357,6 +410,11 @@ export default function AdminPage() {
               <BannersAdmin key="banners" />
             )}
 
+            {/* System Alerts */}
+            {activeSection === "system-alerts" && (
+              <SystemAlertsAdmin key="system-alerts" />
+            )}
+
             {/* Dashboard */}
             {activeSection === "dashboard" && (
               <motion.div
@@ -540,11 +598,23 @@ export default function AdminPage() {
                       className="pl-10"
                     />
                   </div>
-                  <Button variant="outline" className="gap-2">
-                    <FilterIcon className="w-4 h-4" />
-                    Filtr
-                  </Button>
-                  <Button variant="outline" className="gap-2">
+                  
+                  <div className="relative shrink-0 w-44">
+                    <select
+                      value={userFilterStatus}
+                      onChange={(e) => setUserFilterStatus(e.target.value as any)}
+                      className="w-full h-10 px-3 py-2 pl-9 rounded-md border border-input bg-background text-sm cursor-pointer hover:bg-muted/50 transition-colors appearance-none"
+                    >
+                      <option value="all">Hamısı</option>
+                      <option value="verified">Təsdiqlilər (Mavi Tık)</option>
+                      <option value="premium">Premium</option>
+                      <option value="admin">Adminlər</option>
+                      <option value="banned">Bloklananlar</option>
+                    </select>
+                    <FilterIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  </div>
+
+                  <Button variant="outline" className="gap-2 shrink-0" onClick={handleExportUsers} disabled={filteredUsers.length === 0}>
                     <Download className="w-4 h-4" />
                     İxrac Et
                   </Button>
@@ -579,9 +649,10 @@ export default function AdminPage() {
                                 <div>
                                   <p className="font-medium flex items-center gap-2">
                                     {user.name}
-                                    {user.role === 'admin' && <ShieldCheck className="w-4 h-4 text-blue-500" />}
-                                    {user.role === 'superadmin' && <Crown className="w-4 h-4 text-yellow-500" />}
-                                    {user.isPremium && <span title="Premium"><Crown className="w-3.5 h-3.5 text-orange-400" /></span>}
+                                    {user.isVerified && <span title="Verified" className="flex"><CheckCircle2 className="w-4 h-4 text-blue-500" /></span>}
+                                    {user.role === 'admin' && <span title="Admin" className="flex"><ShieldCheck className="w-4 h-4 text-blue-500" /></span>}
+                                    {user.role === 'superadmin' && <span title="Superadmin" className="flex"><Crown className="w-4 h-4 text-yellow-500" /></span>}
+                                    {user.isPremium && <span title="Premium" className="flex"><Crown className="w-3.5 h-3.5 text-orange-400" /></span>}
                                   </p>
                                   <p className="text-xs text-muted-foreground">
                                     {user.username ? `@${user.username}` : user.email || user.clerkId || "No email"}
@@ -630,6 +701,27 @@ export default function AdminPage() {
                                 title={user.status === 'banned' ? 'İstifadəçi artıq bloklanıb' : 'İstifadəçini blokla'}
                               >
                                 <Ban className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className={`h-8 w-8 ${user.isVerified ? 'text-blue-500 hover:text-blue-600' : 'text-muted-foreground hover:text-blue-500'}`}
+                                onClick={async () => {
+                                  try {
+                                    await verifyUserMut({ 
+                                      adminEmail, 
+                                      targetUserId: user._id, 
+                                      verify: !user.isVerified 
+                                    });
+                                    showToast({ title: user.isVerified ? 'Təsdiq silindi' : 'Təsdiqləndi', type: 'success' });
+                                  } catch (e) {
+                                    console.error(e);
+                                    showToast({ title: 'Xəta baş verdi', type: 'error' });
+                                  }
+                                }}
+                                title={user.isVerified ? 'Təsdiqi (Verified) Ləğv Et' : 'Profilə Verified (Mavi tık) ver'}
+                              >
+                                <CheckCircle2 className="w-4 h-4" />
                               </Button>
                               <Button
                                 variant="ghost"

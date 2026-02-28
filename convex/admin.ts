@@ -769,3 +769,40 @@ export const revokePremium = mutation({
     return { success: true };
   },
 });
+
+/**
+ * Verify a user (admin+ only)
+ */
+export const verifyUser = mutation({
+  args: { 
+    adminEmail: v.string(),
+    targetUserId: v.id("users"),
+    verify: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    // Basic authorization check
+    const isSuperAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
+    
+    // Also allow if user exists and has admin role
+    let hasRole = false;
+    if (!isSuperAdmin) {
+       const user = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", args.adminEmail))
+        .first();
+       if (user && (user.role === 'admin' || user.role === 'superadmin')) {
+         hasRole = true;
+       }
+    }
+
+    if (!isSuperAdmin && !hasRole) {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    await ctx.db.patch(args.targetUserId, {
+      isVerified: args.verify,
+    });
+
+    return { success: true };
+  },
+});

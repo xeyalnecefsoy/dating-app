@@ -244,6 +244,82 @@ export const getUserByEmail = query({
 });
 
 /**
+ * Log a swipe to track daily limits
+ */
+export const logSwipe = mutation({
+  args: { clerkId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+
+    if (!user) return { success: false, error: "User not found" };
+
+    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    const isPremium = user.isPremium === true || user.role === "superadmin";
+    const MAX_SWIPES = isPremium ? 999999 : 50;
+
+    let currentCount = user.dailySwipeCount || 0;
+    
+    // Reset if it's a new day
+    if (user.lastSwipeDate !== today) {
+      currentCount = 0;
+    }
+
+    if (currentCount >= MAX_SWIPES) {
+      return { success: false, limitReached: true };
+    }
+
+    await ctx.db.patch(user._id, {
+      dailySwipeCount: currentCount + 1,
+      lastSwipeDate: today,
+    });
+
+    return { 
+      success: true, 
+      count: currentCount + 1, 
+      remaining: MAX_SWIPES - (currentCount + 1),
+      isPremium
+    };
+  }
+});
+
+/**
+ * Get current swipe limit status
+ */
+export const getSwipeStatus = query({
+  args: { clerkId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+
+    if (!user) return null;
+
+    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    const isPremium = user.isPremium === true || user.role === "superadmin";
+    const MAX_SWIPES = isPremium ? 999999 : 50;
+    
+    let currentCount = user.dailySwipeCount || 0;
+    
+    // Reset if it's a new day locally without mutating
+    if (user.lastSwipeDate !== today) {
+      currentCount = 0;
+    }
+
+    return {
+      count: currentCount,
+      limit: MAX_SWIPES,
+      remaining: Math.max(0, MAX_SWIPES - currentCount),
+      limitReached: currentCount >= MAX_SWIPES,
+      isPremium
+    };
+  }
+});
+
+/**
  * Get active users for discovery (paginated)
  * Filters by status = 'active', opposite gender, and privacy settings
  * Returns max 50 users per batch, excludes already-seen users

@@ -127,11 +127,34 @@ export const getFeed = query({
         // Sort stories old -> new
         stories.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 
+        // For current user's stories, fetch full viewer details
+        const enrichedStories = await Promise.all(stories.map(async (s) => {
+          if (userId === currentUserId && s.viewedBy && s.viewedBy.length > 0) {
+            const viewerDetails = [];
+            for (const viewerId of s.viewedBy) {
+              const viewerUser = await ctx.db
+                .query("users")
+                .withIndex("by_clerk_id", (q) => q.eq("clerkId", viewerId))
+                .first();
+              
+              if (viewerUser) {
+                viewerDetails.push({
+                  clerkId: viewerUser.clerkId || viewerUser._id,
+                  name: viewerUser.name,
+                  avatar: viewerUser.avatar || viewerUser.image || "/placeholder-avatar.svg"
+                });
+              }
+            }
+            return { ...s, viewedByDetails: viewerDetails };
+          }
+          return s;
+        }));
+
         result.push({
           userId,
           userName: user.name,
           userAvatar: user.avatar || user.image || "/placeholder-avatar.svg",
-          stories,
+          stories: enrichedStories,
           hasUnviewed: stories.some(
             (s) => !s.viewedBy.includes(currentUserId) && s.userId !== currentUserId
           ),

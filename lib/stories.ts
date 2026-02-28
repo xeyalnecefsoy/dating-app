@@ -9,6 +9,7 @@ export type Story = {
   createdAt: Date;
   expiresAt: Date;
   viewedBy: string[];
+  viewedByDetails?: { clerkId: string, name: string, avatar: string }[];
 };
 
 export type UserStories = {

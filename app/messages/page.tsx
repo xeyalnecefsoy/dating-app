@@ -20,7 +20,8 @@ import { StoriesBar } from "@/components/stories";
 import { PARTNER_VENUES } from "@/lib/partner-venues";
 import { ICEBREAKERS, GLOBAL_ICEBREAKERS } from "@/lib/icebreakers";
 import { useToast } from "@/components/ui/toast";
-import { Sparkles, Calendar, MapPin } from "lucide-react";
+import { Sparkles, Calendar, MapPin, AlertTriangle } from "lucide-react";
+import { ReportModal } from "@/components/ReportModal";
 
 type ChatMessage = {
   id: string;
@@ -59,6 +60,7 @@ function MessagesContent() {
   const [showRequestsModal, setShowRequestsModal] = useState(false);
   const [showIcebreakerModal, setShowIcebreakerModal] = useState(false);
   const [showVenueModal, setShowVenueModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   // Mentions State
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
@@ -69,12 +71,22 @@ function MessagesContent() {
     mentionQuery !== null ? { query: mentionQuery, currentUserId: user?.id || "" } : "skip"
   );
   
+  const markReadMutation = useMutation(api.messages.markRead);
+
   // Mark as read when opening conversation
   useEffect(() => {
     if (selectedConv && selectedConv.participantId && user?.unreadMatches?.includes(selectedConv.participantId)) {
         markMatchAsRead(selectedConv.participantId);
     }
-  }, [selectedConv, user?.unreadMatches, markMatchAsRead]);
+    
+    // Also mark conversation as read in Convex
+    if (selectedConv && user && selectedConv.id !== "general" && document.hasFocus()) {
+       markReadMutation({ 
+         channelId: selectedConv.id, 
+         userId: user.id 
+       }).catch(console.error);
+    }
+  }, [selectedConv, user?.unreadMatches, markMatchAsRead, user, markReadMutation]);
 
   // Text translations
   const txt = {
@@ -469,6 +481,18 @@ function MessagesContent() {
                 </div>
               </div>
             </div>
+            
+            {!isGeneral && participant && (
+               <Button 
+                variant="ghost" 
+                size="icon" 
+                className="rounded-full text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                onClick={() => setShowReportModal(true)}
+                title={language === 'az' ? 'İstifadəçini Şikayət Et' : 'Report User'}
+               >
+                 <AlertTriangle className="w-5 h-5" />
+               </Button>
+            )}
           </div>
         </header>
 
@@ -653,6 +677,18 @@ function MessagesContent() {
                         <span className="text-[10px]">
                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                        </span>
+                       {isMe && !isGeneral && (
+                         <span className="ml-1">
+                           {(msg as any).isRead ? (
+                             <div className="flex -space-x-1 text-blue-500">
+                               <Check className="w-3 h-3" />
+                               <Check className="w-3 h-3" />
+                             </div>
+                           ) : (
+                             <Check className="w-3 h-3" />
+                           )}
+                         </span>
+                       )}
                      </div>
                     </div>
 

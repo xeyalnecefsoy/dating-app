@@ -25,6 +25,7 @@ import type * as push from "../push.js";
 import type * as reports from "../reports.js";
 import type * as stories from "../stories.js";
 import type * as subscriptions from "../subscriptions.js";
+import type * as systemAlerts from "../systemAlerts.js";
 import type * as users from "../users.js";
 
 import type {
@@ -51,6 +52,7 @@ declare const fullApi: ApiFromModules<{
   reports: typeof reports;
   stories: typeof stories;
   subscriptions: typeof subscriptions;
+  systemAlerts: typeof systemAlerts;
   users: typeof users;
 }>;
 
