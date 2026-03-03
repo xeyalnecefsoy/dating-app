@@ -7,8 +7,22 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: '*',
-        allow: '/',
-        disallow: ['/api/', '/convex-test/', '/admin/', '/private/'],
+        allow: ['/', '/about'],
+        disallow: [
+          '/api/', 
+          '/convex-test/', 
+          '/admin/', 
+          '/private/',
+          '/discovery',
+          '/messages',
+          '/matches',
+          '/profile',
+          '/settings',
+          '/likes',
+          '/notifications',
+          '/simulator',
+          '/onboarding'
+        ],
       },
       {
         userAgent: ['facebookexternalhit', 'Twitterbot', 'LinkedInBot'],

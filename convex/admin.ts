@@ -73,7 +73,64 @@ export const getAllUsers = query({
       status: u.status || "active",
       username: u.username,
       createdAt: u.createdAt,
+      isVerified: u.isVerified,
+      isPremium: u.isPremium,
     }));
+  },
+});
+
+import { paginationOptsValidator } from "convex/server";
+
+/**
+ * Get all users (paginated) (admin only)
+ */
+export const getAllUsersPaginated = query({
+  args: { 
+    adminEmail: v.string(),
+    paginationOpts: paginationOptsValidator,
+  },
+  handler: async (ctx, args) => {
+    // Basic authorization check
+    const isAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
+    
+    // Also allow if user exists and has admin role
+    let hasRole = false;
+    if (!isAdmin) {
+       const user = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", args.adminEmail))
+        .first();
+       if (user && (user.role === 'admin' || user.role === 'superadmin')) {
+         hasRole = true;
+       }
+    }
+
+    if (!isAdmin && !hasRole) {
+      throw new Error("Unauthorized: Admin access required");
+    }
+    
+    // Paginate on the natural index, ordered by newest first
+    const paginatedResult = await ctx.db
+      .query("users")
+      .order("desc")
+      .paginate(args.paginationOpts);
+
+    return {
+      ...paginatedResult,
+      page: paginatedResult.page.map(u => ({
+        _id: u._id,
+        clerkId: u.clerkId,
+        name: u.name,
+        email: u.email,
+        avatar: u.avatar,
+        role: u.role || "user",
+        status: u.status || "active",
+        username: u.username,
+        createdAt: u.createdAt,
+        isVerified: u.isVerified,
+        isPremium: u.isPremium,
+      }))
+    };
   },
 });
 

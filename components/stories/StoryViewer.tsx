@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ChevronLeft, ChevronRight, Heart, Send, Pause, Play, Eye } from "lucide-react";
+import Image from "next/image";
 import { UserStories, Story, getTimeAgo } from "@/lib/stories";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Input } from "@/components/ui/input";
@@ -185,11 +186,15 @@ export function StoryViewer({ userStories, initialUserIndex, onClose, onReply }:
         {/* Header */}
         <div className="absolute top-8 left-4 right-4 z-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img 
-              src={currentUserStories.userAvatar} 
-              alt={currentUserStories.userName}
-              className="w-10 h-10 rounded-full border-2 border-white object-cover"
-            />
+            <div className="relative w-10 h-10 rounded-full border-2 border-white overflow-hidden">
+              <Image 
+                src={currentUserStories.userAvatar} 
+                alt={currentUserStories.userName}
+                fill
+                sizes="40px"
+                className="object-cover"
+              />
+            </div>
             <div>
               <p className="text-white font-semibold text-sm">{currentUserStories.userName}</p>
               <p className="text-white/60 text-xs">{getTimeAgo(currentStory.createdAt, language as "en" | "az")}</p>
@@ -352,7 +357,9 @@ export function StoryViewer({ userStories, initialUserIndex, onClose, onReply }:
                       currentStory.viewedByDetails.map((viewer: any) => (
                          <div key={viewer.clerkId} className="flex items-center justify-between bg-white/5 p-3 rounded-2xl">
                             <div className="flex items-center gap-3">
-                              <img src={viewer.avatar} className="w-10 h-10 rounded-full object-cover border border-white/10" />
+                              <div className="relative w-10 h-10 rounded-full border border-white/10 overflow-hidden">
+                                <Image src={viewer.avatar} fill sizes="40px" className="object-cover" alt={viewer.name} />
+                              </div>
                               <span className="text-foreground font-medium">{viewer.name}</span>
                             </div>
                          </div>

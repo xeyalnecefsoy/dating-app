@@ -12,8 +12,22 @@ import { BottomNav } from "@/components/Navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { HomeBannerSlider } from "@/components/ui/HomeBannerSlider";
+import { SignedIn, SignedOut } from "@clerk/nextjs";
 
 export default function HomePage() {
+  return (
+    <>
+      <SignedOut>
+        <WelcomeScreen />
+      </SignedOut>
+      <SignedIn>
+        <DashboardContent />
+      </SignedIn>
+    </>
+  );
+}
+
+function DashboardContent() {
   const { user, isOnboarded, isLoading, isAuthenticated } = useUser();
   const { t, language } = useLanguage();
   const notificationsCount = useQuery(api.notifications.getUnreadCount) || 0;
@@ -55,9 +69,9 @@ export default function HomePage() {
     return null;
   }
 
-  // If not authenticated, show welcome screen
-  if (!isAuthenticated) {
-    return <WelcomeScreen />;
+  // If not authenticated, we just return null here since SignedOut handles the WelcomeScreen
+  if (!isAuthenticated && !isLoading) {
+    return null;
   }
 
   // Check for Waitlist Status
@@ -313,11 +327,11 @@ function WelcomeScreen() {
   };
 
   return (
-    <div className="h-[100dvh] bg-background flex flex-col items-center justify-between pt-10 pb-32 overflow-hidden relative">
+    <article className="h-[100dvh] bg-background flex flex-col items-center justify-between pt-10 pb-32 overflow-hidden relative">
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background/50 z-0 pointer-events-none" />
 
       {/* Top Graphic Section (Logo) - Flex grow to push content down but keep centered */}
-      <div className="flex-1 flex items-center justify-center relative w-full">
+      <header className="flex-1 flex items-center justify-center relative w-full">
          <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -351,10 +365,10 @@ function WelcomeScreen() {
               <Sparkles className="w-4 h-4 text-white" />
             </motion.div>
           </motion.div>
-      </div>
+      </header>
 
       {/* Bottom Content Section - Fixed at bottom */}
-      <div className="w-full max-w-md px-6 z-10 flex flex-col gap-6">
+      <section className="w-full max-w-md px-6 z-10 flex flex-col gap-6">
         <motion.div
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -362,6 +376,7 @@ function WelcomeScreen() {
             className="text-center space-y-2"
           >
             <h1 className="text-2xl font-bold">{content.hero.title}</h1>
+            <h2 className="sr-only">Danyeri - Azərbaycanda ciddi tanışlıq və evlilik tətbiqi. danyeri.az</h2>
             <p className="text-primary font-medium">{content.hero.subtitle}</p>
             <p className="text-muted-foreground text-xs leading-relaxed max-w-xs mx-auto opacity-90">
               {content.desc}
@@ -397,8 +412,8 @@ function WelcomeScreen() {
             </p>
           </div>
         </motion.div>
-      </div>
-    </div>
+      </section>
+    </article>
   );
 }
 

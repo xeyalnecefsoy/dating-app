@@ -4,6 +4,7 @@ import React from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Camera } from "lucide-react";
+import Image from "next/image";
 import { getChannelId, cn } from "@/lib/utils";
 
 
@@ -74,9 +75,11 @@ export function ConversationRow({ participantId, currentUserId, isSelected, onSe
       )}
     >
       <div className="relative">
-        <img 
+        <Image 
           src={participant.avatar}
           alt={participant.name}
+          width={56}
+          height={56}
           className="w-14 h-14 rounded-full object-cover shadow-sm bg-muted"
         />
         {/* Helper: Online indicator */}

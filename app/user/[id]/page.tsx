@@ -3,10 +3,11 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ArrowLeft, Heart, MessageCircle, MapPin, X, Star, 
-  Sparkles, Share2, CheckCircle2, Crown, Image, ChevronLeft, ChevronRight, Mail, Send
+  Sparkles, Share2, CheckCircle2, Crown, Image as ImageIcon, ChevronLeft, ChevronRight, Mail, Send
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UserProfile, translateValue, translateLoveLanguage, translateStyle, translateInterest } from "@/lib/mock-users";
@@ -252,10 +253,13 @@ export default function UserProfilePage() {
       <div className="w-full max-w-lg bg-background min-h-screen relative shadow-2xl">
         {/* Hero Image */}
         <div className="relative h-[50vh] min-h-[350px]">
-          <img 
+          <Image 
             src={profile.avatar} 
             alt={profile.name}
-            className="w-full h-full object-cover object-top"
+            fill
+            sizes="(max-width: 768px) 100vw, 500px"
+            priority
+            className="object-cover object-top"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
           
@@ -386,7 +390,7 @@ export default function UserProfilePage() {
           {profile.gallery && profile.gallery.length > 0 && (
             <section className="bg-card rounded-2xl p-4 border border-border shadow-sm">
               <h3 className="text-sm text-muted-foreground mb-3 flex items-center gap-2">
-                <Image className="w-4 h-4" />
+                <ImageIcon className="w-4 h-4" />
                 {txt.gallery}
               </h3>
               <div className="grid grid-cols-3 gap-2">
@@ -394,12 +398,14 @@ export default function UserProfilePage() {
                   <div 
                     key={index}
                     onClick={() => setSelectedImageIndex(index)}
-                    className="aspect-square rounded-xl overflow-hidden border border-border/50 hover:border-primary/50 transition-colors cursor-pointer"
+                    className="relative aspect-square rounded-xl overflow-hidden border border-border/50 hover:border-primary/50 transition-colors cursor-pointer"
                   >
-                    <img 
+                    <Image 
                       src={photo} 
                       alt={`${profile.name} gallery ${index + 1}`}
-                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                      fill
+                      sizes="(max-width: 768px) 33vw, 150px"
+                      className="object-cover hover:scale-105 transition-transform duration-300"
                     />
                   </div>
                 ))}
@@ -508,11 +514,12 @@ export default function UserProfilePage() {
                 onClick={(e) => e.stopPropagation()} 
                 // Add swipe support for mobile here if desired
               >
-                <div className="relative">
-                    <img
+                <div className="relative w-full max-w-3xl h-[85vh]">
+                    <Image
                       src={profile.gallery[selectedImageIndex]}
                       alt={`Gallery ${selectedImageIndex + 1}`}
-                      className="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain"
+                      fill
+                      className="rounded-lg shadow-2xl object-contain"
                     />
                     
                     {/* Mobile Tap Areas for Navigation */}

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -352,14 +353,13 @@ export default function ProfilePage() {
         {/* Profile Header */}
         <section className="flex items-center gap-5 mb-8">
           <div className="relative">
-            <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-border ring-4 ring-primary/5 shadow-2xl bg-card">
-              <img 
+            <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-border ring-4 ring-primary/5 shadow-2xl bg-card">
+              <Image 
                 src={user.avatar || '/placeholder-avatar.svg'}
                 alt={user.name}
-                className="w-full h-full object-cover bg-muted"
-                onError={(e) => {
-                  e.currentTarget.src = '/placeholder-avatar.svg';
-                }}
+                fill
+                sizes="96px"
+                className="object-cover bg-muted"
               />
             </div>
             <button 
@@ -535,14 +535,13 @@ export default function ProfilePage() {
           </div>
           <div className="grid grid-cols-3 gap-2">
             {user.avatar ? (
-              <div className="aspect-square rounded-lg overflow-hidden border border-border">
-                <img
+              <div className="relative aspect-square rounded-lg overflow-hidden border border-border">
+                <Image
                   src={user.avatar || '/placeholder-avatar.svg'}
                   alt="Gallery photo" 
-                  className="w-full h-48 object-cover bg-muted"
-                  onError={(e) => {
-                    e.currentTarget.src = '/placeholder-avatar.svg';
-                  }}
+                  fill
+                  sizes="(max-width: 768px) 33vw, 200px"
+                  className="object-cover bg-muted"
                 />
               </div>
             ) : null}

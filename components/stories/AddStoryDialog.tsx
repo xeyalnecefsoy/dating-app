@@ -3,6 +3,7 @@
 import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Upload, Image as ImageIcon, Lock, Globe } from "lucide-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -159,7 +160,7 @@ export function AddStoryDialog({ isOpen, onClose }: AddStoryDialogProps) {
                         {selectedFile?.type.startsWith("video/") ? (
                           <video src={previewUrl} className="w-full h-full object-cover" autoPlay loop muted playsInline />
                         ) : (
-                          <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                          <Image src={previewUrl} alt="Preview" fill sizes="192px" className="object-cover" />
                         )}
                         
                         {/* Delete Button */}
@@ -276,7 +277,7 @@ export function AddStoryDialog({ isOpen, onClose }: AddStoryDialogProps) {
               {selectedFile?.type.startsWith("video/") ? (
                 <video src={previewUrl} className="w-full h-full object-cover" autoPlay loop muted playsInline />
               ) : (
-                <img src={previewUrl} alt="Expanded Preview" className="w-full h-full object-cover" />
+                <Image src={previewUrl} alt="Expanded Preview" fill sizes="384px" className="object-cover" />
               )}
             </div>
             {/* Close Button */}

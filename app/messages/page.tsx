@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Send, Search, Heart, MoreVertical, Phone, Video, Image as ImageIcon, Check, X as XIcon, Mail, Clock, Trash2, Pencil, Camera, Loader2, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -452,11 +453,15 @@ function MessagesContent() {
                       <MessageCircle className="w-5 h-5 text-white" />
                     </div>
                   ) : (
-                    <img 
-                      src={participant?.avatar} 
-                      className="w-10 h-10 rounded-full object-cover shadow-sm bg-muted" 
-                      alt={participant?.name}
-                    />
+                    <div className="relative w-10 h-10 shadow-sm bg-muted rounded-full overflow-hidden">
+                      <Image 
+                        src={participant?.avatar || "/placeholder-avatar.svg"} 
+                        alt={participant?.name || "Participant"}
+                        fill
+                        sizes="40px"
+                        className="object-cover"
+                      />
+                    </div>
                   )}
                   <div className={cn(
                     "absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-background shadow-sm",
@@ -574,7 +579,9 @@ function MessagesContent() {
                             {/* Tiny preview while editing */}
                             {storyUrl && (
                                 <div className="flex items-center gap-2 mr-1 opacity-60">
-                                    <img src={storyUrl} className="w-4 h-6 object-cover rounded bg-muted" />
+                                    <div className="relative w-4 h-6 rounded bg-muted overflow-hidden">
+                                      <Image src={storyUrl} fill sizes="16px" className="object-cover" alt="Story preview" />
+                                    </div>
                                     <span className="text-[10px] italic">Story</span>
                                 </div>
                             )}
@@ -606,11 +613,15 @@ function MessagesContent() {
                           {storyUrl ? (
                             <div className="flex flex-col gap-2 min-w-[120px]">
                               <div className="flex items-center gap-2 border-l-2 border-white/30 pl-2 mb-1 py-1">
-                                <img 
-                                  src={storyUrl} 
-                                  alt="Story" 
-                                  className="w-8 h-12 object-cover rounded bg-black/20"
-                                />
+                                <div className="relative w-8 h-12 rounded bg-black/20 overflow-hidden shrink-0">
+                                  <Image 
+                                    src={storyUrl} 
+                                    alt="Story" 
+                                    fill
+                                    sizes="32px"
+                                    className="object-cover"
+                                  />
+                                </div>
                                 <span className="text-[10px] opacity-70 uppercase tracking-wider font-medium">
                                   {language === 'az' ? 'Hekayəyə cavab' : 'Replied to story'}
                                 </span>
@@ -625,8 +636,8 @@ function MessagesContent() {
                                   if (!venue) return <p>{msg.text}</p>;
                                   return (
                                     <div className="flex flex-col overflow-hidden">
-                                      <div className="relative h-32 -mx-4 -mt-2.5 mb-2">
-                                        <img src={venue.image} className="w-full h-full object-cover" />
+                                      <div className="relative h-32 -mx-4 -mt-2.5 mb-2 overflow-hidden">
+                                        <Image src={venue.image} fill sizes="256px" className="object-cover" alt={venue.name} />
                                         <div className="absolute inset-0 bg-black/20" />
                                         <div className="absolute bottom-2 left-2 bg-white/90 text-black text-[10px] font-bold px-2 py-0.5 rounded-full">
                                           {venue.name}
@@ -646,12 +657,16 @@ function MessagesContent() {
                           ) : (msg as any).format === 'image' ? (
                               <div className="relative">
                                 {(msg as any).imageUrl ? (
-                                  <img 
-                                    src={(msg as any).imageUrl} 
-                                    className="rounded-lg max-w-[200px] h-auto object-cover border border-white/10"
-                                    alt="Sent image"
-                                    loading="lazy"
-                                  />
+                                  <div className="relative w-[200px] h-[200px] rounded-lg overflow-hidden border border-white/10">
+                                    <Image 
+                                      src={(msg as any).imageUrl} 
+                                      alt="Sent image"
+                                      fill
+                                      sizes="200px"
+                                      className="object-cover"
+                                      loading="lazy"
+                                    />
+                                  </div>
                                 ) : (
                                   <div className="w-[200px] h-[150px] bg-muted/20 animate-pulse rounded-lg flex items-center justify-center">
                                      <ImageIcon className="w-8 h-8 opacity-20" />
@@ -841,7 +856,9 @@ function MessagesContent() {
                          // requestAnimationFrame(() => inputRef.current?.focus()); // Need ref for generic input?
                        }}
                      >
-                       <img src={u.avatar || "/placeholder-avatar.svg"} className="w-8 h-8 rounded-full object-cover bg-muted" />
+                       <div className="relative w-8 h-8 rounded-full overflow-hidden bg-muted shrink-0">
+                         <Image src={u.avatar || "/placeholder-avatar.svg"} alt={u.name} fill sizes="32px" className="object-cover" />
+                       </div>
                        <div className="flex flex-col min-w-0">
                          <span className="text-sm font-medium truncate">{u.name}</span>
                          <span className="text-xs text-muted-foreground truncate">@{u.username}</span>
@@ -965,7 +982,7 @@ function MessagesContent() {
                         }}
                         className="w-full text-left p-0 rounded-xl bg-card border border-border hover:border-rose-500 transition-all overflow-hidden group relative h-24"
                       >
-                         <img src={venue.image} className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-40 transition-opacity" />
+                         <Image src={venue.image} fill sizes="384px" alt={venue.name} className="absolute inset-0 object-cover opacity-60 group-hover:opacity-40 transition-opacity" />
                          <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-transparent" />
                          <div className="absolute inset-0 p-4 flex flex-col justify-center">
                             <h4 className="text-white font-bold text-lg">{venue.name}</h4>
@@ -1195,7 +1212,9 @@ function MessagesContent() {
                         return (
                            <div key={reqId} className="flex items-center justify-between p-3 bg-muted/30 rounded-2xl border border-border border-dashed">
                              <div className="flex items-center gap-3 min-w-0">
-                               <img src={profile?.avatar || "/placeholder-avatar.svg"} className="w-10 h-10 rounded-full object-cover bg-muted" />
+                               <div className="relative w-10 h-10 rounded-full overflow-hidden bg-muted shrink-0">
+                                 <Image src={profile?.avatar || "/placeholder-avatar.svg"} alt={profile?.name || "User"} fill sizes="40px" className="object-cover" />
+                               </div>
                                <div className="flex flex-col min-w-0">
                                  <span className="font-semibold text-sm truncate">{profile?.name || "User"}</span>
                                  <span className="text-xs text-muted-foreground truncate">{txt.wantsToChat}</span>
@@ -1253,7 +1272,9 @@ function MessagesContent() {
                          return (
                            <div key={reqId} className="flex items-center justify-between p-3 bg-muted/10 rounded-2xl border border-border border-dashed opacity-70 hover:opacity-100 transition-opacity">
                              <div className="flex items-center gap-3 min-w-0">
-                               <img src={profile?.avatar || "/placeholder-avatar.svg"} className="w-8 h-8 rounded-full object-cover bg-muted grayscale" />
+                               <div className="relative w-8 h-8 rounded-full overflow-hidden bg-muted grayscale shrink-0">
+                                 <Image src={profile?.avatar || "/placeholder-avatar.svg"} alt={profile?.name || "User"} fill sizes="32px" className="object-cover" />
+                               </div>
                                <div className="flex flex-col min-w-0">
                                  <span className="font-semibold text-sm truncate">{profile?.name || "User"}</span>
                                  <span className="text-[10px] uppercase font-bold text-yellow-500">{txt.pending}</span>

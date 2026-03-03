@@ -29,6 +29,10 @@ export const metadata: Metadata = {
   description: "Azərbaycanda ən etibarlı tanışlıq tətbiqi. Ciddi münasibət və evlilik üçün Bakı, Sumqayıt, Gəncə və digər şəhərlərdə həyat yoldaşınızı tapın. Pulsuz qeydiyyat!",
   manifest: "/manifest.json",
   keywords: [
+    "Danyeri",
+    "danyeri.az",
+    "danyeri az",
+    "Danyeri tanışlıq",
     "tanışlıq tətbiqi",
     "Azərbaycanda tanışlıq",
     "evlilik üçün tanışlıq",
@@ -40,7 +44,6 @@ export const metadata: Metadata = {
     "Sumqayıtda tanışlıq",
     "Gəncədə tanışlıq",
     "dating app azerbaijan",
-    "danyeri",
   ],
   applicationName: "Danyeri",
   authors: [{ name: "Danyeri" }],

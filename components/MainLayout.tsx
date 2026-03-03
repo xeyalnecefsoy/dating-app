@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { Home, Compass, MessageCircle, User, Menu, ChevronLeft, Flame, ChevronRight, Search, Bell, Camera, AlertTriangle } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
@@ -64,7 +65,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     }
 
     // For other URLs, check if they actually load
-    const img = new Image();
+    const img = new window.Image();
     img.src = user.avatar;
     img.onload = () => {
       setIsAvatarBroken(false);
@@ -296,10 +297,12 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
               isProfileActive && isCollapsed ? "ring-2 ring-primary" : "group-hover:ring-2 group-hover:ring-muted"
             )}>
               {user?.avatar ? (
-                <img 
+                <Image 
                   src={user.avatar || '/placeholder-avatar.svg'}
                   alt={user.name}
-                  className="w-8 h-8 rounded-full object-cover bg-muted"
+                  fill
+                  sizes="40px"
+                  className="rounded-full object-cover bg-muted"
                   onError={(e) => {
                     e.currentTarget.src = '/placeholder-avatar.svg';
                   }}

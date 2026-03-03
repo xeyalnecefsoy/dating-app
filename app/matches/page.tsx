@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, MessageCircle, MoreVertical, Heart, MapPin, BadgeCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,7 @@ export default function MatchesPage() {
       age: u.age || 25,
       gender: u.gender,
       location: u.location || "Bakı",
+      username: u.username,
       avatar: u.avatar || '/placeholder-avatar.svg',
       isVerified: u.role === "admin" || u.role === "superadmin" || u.isVerified,
       isPremium: u.isPremium || false,
@@ -80,32 +82,41 @@ export default function MatchesPage() {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: index * 0.05 }}
-                className="group relative overflow-hidden rounded-3xl aspect-[3/4] bg-muted"
+                className="group relative overflow-hidden rounded-3xl aspect-[3/4] bg-muted flex flex-col justify-end"
               >
-                <img 
+                <Link href={`/user/${match.username || match.id}`} className="absolute inset-0 z-0">
+                  <span className="sr-only">View {match.name}'s profile</span>
+                </Link>
+
+                <Image 
                   src={match.avatar} 
                   alt={match.name}
-                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  fill
+                  sizes="(max-width: 768px) 50vw, 25vw"
+                  priority={index < 8}
+                  className="absolute inset-0 object-cover transition-transform duration-500 group-hover:scale-110 pointer-events-none"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
                 
-                <div className="absolute top-3 right-3">
+                <div className="absolute top-3 right-3 pointer-events-none">
                    {/* Online indicator or other badge could go here */}
                 </div>
 
-                <div className="absolute bottom-0 left-0 right-0 p-4">
+                <div className="relative z-10 px-4 pt-4 pb-3 pointer-events-none">
                   <div className="flex items-center gap-2 mb-1">
                     <h3 className="text-white font-bold text-lg">{match.name}, {match.age}</h3>
                     {match.isVerified && <BadgeCheck className="w-4 h-4 text-[#20D5A0]" />}
                   </div>
                   
-                  <div className="flex items-center gap-1 text-white/70 text-xs mb-3">
+                  <div className="flex items-center gap-1 text-white/70 text-xs">
                     <MapPin className="w-3 h-3" />
                     <span>{match.location}</span>
                   </div>
+                </div>
 
+                <div className="relative z-20 px-4 pb-4">
                   <Link href={`/messages?userId=${match.id}`} className="block w-full">
-                    <Button className="w-full rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 text-white gap-2 h-10">
+                    <Button className="w-full rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 text-white gap-2 h-10 font-medium">
                       <MessageCircle className="w-4 h-4" />
                       {txt.message}
                     </Button>

@@ -113,6 +113,77 @@ export const getReports = query({
   },
 });
 
+import { paginationOptsValidator } from "convex/server";
+
+/**
+ * Get all reports (paginated)
+ */
+export const getReportsPaginated = query({
+  args: {
+    statusFilter: v.optional(v.string()),
+    paginationOpts: paginationOptsValidator,
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return { page: [], isDone: true, continueCursor: "" };
+
+    // Check if user is admin
+    const userId = identity.subject;
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
+      .first();
+
+    if (!user || !["admin", "moderator", "superadmin"].includes(user.role || "")) {
+      return { page: [], isDone: true, continueCursor: "" };
+    }
+
+    let paginatedResult;
+    
+    // Sort by status if filter is applied, otherwise by creation time (which is default index order if no index specified, but let's use by_status anyway or just full table scan paginated)
+    if (args.statusFilter && args.statusFilter !== "all") {
+       paginatedResult = await ctx.db
+         .query("reports")
+         .withIndex("by_status", (q) => q.eq("status", args.statusFilter!))
+         .paginate(args.paginationOpts);
+    } else {
+       // Let's use the natural order. In Convex .order("desc") works on indexes.
+       paginatedResult = await ctx.db
+         .query("reports")
+         .order("desc")
+         .paginate(args.paginationOpts);
+    }
+
+    // Enrich with user names
+    const enrichedPage = await Promise.all(
+      paginatedResult.page.map(async (report) => {
+        const reporter = await ctx.db
+          .query("users")
+          .withIndex("by_clerk_id", (q) => q.eq("clerkId", report.reporterId))
+          .first();
+
+        const reported = await ctx.db
+          .query("users")
+          .withIndex("by_clerk_id", (q) => q.eq("clerkId", report.reportedId))
+          .first();
+
+        return {
+          ...report,
+          reporterName: reporter?.name || "Unknown",
+          reportedName: reported?.name || "Unknown",
+          reporterAvatar: reporter?.avatar,
+          reportedAvatar: reported?.avatar,
+        };
+      })
+    );
+
+    return { 
+       ...paginatedResult,
+       page: enrichedPage 
+    };
+  },
+});
+
 /**
  * Update report status (admin only)
  */

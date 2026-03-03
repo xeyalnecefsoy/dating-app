@@ -47,7 +47,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, usePaginatedQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useUser } from "@/contexts/UserContext";
 import { Badge } from "@/components/ui/badge";
@@ -106,7 +106,11 @@ export default function AdminPage() {
   // Convex Queries — skip if email not loaded yet to avoid Unauthorized error
   const adminEmail = user?.email || "";
   const stats = useQuery(api.admin.getPlatformStats, adminEmail ? { adminEmail } : "skip");
-  const allUsers = useQuery(api.admin.getAllUsers, adminEmail ? { adminEmail } : "skip");
+  const { results: allUsersResults, status: usersStatus, loadMore: loadMoreUsers } = usePaginatedQuery(
+    api.admin.getAllUsersPaginated,
+    adminEmail ? { adminEmail } : "skip",
+    { initialNumItems: 15 }
+  );
   const waitlistUsers = useQuery(api.admin.getWaitlistUsers, adminEmail ? { adminEmail } : "skip");
   const recentActivity = useQuery(api.admin.getRecentActivity, adminEmail ? { adminEmail } : "skip");
   const platformSettings = useQuery(api.admin.getPlatformSettings, adminEmail ? { adminEmail } : "skip");
@@ -117,7 +121,11 @@ export default function AdminPage() {
   const verifyUserMut = useMutation(api.admin.verifyUser);
 
   // Reports
-  const reports = useQuery(api.reports.getReports, adminEmail ? { statusFilter: "all" } : "skip");
+  const { results: reportsResults, status: reportsStatus, loadMore: loadMoreReports } = usePaginatedQuery(
+    api.reports.getReportsPaginated,
+    adminEmail ? { statusFilter: "all" } : "skip",
+    { initialNumItems: 10 }
+  );
   const reportStats = useQuery(api.reports.getReportStats, adminEmail ? {} : "skip");
   const updateReportStatusMut = useMutation(api.reports.updateReportStatus);
 
@@ -136,7 +144,7 @@ export default function AdminPage() {
   useEffect(() => { setMounted(true); }, []);
 
   // Data loading state — true when queries haven't returned yet
-  const isDataLoading = stats === undefined || allUsers === undefined;
+  const isDataLoading = stats === undefined || usersStatus === "LoadingFirstPage";
 
   // Use real data or fall back to safe defaults
   const displayStats = stats || {
@@ -160,7 +168,7 @@ export default function AdminPage() {
   };
 
   // Filter users based on search and status
-  const userList = allUsers || [];
+  const userList = allUsersResults || [];
   const filteredUsers = userList.filter((u: any) => {
     const searchLower = searchQuery.toLowerCase();
     const matchesSearch = 
@@ -173,7 +181,7 @@ export default function AdminPage() {
       userFilterStatus === "verified" ? !!u.isVerified :
       userFilterStatus === "premium" ? !!u.isPremium :
       userFilterStatus === "admin" ? (u.role === "admin" || u.role === "superadmin") :
-      userFilterStatus === "banned" ? (u.status === "banned" || !!u.isBanned) : true;
+      userFilterStatus === "banned" ? (u.status === "banned") : true;
 
     return matchesSearch && matchesFilter;
   });
@@ -194,7 +202,7 @@ export default function AdminPage() {
           `"${u.email || ''}"`,
           u.username || '',
           u.role || 'user',
-          u.status === 'banned' || u.isBanned ? 'Banned' : (u.status || 'Active'),
+          u.status === 'banned' ? 'Banned' : (u.status || 'Active'),
           new Date(u.createdAt).toLocaleDateString('az-AZ'),
           u.isVerified ? 'Təsdiqli' : 'Xeyr',
           u.isPremium ? 'Premium' : 'Xeyr'
@@ -746,6 +754,17 @@ export default function AdminPage() {
                       ))}
                     </tbody>
                   </table>
+                  {(usersStatus === "CanLoadMore" || usersStatus === "LoadingMore") && (
+                    <div className="p-4 flex justify-center border-t border-border">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => loadMoreUsers(15)}
+                        disabled={usersStatus === "LoadingMore"}
+                      >
+                        {usersStatus === "LoadingMore" ? "Yüklənir..." : "Daha çox yüklə"}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -764,14 +783,14 @@ export default function AdminPage() {
                   </p>
                 </div>
 
-                {(!reports || reports.length === 0) ? (
+                {(!reportsResults || reportsResults.length === 0) ? (
                   <div className="text-center py-16 text-muted-foreground">
                     <AlertTriangle className="w-12 h-12 mx-auto mb-3 opacity-30" />
                     <p>Heç bir şikayət yoxdur</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {reports.map((report: any) => (
+                    {reportsResults.map((report: any) => (
                       <div
                         key={report._id}
                         className="bg-card border border-border rounded-2xl p-5"
@@ -841,6 +860,18 @@ export default function AdminPage() {
                         </div>
                       </div>
                     ))}
+                    
+                    {(reportsStatus === "CanLoadMore" || reportsStatus === "LoadingMore") && (
+                      <div className="pt-4 flex justify-center">
+                        <Button 
+                          variant="outline" 
+                          onClick={() => loadMoreReports(10)}
+                          disabled={reportsStatus === "LoadingMore"}
+                        >
+                          {reportsStatus === "LoadingMore" ? "Yüklənir..." : "Daha çox yüklə"}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </motion.div>

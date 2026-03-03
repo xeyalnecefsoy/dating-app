@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Home, Compass, MessageCircle, User, Menu, ChevronLeft, Flame, LogOut, Search, Bell, Crown, MapPin } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
@@ -106,10 +107,12 @@ export function BottomNav() {
             isProfileActive && "ring-2 ring-primary ring-offset-1 ring-offset-background"
           )}>
             {avatarUrl ? (
-              <img 
+              <Image 
                 src={avatarUrl}
                 alt={user?.name || "Profile"}
-                className="w-full h-full object-cover"
+                fill
+                sizes="24px"
+                className="object-cover"
                 onError={(e) => {
                   e.currentTarget.src = '/placeholder-avatar.svg';
                 }}

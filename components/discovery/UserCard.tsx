@@ -11,6 +11,7 @@ import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { calculateCompatibility, getCompatibilityLabel } from "@/lib/compatibility";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 interface UserCardProps {
   user: UserProfile;
@@ -156,16 +157,18 @@ export function UserCard({ user }: UserCardProps) {
                 </div>
             {/* Small/Blurred Avatar Area */}
                 <div className="relative group">
-                    <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-slate-100 dark:border-slate-600 shadow-sm bg-slate-100">
-                        <img 
+                    <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-slate-100 dark:border-slate-600 shadow-sm bg-slate-100 relative">
+                        <Image 
                           src={user.avatar} 
                           alt={user.name} 
+                          fill
+                          sizes="64px"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
                             console.error(`Failed to load avatar for ${user.name}:`, target.src);
                             target.src = "https://images.unsplash.com/photo-1511367461989-f85a21fda167?w=400&h=400&fit=crop"; // Fallback
                           }}
-                          className="w-full h-full object-cover hover:scale-110 transition-transform duration-500" 
+                          className="object-cover hover:scale-110 transition-transform duration-500" 
                         />
                     </div>
                 </div>

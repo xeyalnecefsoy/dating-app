@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Heart, User, Users, Calendar, Search, ChevronDown, Camera, Loader2, AlertCircle, CheckCircle2, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -351,7 +352,7 @@ export default function OnboardingPage() {
         )}
         
         <div className="flex items-center gap-2">
-          <img src="/logo.jpg" className="w-8 h-8 object-contain rounded-full" alt="Danyeri" />
+          <Image src="/logo.jpg" width={32} height={32} className="object-contain rounded-full" priority alt="Danyeri" />
           <span className="font-bold bg-gradient-to-r from-rose-400 to-pink-500 bg-clip-text text-transparent">Danyeri</span>
         </div>
         
@@ -939,7 +940,7 @@ function PhotoUploader({
         }`}
       >
         {preview ? (
-          <img src={preview} alt="Profile" className="w-full h-full object-cover" />
+          <Image src={preview} alt="Profile" fill sizes="160px" className="object-cover" />
         ) : (
           <div className="flex flex-col items-center gap-2 text-muted-foreground">
             <Camera className="w-8 h-8" />

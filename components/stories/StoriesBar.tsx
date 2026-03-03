@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { Plus } from "lucide-react";
 import { UserStories } from "@/lib/stories";
+import Image from "next/image";
 
 import { StoryViewer } from "./StoryViewer";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -145,11 +146,13 @@ export function StoriesBar({ filterByMatches = true }: StoriesBarProps) {
                       : "bg-muted"
                   }`}
                 >
-                  <div className="w-full h-full rounded-full bg-background p-[2px]">
-                    <img 
+                  <div className="relative w-full h-full rounded-full bg-background p-[2px] overflow-hidden">
+                    <Image 
                       src={userStory.userAvatar}
                       alt={userStory.userName}
-                      className="w-full h-full rounded-full object-cover"
+                      fill
+                      sizes="68px"
+                      className="rounded-full object-cover"
                     />
                   </div>
                 </div>

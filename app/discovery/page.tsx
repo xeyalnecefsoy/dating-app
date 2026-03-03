@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import { ArrowLeft, X, Heart, Star, 
@@ -445,12 +446,17 @@ export default function DiscoveryPage() {
                 >
                   <div className="relative w-full h-full rounded-3xl overflow-hidden bg-card border border-border shadow-xl">
                     {/* Full Background Image */}
-                    <img 
-                      src={currentProfile.avatar}
-                      alt={currentProfile.name}
-                      className="w-full h-full object-cover"
-                      draggable={false}
-                    />
+                    <div className="absolute inset-0 w-full h-full">
+                      <Image 
+                        src={currentProfile.avatar}
+                        alt={currentProfile.name}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 400px"
+                        priority
+                        className="object-cover pointer-events-none select-none"
+                        draggable={false}
+                      />
+                    </div>
                     
                     {/* Gradient Overlay - Adjusted to show more of the image */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
@@ -651,19 +657,29 @@ export default function DiscoveryPage() {
                 className="flex justify-center mb-6"
               >
                 <div className="relative">
-                  <img 
-                    src={currentUser?.avatar || "/avatars/default.png"} 
-                    className="w-24 h-24 rounded-full border-4 border-primary object-cover"
-                  />
-                  <div className="absolute -right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-primary flex items-center justify-center">
+                  <div className="relative w-24 h-24 rounded-full border-4 border-primary overflow-hidden">
+                    <Image 
+                      src={currentUser?.avatar || "/avatars/default.png"} 
+                      alt="Your avatar"
+                      fill
+                      sizes="96px"
+                      className="object-cover"
+                    />
+                  </div>
+                  <div className="absolute -right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-primary flex items-center justify-center z-10">
                     <Heart className="w-6 h-6 text-white fill-white" />
                   </div>
                 </div>
                 <div className="relative -ml-4">
-                  <img 
-                    src={matchedProfile.avatar} 
-                    className="w-24 h-24 rounded-full border-4 border-primary object-cover"
-                  />
+                  <div className="relative w-24 h-24 rounded-full border-4 border-primary overflow-hidden">
+                    <Image 
+                      src={matchedProfile.avatar} 
+                      alt={`${matchedProfile.name}'s avatar`}
+                      fill
+                      sizes="96px"
+                      className="object-cover"
+                    />
+                  </div>
                 </div>
               </motion.div>
 

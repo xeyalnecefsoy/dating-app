@@ -2,6 +2,7 @@
 
 import React, { useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowLeft, MapPin, Crown, Sparkles, Filter, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/contexts/UserContext";
@@ -104,10 +105,12 @@ export default function LikesPage() {
                 >
                   {showClearly ? (
                     <Link href={`/user/${person.username || person.id}`} className="block w-full h-full relative">
-                      <img 
+                      <Image 
                         src={person.avatar} 
                         alt="Profile" 
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        fill
+                        sizes="(max-width: 768px) 50vw, 300px"
+                        className="object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                       <div className="absolute bottom-3 left-3 right-3 text-white">
@@ -127,10 +130,12 @@ export default function LikesPage() {
                     </Link>
                   ) : (
                     <Link href="/premium" className="block w-full h-full relative border border-border">
-                      <img 
+                      <Image 
                         src={person.avatar} 
                         alt="Hidden Profile" 
-                        className="w-full h-full object-cover blur-xl scale-110 opacity-70"
+                        fill
+                        sizes="(max-width: 768px) 50vw, 300px"
+                        className="object-cover blur-xl scale-110 opacity-70"
                       />
                       <div className="absolute inset-0 bg-background/20" />
                       <div className="absolute inset-0 flex flex-col items-center justify-center">
