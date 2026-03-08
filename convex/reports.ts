@@ -3,6 +3,49 @@ import { v } from "convex/values";
 
 const REPORT_REASONS = ["fake", "harassment", "spam", "inappropriate", "other"] as const;
 
+async function notifyAdminsAboutNewReport(
+  ctx: any,
+  reporterId: string,
+  reportedId: string,
+  reason: string
+) {
+  const [reporter, reported, allUsers] = await Promise.all([
+    ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", reporterId))
+      .first(),
+    ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", reportedId))
+      .first(),
+    ctx.db.query("users").collect(),
+  ]);
+
+  const adminRecipients = allUsers.filter(
+    (u: any) =>
+      !!u.clerkId &&
+      u.status !== "banned" &&
+      (u.role === "moderator" || u.role === "admin" || u.role === "superadmin")
+  );
+
+  const reporterName = reporter?.name || "Unknown";
+  const reportedName = reported?.name || "Unknown";
+
+  await Promise.all(
+    adminRecipients.map((admin: any) =>
+      ctx.db.insert("notifications", {
+        userId: admin.clerkId,
+        type: "system",
+        title: "Yeni şikayət daxil oldu",
+        body: `${reporterName} istifadəçisi ${reportedName} barədə '${reason}' səbəbi ilə şikayət etdi.`,
+        data: { url: "/admin/mobile?tab=reports" },
+        read: false,
+        createdAt: Date.now(),
+      })
+    )
+  );
+}
+
 /**
  * Submit a report against another user
  */
@@ -48,6 +91,8 @@ export const submitReport = mutation({
       status: "pending",
       createdAt: Date.now(),
     });
+
+    await notifyAdminsAboutNewReport(ctx, reporterId, args.reportedId, args.reason);
 
     return { success: true };
   },
@@ -139,19 +184,18 @@ export const getReportsPaginated = query({
     }
 
     let paginatedResult;
-    
-    // Sort by status if filter is applied, otherwise by creation time (which is default index order if no index specified, but let's use by_status anyway or just full table scan paginated)
+
+    // Sort by status if filter is applied
     if (args.statusFilter && args.statusFilter !== "all") {
-       paginatedResult = await ctx.db
-         .query("reports")
-         .withIndex("by_status", (q) => q.eq("status", args.statusFilter!))
-         .paginate(args.paginationOpts);
+      paginatedResult = await ctx.db
+        .query("reports")
+        .withIndex("by_status", (q) => q.eq("status", args.statusFilter!))
+        .paginate(args.paginationOpts);
     } else {
-       // Let's use the natural order. In Convex .order("desc") works on indexes.
-       paginatedResult = await ctx.db
-         .query("reports")
-         .order("desc")
-         .paginate(args.paginationOpts);
+      paginatedResult = await ctx.db
+        .query("reports")
+        .order("desc")
+        .paginate(args.paginationOpts);
     }
 
     // Enrich with user names
@@ -177,9 +221,9 @@ export const getReportsPaginated = query({
       })
     );
 
-    return { 
-       ...paginatedResult,
-       page: enrichedPage 
+    return {
+      ...paginatedResult,
+      page: enrichedPage,
     };
   },
 });

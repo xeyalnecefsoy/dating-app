@@ -388,6 +388,11 @@ export default function AdminPage() {
                   <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
                 )}
               </Button>
+              <Link href="/admin/mobile" className="md:hidden">
+                <Button variant="outline" size="sm" className="h-8 px-3 rounded-full text-xs">
+                  Mobil
+                </Button>
+              </Link>
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center overflow-hidden">
                   {user?.avatar ? (

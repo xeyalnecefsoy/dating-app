@@ -4,6 +4,33 @@ import { v } from "convex/values";
 // Staff emails that bypass waitlist
 const STAFF_EMAILS = ["xeyalnecefsoy@gmail.com"];
 
+async function notifyAdminsAboutWaitlist(ctx: any, waitlistUser: any) {
+  const allUsers = await ctx.db.query("users").collect();
+  const adminRecipients = allUsers.filter(
+    (u: any) =>
+      !!u.clerkId &&
+      u.status !== "banned" &&
+      (u.role === "moderator" || u.role === "admin" || u.role === "superadmin")
+  );
+
+  await Promise.all(
+    adminRecipients.map((admin: any) =>
+      ctx.db.insert("notifications", {
+        userId: admin.clerkId,
+        type: "system",
+        title: "Yeni waitlist müraciəti",
+        body:
+          waitlistUser.name +
+          " (" + (waitlistUser.gender || "unknown") + ") yoxlanış növbəsinə düşdü.",
+        data: { url: "/admin/mobile?tab=waitlist" },
+        read: false,
+        createdAt: Date.now(),
+      })
+    )
+  );
+}
+
+
 /**
  * Generate a unique username from name
  * Removes special characters, converts to lowercase, adds random suffix if needed
@@ -152,6 +179,7 @@ export const createOrUpdateUser = mutation({
       const username = await generateUniqueUsername(ctx, args.name);
       
       // Create new user
+      const createdAt = Date.now();
       const userId = await ctx.db.insert("users", {
         clerkId: args.clerkId,
         name: args.name,
@@ -173,8 +201,18 @@ export const createOrUpdateUser = mutation({
         lookingFor: args.lookingFor,
         status: status,
         role: role,
-        createdAt: Date.now(),
+        createdAt,
       });
+
+      if (status === "waitlist") {
+        await notifyAdminsAboutWaitlist(ctx, {
+          name: args.name,
+          gender: normalizedGender,
+          userId,
+          createdAt,
+        });
+      }
+
       return { userId, status, isNew: true, username };
     }
   },

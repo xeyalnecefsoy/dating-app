@@ -11,6 +11,8 @@ const isPublicRoute = createRouteMatcher([
   '/tanisliq/(.*)',
   '/api/webhooks(.*)',
   '/api/push(.*)',
+  '/api/health',
+  '/api/ready',
   '/sitemap.xml',
   '/robots.txt',
 ]);
