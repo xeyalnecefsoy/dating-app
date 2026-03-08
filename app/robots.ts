@@ -7,7 +7,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: '*',
-        allow: ['/', '/about'],
+        allow: ['/', '/about', '/tanisliq', '/tanisliq/'],
         disallow: [
           '/api/', 
           '/convex-test/', 
@@ -21,7 +21,14 @@ export default function robots(): MetadataRoute.Robots {
           '/likes',
           '/notifications',
           '/simulator',
-          '/onboarding'
+          '/onboarding',
+          '/blocked',
+          '/badges',
+          '/stories',
+          '/search',
+          '/verify',
+          '/venues',
+          '/user/',
         ],
       },
       {

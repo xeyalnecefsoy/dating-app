@@ -35,22 +35,18 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: '/sitemap.xml',
+        // SEO: Allow tanışlıq pages to be cached and indexed well
+        source: '/tanisliq/:path*',
         headers: [
           {
             key: 'X-Robots-Tag',
-            value: 'noindex'
-          }
-        ]
-      },
-      {
-        source: '/robots.txt',
-        headers: [
+            value: 'index, follow, max-image-preview:large, max-snippet:-1'
+          },
           {
-            key: 'X-Robots-Tag',
-            value: 'noindex'
+            key: 'Cache-Control',
+            value: 'public, max-age=3600, stale-while-revalidate=86400'
           }
-        ]
+        ],
       },
       {
         source: '/:path*',

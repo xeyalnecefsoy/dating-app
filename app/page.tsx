@@ -413,6 +413,29 @@ function WelcomeScreen() {
           </div>
         </motion.div>
       </section>
+
+      {/* SEO Hidden Content - enriches page for search engines */}
+      <div className="sr-only">
+        <h2>Danyeri - Azərbaycanda Ciddi Tanışlıq və Evlilik Tətbiqi</h2>
+        <p>
+          Danyeri, Azərbaycanda ciddi tanışlıq və evlilik üçün yaradılmış ən etibarlı platformadır. 
+          Bakıda tanışlıq, Gəncədə tanışlıq, Sumqayıtda tanışlıq, Xankəndidə tanışlıq, 
+          Mingəçevirdə tanışlıq, Lənkəranda tanışlıq, Şəkidə tanışlıq, Naxçıvanda tanışlıq - 
+          bütün Azərbaycan şəhərlərində həyat yoldaşınızı tapın.
+        </p>
+        <p>
+          Pulsuz qeydiyyat olun və Azərbaycan mədəniyyətinə hörmət edən, təhlükəsiz mühitdə 
+          ciddi münasibət qurmaq istəyən insanlarla tanış olun. Evlilik üçün tanışlıq, 
+          online tanışlıq, Azərbaycanda ən yaxşı tanışlıq saytı.
+        </p>
+        <nav>
+          <Link href="/tanisliq">Azərbaycanda Tanışlıq</Link>
+          <Link href="/tanisliq/bakida">Bakıda Tanışlıq</Link>
+          <Link href="/tanisliq/gencede">Gəncədə Tanışlıq</Link>
+          <Link href="/tanisliq/sumqayitda">Sumqayıtda Tanışlıq</Link>
+          <Link href="/about">Haqqımızda</Link>
+        </nav>
+      </div>
     </article>
   );
 }
