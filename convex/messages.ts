@@ -2,6 +2,27 @@ import { query, mutation } from "./_generated/server";
 import { api } from "./_generated/api";
 import { v } from "convex/values";
 
+async function getMatchForChannel(ctx: any, channelId: string) {
+  if (!channelId.startsWith("match-")) return null;
+  const parts = channelId.split("-");
+  if (parts.length < 3) return null;
+  const user1Id = parts[1];
+  const user2Id = parts[2];
+
+  return (
+    (await ctx.db
+      .query("matches")
+      .withIndex("by_user1", (q: any) => q.eq("user1Id", user1Id))
+      .filter((q: any) => q.eq(q.field("user2Id"), user2Id))
+      .first()) ||
+    (await ctx.db
+      .query("matches")
+      .withIndex("by_user1", (q: any) => q.eq("user1Id", user2Id))
+      .filter((q: any) => q.eq(q.field("user2Id"), user1Id))
+      .first())
+  );
+}
+
 // List all messages in a specific channel
 export const list = query({
   args: { channelId: v.optional(v.string()) },
@@ -14,20 +35,12 @@ export const list = query({
     let otherUserReadAt: number | null = null;
     
     if (channelId.startsWith("match-")) {
-       const parts = channelId.split("-");
-       const user1Id = parts[1];
-       const user2Id = parts[2];
-       
-       const match = await ctx.db
-          .query("matches")
-          .withIndex("by_user1", (q) => q.eq("user1Id", user1Id))
-          .filter((q) => q.eq(q.field("user2Id"), user2Id))
-          .first() 
-          || await ctx.db
-          .query("matches")
-          .withIndex("by_user1", (q) => q.eq("user1Id", user2Id))
-          .filter((q) => q.eq(q.field("user2Id"), user1Id))
-          .first();
+       const match = await getMatchForChannel(ctx, channelId);
+
+       if (!match) return [];
+       if (match.user1Id !== identity.subject && match.user2Id !== identity.subject) {
+         return [];
+       }
 
        if (match) {
           const isUser1 = match.user1Id === identity.subject;
@@ -106,11 +119,23 @@ export const send = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthenticated");
     
-    // Use the userId from args (clerkId) for consistency with likes/matches
-    // But verify authentication is valid
-    const userId = args.userId || identity.subject;
+    const userId = identity.subject;
 
     const channelId = args.channelId || "general";
+
+    if (channelId.startsWith("match-")) {
+      const match = await getMatchForChannel(ctx, channelId);
+      if (!match) {
+        throw new Error("Conversation not found");
+      }
+      if (match.status !== "accepted") {
+        throw new Error("Conversation is not accepted yet");
+      }
+      if (match.user1Id !== userId && match.user2Id !== userId) {
+        throw new Error("Unauthorized conversation access");
+      }
+    }
+
     await ctx.db.insert("messages", {
       body: args.body, // If format='image', this is the storageId
       userId: userId, 
@@ -191,7 +216,7 @@ export const deleteMessage = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthenticated");
-    const userId = args.userId || identity.subject;
+    const userId = identity.subject;
 
     const message = await ctx.db.get(args.id);
     
@@ -224,7 +249,7 @@ export const editMessage = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthenticated");
-    const userId = args.userId || identity.subject;
+    const userId = identity.subject;
 
     const message = await ctx.db.get(args.id);
     
@@ -255,31 +280,20 @@ export const markRead = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return;
+    const currentUserId = identity.subject;
     
     // Only handle private matches
     if (!args.channelId.startsWith("match-")) return;
-    
-    const parts = args.channelId.split("-");
-    const user1Id = parts[1];
-    const user2Id = parts[2];
-    
+
     // Find the match record
-    const match = await ctx.db
-      .query("matches")
-      .withIndex("by_user1", (q) => q.eq("user1Id", user1Id))
-      .filter((q) => q.eq(q.field("user2Id"), user2Id))
-      .first() 
-      || await ctx.db
-      .query("matches")
-      .withIndex("by_user1", (q) => q.eq("user1Id", user2Id))
-      .filter((q) => q.eq(q.field("user2Id"), user1Id))
-      .first();
-      
+    const match = await getMatchForChannel(ctx, args.channelId);
+       
     if (!match) return;
+    if (match.user1Id !== currentUserId && match.user2Id !== currentUserId) return;
 
     const now = Date.now();
-    const isUser1 = match.user1Id === args.userId;
-    const isUser2 = match.user2Id === args.userId;
+    const isUser1 = match.user1Id === currentUserId;
+    const isUser2 = match.user2Id === currentUserId;
 
     if (isUser1) {
       await ctx.db.patch(match._id, { lastReadUser1: now });

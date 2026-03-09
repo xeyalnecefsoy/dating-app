@@ -93,6 +93,15 @@ export default function AdminPage() {
   const { user, isLoading: isUserLoading } = useUser();
   const router = useRouter();
 
+  const [activeSection, setActiveSection] = useState("dashboard");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [userFilterStatus, setUserFilterStatus] = useState<"all" | "verified" | "premium" | "admin" | "banned">("all");
+  const [selectedUser, setSelectedUser] = useState<any | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
   // Redirect if not admin
   React.useEffect(() => {
     if (!isUserLoading && (!user || (user.role !== 'admin' && user.role !== 'superadmin'))) {
@@ -103,18 +112,38 @@ export default function AdminPage() {
     }
   }, [user, isUserLoading, router]);
 
-  // Convex Queries — skip if email not loaded yet to avoid Unauthorized error
+  // Convex Queries — only load data needed for active section
   const adminEmail = user?.email || "";
+  const shouldLoadUsers = activeSection === "users";
+  const shouldLoadReports = activeSection === "reports";
+  const shouldLoadVerification = activeSection === "verification";
+  const shouldLoadSettings = activeSection === "settings";
+  const shouldLoadRecentActivity = activeSection === "dashboard";
+  const shouldLoadMessageStats =
+    activeSection === "messages" || activeSection === "analytics";
+
   const stats = useQuery(api.admin.getPlatformStats, adminEmail ? { adminEmail } : "skip");
   const { results: allUsersResults, status: usersStatus, loadMore: loadMoreUsers } = usePaginatedQuery(
     api.admin.getAllUsersPaginated,
-    adminEmail ? { adminEmail } : "skip",
+    adminEmail && shouldLoadUsers ? { adminEmail } : "skip",
     { initialNumItems: 15 }
   );
-  const waitlistUsers = useQuery(api.admin.getWaitlistUsers, adminEmail ? { adminEmail } : "skip");
-  const recentActivity = useQuery(api.admin.getRecentActivity, adminEmail ? { adminEmail } : "skip");
-  const platformSettings = useQuery(api.admin.getPlatformSettings, adminEmail ? { adminEmail } : "skip");
-  const messageStats = useQuery(api.admin.getMessageStats, adminEmail ? { adminEmail } : "skip");
+  const waitlistUsers = useQuery(
+    api.admin.getWaitlistUsers,
+    adminEmail && shouldLoadVerification ? { adminEmail } : "skip"
+  );
+  const recentActivity = useQuery(
+    api.admin.getRecentActivity,
+    adminEmail && shouldLoadRecentActivity ? { adminEmail } : "skip"
+  );
+  const platformSettings = useQuery(
+    api.admin.getPlatformSettings,
+    adminEmail && shouldLoadSettings ? { adminEmail } : "skip"
+  );
+  const messageStats = useQuery(
+    api.admin.getMessageStats,
+    adminEmail && shouldLoadMessageStats ? { adminEmail } : "skip"
+  );
   const togglePaywall = useMutation(api.admin.togglePaywall);
   const grantPremium = useMutation(api.admin.grantPremium);
   const revokePremium = useMutation(api.admin.revokePremium);
@@ -123,28 +152,18 @@ export default function AdminPage() {
   // Reports
   const { results: reportsResults, status: reportsStatus, loadMore: loadMoreReports } = usePaginatedQuery(
     api.reports.getReportsPaginated,
-    adminEmail ? { statusFilter: "all" } : "skip",
+    adminEmail && shouldLoadReports ? { statusFilter: "all" } : "skip",
     { initialNumItems: 10 }
   );
-  const reportStats = useQuery(api.reports.getReportStats, adminEmail ? {} : "skip");
   const updateReportStatusMut = useMutation(api.reports.updateReportStatus);
 
   const paywallEnabled = platformSettings?.PREMIUM_PAYWALL_ENABLED === "true";
 
-  const [activeSection, setActiveSection] = useState("dashboard");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [userFilterStatus, setUserFilterStatus] = useState<"all" | "verified" | "premium" | "admin" | "banned">("all");
-  const [selectedUser, setSelectedUser] = useState<any | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
   // Prevent hydration mismatch: wait for client mount 
   useEffect(() => { setMounted(true); }, []);
 
-  // Data loading state — true when queries haven't returned yet
-  const isDataLoading = stats === undefined || usersStatus === "LoadingFirstPage";
+  // Data loading state — initial page waits only for dashboard stats
+  const isDataLoading = stats === undefined;
 
   // Use real data or fall back to safe defaults
   const displayStats = stats || {
@@ -646,7 +665,20 @@ export default function AdminPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {filteredUsers.map((user: any) => (
+                      {usersStatus === "LoadingFirstPage" ? (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+                            İstifadəçilər yüklənir...
+                          </td>
+                        </tr>
+                      ) : filteredUsers.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+                            Axtarışa uyğun istifadəçi tapılmadı
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredUsers.map((user: any) => (
                         <tr key={user._id} className="hover:bg-muted/30 transition-colors">
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-3">
@@ -756,7 +788,8 @@ export default function AdminPage() {
                             </div>
                           </td>
                         </tr>
-                      ))}
+                        ))
+                      )}
                     </tbody>
                   </table>
                   {(usersStatus === "CanLoadMore" || usersStatus === "LoadingMore") && (
@@ -784,11 +817,16 @@ export default function AdminPage() {
               >
                 <div className="flex items-center justify-between">
                   <p className="text-muted-foreground">
-                    {reportStats?.pending || 0} gözləyən şikayət
+                    {displayStats.pendingReports || 0} gözləyən şikayət
                   </p>
                 </div>
 
-                {(!reportsResults || reportsResults.length === 0) ? (
+                {reportsStatus === "LoadingFirstPage" ? (
+                  <div className="text-center py-16 text-muted-foreground">
+                    <Spinner className="w-6 h-6 animate-spin mx-auto mb-3" />
+                    <p>Şikayətlər yüklənir...</p>
+                  </div>
+                ) : (!reportsResults || reportsResults.length === 0) ? (
                   <div className="text-center py-16 text-muted-foreground">
                     <AlertTriangle className="w-12 h-12 mx-auto mb-3 opacity-30" />
                     <p>Heç bir şikayət yoxdur</p>
@@ -897,15 +935,19 @@ export default function AdminPage() {
                   </p>
                 </div>
 
-                {(!waitlistUsers || waitlistUsers.length === 0) && (
+                {waitlistUsers === undefined ? (
+                  <div className="bg-card border border-border rounded-2xl p-8 text-center text-muted-foreground">
+                    <Spinner className="w-6 h-6 animate-spin mx-auto mb-3" />
+                    Gözləmə növbəsi yüklənir...
+                  </div>
+                ) : waitlistUsers.length === 0 ? (
                   <div className="bg-card border border-border rounded-2xl p-8 text-center">
                     <CheckCircle className="w-12 h-12 mx-auto mb-4 text-green-500 opacity-50" />
                     <p className="text-muted-foreground">Gözləyən istifadəçi yoxdur</p>
                   </div>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {waitlistUsers?.map((item: any) => (
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {waitlistUsers.map((item: any) => (
                     <div
                       key={item._id}
                       className="bg-card border border-border rounded-2xl overflow-hidden"
@@ -985,8 +1027,9 @@ export default function AdminPage() {
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </motion.div>
             )}
 

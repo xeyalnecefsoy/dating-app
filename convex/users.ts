@@ -3,6 +3,20 @@ import { v } from "convex/values";
 
 // Staff emails that bypass waitlist
 const STAFF_EMAILS = ["xeyalnecefsoy@gmail.com"];
+const STAFF_ROLES = new Set(["moderator", "admin", "superadmin"]);
+
+function isStaffUser(user: any) {
+  if (!user) return false;
+  const role = (user.role || "").toLowerCase();
+  if (STAFF_ROLES.has(role)) return true;
+  return !!user.email && STAFF_EMAILS.includes(String(user.email).toLowerCase());
+}
+
+function shouldHideStaffFromViewer(viewer: any, candidate: any) {
+  if (!isStaffUser(candidate)) return false;
+  if (!viewer) return true;
+  return !isStaffUser(viewer);
+}
 
 async function notifyAdminsAboutWaitlist(ctx: any, waitlistUser: any) {
   const allUsers = await ctx.db.query("users").collect();
@@ -376,6 +390,7 @@ export const getActiveUsers = query({
       .take(200);
 
     // Get current user's blocked list + already-liked list
+    let currentUserDoc: any = null;
     let myBlockedUsers: string[] = [];
     let myLikedUsers: Set<string> = new Set();
     if (args.currentUserId) {
@@ -383,6 +398,7 @@ export const getActiveUsers = query({
         .query("users")
         .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.currentUserId))
         .first();
+      currentUserDoc = currentUser;
       myBlockedUsers = currentUser?.blockedUsers || [];
 
       // Fetch already-liked users to exclude server-side
@@ -411,6 +427,8 @@ export const getActiveUsers = query({
       if (u.clerkId && myBlockedUsers.includes(u.clerkId)) return false;
       // Privacy: skip users who blocked ME
       if (u.blockedUsers && args.currentUserId && u.blockedUsers.includes(args.currentUserId)) return false;
+      // Privacy: hide staff profiles from non-staff viewers
+      if (shouldHideStaffFromViewer(currentUserDoc, u)) return false;
       return true;
     });
 
@@ -427,12 +445,22 @@ export const searchUsers = query({
     currentUserId: v.optional(v.string())
   },
   handler: async (ctx, args) => {
+    let currentUserDoc: any = null;
+    if (args.currentUserId) {
+      currentUserDoc = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.currentUserId))
+        .first();
+    }
+
     const users = await ctx.db
       .query("users")
       .withIndex("by_status", (q) => q.eq("status", "active"))
       .collect();
 
-    return users.filter(u => u.clerkId !== args.currentUserId);
+    return users.filter(
+      (u) => u.clerkId !== args.currentUserId && !shouldHideStaffFromViewer(currentUserDoc, u)
+    );
   },
 });
 
@@ -513,6 +541,14 @@ export const searchUsersFiltered = query({
     lookingFor: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    let currentUserDoc: any = null;
+    if (args.currentUserId) {
+      currentUserDoc = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.currentUserId))
+        .first();
+    }
+
     const users = await ctx.db
       .query("users")
       .withIndex("by_status", (q) => q.eq("status", "active"))
@@ -521,6 +557,8 @@ export const searchUsersFiltered = query({
     return users.filter((u) => {
       // Exclude self
       if (u.clerkId === args.currentUserId) return false;
+      // Hide staff profiles from non-staff viewers
+      if (shouldHideStaffFromViewer(currentUserDoc, u)) return false;
       // Age filter
       if (args.minAge && (u.age || 0) < args.minAge) return false;
       if (args.maxAge && (u.age || 0) > args.maxAge) return false;

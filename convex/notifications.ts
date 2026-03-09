@@ -88,6 +88,10 @@ export const markAsRead = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return;
 
+    const notification = await ctx.db.get(args.notificationId);
+    if (!notification) return;
+    if (notification.userId !== identity.subject) return;
+
     await ctx.db.patch(args.notificationId, { read: true });
   },
 });

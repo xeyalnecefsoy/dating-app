@@ -1,6 +1,8 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
+const STAFF_ROLES = new Set(["moderator", "admin", "superadmin"]);
+
 // Add a like
 export const like = mutation({
   args: {
@@ -15,8 +17,8 @@ export const like = mutation({
       return { alreadyLiked: false, isMatch: false, error: "Unauthenticated" };
     }
 
-    // Use the likerId from frontend (clerkUser.id) for consistency
-    const likerId = args.likerId;
+    // Never trust likerId from client
+    const likerId = identity.subject;
     const type = args.type || "like";
 
     if (!likerId || !args.likedId) {
@@ -26,6 +28,27 @@ export const like = mutation({
     // Prevent self-like
     if (likerId === args.likedId) {
       return { alreadyLiked: false, isMatch: false, error: "Cannot like yourself" };
+    }
+
+    const [likerUser, likedUser] = await Promise.all([
+      ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerkId", likerId))
+        .first(),
+      ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.likedId))
+        .first(),
+    ]);
+
+    const likerIsStaff = !!likerUser?.role && STAFF_ROLES.has(likerUser.role);
+    const likedIsStaff = !!likedUser?.role && STAFF_ROLES.has(likedUser.role);
+    if (!likerIsStaff && likedIsStaff) {
+      return {
+        alreadyLiked: false,
+        isMatch: false,
+        error: "This profile can't be liked directly",
+      };
     }
 
     // Rate limiting — max 30 likes per minute
@@ -136,6 +159,10 @@ export const getWhoLikedMe = query({
     userId: v.string(),
   },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+    if (identity.subject !== args.userId) return [];
+
     // 1. Get all likes from others to me
     const likesReceived = await ctx.db
       .query("likes")

@@ -4,6 +4,45 @@ import { mutation, query } from "./_generated/server";
 // SUPERADMIN email - hardcoded for security
 // Only this email has full platform control
 const SUPERADMIN_EMAIL = "xeyalnecefsoy@gmail.com";
+const ADMIN_ROLES = new Set(["moderator", "admin", "superadmin"]);
+
+async function getRequesterRole(ctx: any) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) throw new Error("Unauthenticated");
+
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", identity.subject))
+    .first();
+
+  const isEmailSuperadmin =
+    (identity.email || "").toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
+  const role = (user?.role || (isEmailSuperadmin ? "superadmin" : "user")).toLowerCase();
+
+  return {
+    identity,
+    user,
+    role,
+    isSuperadmin: role === "superadmin",
+    isAdmin: ADMIN_ROLES.has(role),
+  };
+}
+
+async function requireAdmin(ctx: any) {
+  const requester = await getRequesterRole(ctx);
+  if (!requester.isAdmin) {
+    throw new Error("Unauthorized: Admin access required");
+  }
+  return requester;
+}
+
+async function requireSuperadmin(ctx: any) {
+  const requester = await getRequesterRole(ctx);
+  if (!requester.isSuperadmin) {
+    throw new Error("Unauthorized: Only superadmin allowed");
+  }
+  return requester;
+}
 
 /**
  * Check if user is superadmin by email
@@ -43,6 +82,8 @@ export const getUserRole = query({
 export const getAllUsers = query({
   args: { adminEmail: v.string() },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
     // Basic authorization check
     const isAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
     
@@ -90,25 +131,8 @@ export const getAllUsersPaginated = query({
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
-    // Basic authorization check
-    const isAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
-    
-    // Also allow if user exists and has admin role
-    let hasRole = false;
-    if (!isAdmin) {
-       const user = await ctx.db
-        .query("users")
-        .withIndex("by_email", (q) => q.eq("email", args.adminEmail))
-        .first();
-       if (user && (user.role === 'admin' || user.role === 'superadmin')) {
-         hasRole = true;
-       }
-    }
+    await requireAdmin(ctx);
 
-    if (!isAdmin && !hasRole) {
-      throw new Error("Unauthorized: Admin access required");
-    }
-    
     // Paginate on the natural index, ordered by newest first
     const paginatedResult = await ctx.db
       .query("users")
@@ -144,6 +168,8 @@ export const setUserRole = mutation({
     newRole: v.string() // 'user', 'moderator', 'admin'
   },
   handler: async (ctx, args) => {
+    await requireSuperadmin(ctx);
+
     // Only superadmin can change roles
     // Basic authorization check
     const isSuperAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
@@ -173,6 +199,8 @@ export const setUserStatus = mutation({
     newStatus: v.string() // 'active', 'waitlist', 'banned'
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
     // Check if requester is at least admin
     // Basic authorization check
     const isSuperAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
@@ -214,6 +242,8 @@ export const banUser = mutation({
     reason: v.optional(v.string())
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
     // Basic authorization check
     const isSuperAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
     
@@ -244,30 +274,18 @@ export const banUser = mutation({
 export const getPlatformStats = query({
   args: { adminEmail: v.string() },
   handler: async (ctx, args) => {
-    // Basic authorization check
-    const isAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
-    
-    // Also allow if user exists and has admin role
-    let hasRole = false;
-    if (!isAdmin) {
-       const user = await ctx.db
-        .query("users")
-        .withIndex("by_email", (q) => q.eq("email", args.adminEmail))
-        .first();
-       if (user && (user.role === 'admin' || user.role === 'superadmin')) {
-         hasRole = true;
-       }
-    }
+    await requireAdmin(ctx);
 
-    if (!isAdmin && !hasRole) {
-      throw new Error("Unauthorized: Admin access required");
-    }
-    
-    // Fetch all data
-    const users = await ctx.db.query("users").collect();
-    const matches = await ctx.db.query("matches").collect();
-    const messages = await ctx.db.query("messages").collect();
-    const reports = await ctx.db.query("reports").collect();
+    // Fetch all aggregates in parallel
+    const [users, matches, messages, pendingReportsList] = await Promise.all([
+      ctx.db.query("users").collect(),
+      ctx.db.query("matches").collect(),
+      ctx.db.query("messages").collect(),
+      ctx.db
+        .query("reports")
+        .withIndex("by_status", (q) => q.eq("status", "pending"))
+        .collect(),
+    ]);
     
     const maleUsers = users.filter(u => u.gender === "male").length;
     const femaleUsers = users.filter(u => u.gender === "female").length;
@@ -289,7 +307,7 @@ export const getPlatformStats = query({
     const todayMessages = messages.filter(m => m._creationTime > todayStart.getTime()).length;
     
     // Pending reports — real count from reports table
-    const pendingReports = reports.filter(r => r.status === "pending").length;
+    const pendingReports = pendingReportsList.length;
     
     // Growth metrics (this week vs last week)
     const newUsersThisWeek = users.filter(u => (u.createdAt || u._creationTime) > weekAgo).length;
@@ -348,21 +366,7 @@ export const getPlatformStats = query({
 export const getMessageStats = query({
   args: { adminEmail: v.string() },
   handler: async (ctx, args) => {
-    // Basic authorization check
-    const isAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
-    let hasRole = false;
-    if (!isAdmin) {
-       const user = await ctx.db
-        .query("users")
-        .withIndex("by_email", (q) => q.eq("email", args.adminEmail))
-        .first();
-       if (user && (user.role === 'admin' || user.role === 'superadmin')) {
-         hasRole = true;
-       }
-    }
-    if (!isAdmin && !hasRole) {
-      throw new Error("Unauthorized: Admin access required");
-    }
+    await requireAdmin(ctx);
     
     const messages = await ctx.db.query("messages").collect();
     const now = Date.now();
@@ -439,25 +443,8 @@ export const getMessageStats = query({
 export const getWaitlistUsers = query({
   args: { adminEmail: v.string() },
   handler: async (ctx, args) => {
-    // Basic authorization check
-    const isAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
-    
-    // Also allow if user exists and has admin role
-    let hasRole = false;
-    if (!isAdmin) {
-       const user = await ctx.db
-        .query("users")
-        .withIndex("by_email", (q) => q.eq("email", args.adminEmail))
-        .first();
-       if (user && (user.role === 'admin' || user.role === 'superadmin')) {
-         hasRole = true;
-       }
-    }
+    await requireAdmin(ctx);
 
-    if (!isAdmin && !hasRole) {
-      throw new Error("Unauthorized: Admin access required");
-    }
-    
     const waitlistUsers = await ctx.db
       .query("users")
       .filter((q) => q.eq(q.field("status"), "waitlist"))
@@ -488,6 +475,8 @@ export const approveUser = mutation({
     targetUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
     // Basic authorization check
     const isAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
     
@@ -522,6 +511,8 @@ export const rejectUser = mutation({
     reason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
     // Basic authorization check
     const isAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
     
@@ -552,6 +543,8 @@ export const rejectUser = mutation({
 export const getAllConversations = query({
   args: { adminEmail: v.string() },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
     // Basic authorization check
     const isAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
     
@@ -617,6 +610,8 @@ export const getConversationMessages = query({
     matchId: v.id("matches"),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
     // Basic authorization check
     const isAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
     
@@ -651,25 +646,8 @@ export const getConversationMessages = query({
 export const getRecentActivity = query({
   args: { adminEmail: v.string() },
   handler: async (ctx, args) => {
-    // Basic authorization check
-    const isAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
-    
-    // Also allow if user exists and has admin role
-    let hasRole = false;
-    if (!isAdmin) {
-       const user = await ctx.db
-        .query("users")
-        .withIndex("by_email", (q) => q.eq("email", args.adminEmail))
-        .first();
-       if (user && (user.role === 'admin' || user.role === 'superadmin')) {
-         hasRole = true;
-       }
-    }
+    await requireAdmin(ctx);
 
-    if (!isAdmin && !hasRole) {
-      throw new Error("Unauthorized: Admin access required");
-    }
-    
     // Get recently registered users (last 10)
     const recentUsers = await ctx.db
       .query("users")
@@ -731,6 +709,8 @@ export const getRecentActivity = query({
 export const getPlatformSettings = query({
   args: { adminEmail: v.string() },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
     const isAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
     if (!isAdmin) throw new Error("Unauthorized");
 
@@ -752,6 +732,8 @@ export const togglePaywall = mutation({
     enabled: v.boolean(),
   },
   handler: async (ctx, args) => {
+    await requireSuperadmin(ctx);
+
     const isSuperAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
     if (!isSuperAdmin) throw new Error("Unauthorized: Only superadmin can toggle paywall");
 
@@ -783,6 +765,8 @@ export const grantPremium = mutation({
     plan: v.string(), // 'monthly' | 'quarterly' | 'yearly'
   },
   handler: async (ctx, args) => {
+    await requireSuperadmin(ctx);
+
     const isSuperAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
     if (!isSuperAdmin) throw new Error("Unauthorized: Only superadmin can grant premium");
 
@@ -814,6 +798,8 @@ export const revokePremium = mutation({
     targetUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    await requireSuperadmin(ctx);
+
     const isSuperAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
     if (!isSuperAdmin) throw new Error("Unauthorized: Only superadmin can revoke premium");
 
@@ -837,6 +823,8 @@ export const verifyUser = mutation({
     verify: v.boolean(),
   },
   handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
     // Basic authorization check
     const isSuperAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
     

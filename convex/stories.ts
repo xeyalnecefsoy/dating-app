@@ -1,6 +1,8 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
+const STAFF_ROLES = new Set(["moderator", "admin", "superadmin"]);
+
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
@@ -45,6 +47,12 @@ export const getFeed = query({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return [];
     const currentUserId = identity.subject;
+
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", currentUserId))
+      .first();
+    const isViewerStaff = !!currentUser?.role && STAFF_ROLES.has(currentUser.role);
 
     const now = Date.now();
 
@@ -124,6 +132,11 @@ export const getFeed = query({
         .first();
 
       if (user) {
+        const isStoryOwnerStaff = !!user.role && STAFF_ROLES.has(user.role);
+        if (!isViewerStaff && isStoryOwnerStaff && userId !== currentUserId) {
+          continue;
+        }
+
         // Sort stories old -> new
         stories.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 

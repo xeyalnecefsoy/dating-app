@@ -914,7 +914,7 @@ function MessagesContent() {
                           const text = language === 'az' ? ib.textAz : ib.textEn;
                           await sendMessageMutation({
                             body: text,
-                            userId: user?.name || "Anonymous",
+                            userId: user?.id || "Anonymous",
                             channelId: activeChannelId!,
                             format: 'icebreaker',
                             icebreakerId: ib.id
@@ -973,7 +973,7 @@ function MessagesContent() {
                           
                           await sendMessageMutation({
                             body: text,
-                            userId: user?.name || "Anonymous",
+                            userId: user?.id || "Anonymous",
                             channelId: activeChannelId!,
                             format: 'invite',
                             venueId: venue.id

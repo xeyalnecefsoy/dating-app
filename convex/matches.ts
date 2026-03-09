@@ -1,6 +1,8 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
+const STAFF_ROLES = new Set(["moderator", "admin", "superadmin"]);
+
 // Create a new match between two users
 export const create = mutation({
   args: {
@@ -11,9 +13,7 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthenticated");
-    // Ensure we use the IDs passed in args (which are clerkIds)
-    // likes.ts calls this with clerkIds
-    const userId = args.user1Id; 
+    const userId = identity.subject;
 
     // Check if match already exists (in either direction)
     const match1 = await ctx.db
@@ -50,8 +50,7 @@ export const sendRequest = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthenticated");
-    // Use senderId from args (clerkId) for consistency
-    const senderId = args.senderId || identity.subject;
+    const senderId = identity.subject;
 
     let receiverId = args.receiverId;
 
@@ -85,12 +84,23 @@ export const sendRequest = mutation({
       return match1?._id || match2?._id;
     }
 
-    // Check if sender is Superadmin
+    // Check if sender is staff and apply one-way protection
     const sender = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", q => q.eq("clerkId", senderId))
       .first();
+    const receiver = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", q => q.eq("clerkId", receiverId))
+      .first();
 
+    const senderIsStaff = !!sender?.role && STAFF_ROLES.has(sender.role);
+    const receiverIsStaff = !!receiver?.role && STAFF_ROLES.has(receiver.role);
+    if (!senderIsStaff && receiverIsStaff) {
+      throw new Error("This profile can't receive direct requests");
+    }
+
+    // Check if sender is Superadmin
     const isSuperAdmin = sender?.role === "superadmin";
 
     // If superadmin, auto-accept. Else request.
@@ -131,7 +141,7 @@ export const acceptRequest = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthenticated");
-    const userId = args.userId || identity.subject;
+    const userId = identity.subject;
 
     // Find the request where 'user1Id' was sender (targetId) and 'user2Id' was receiver (userId)
     const match = await ctx.db
@@ -157,7 +167,7 @@ export const declineRequest = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthenticated");
-    const userId = args.userId || identity.subject;
+    const userId = identity.subject;
 
      const match = await ctx.db
       .query("matches")
@@ -177,8 +187,7 @@ export const getRequests = query({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return [];
-    // User args.userId if provided, else identity.subject (likely args.userId is correct one)
-    const userId = args.userId || identity.subject;
+    const userId = identity.subject;
 
     const requests = await ctx.db
       .query("matches")
@@ -195,7 +204,7 @@ export const list = query({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return [];
-    const userId = args.userId || identity.subject;
+    const userId = identity.subject;
 
     // Find where user is user1
     const matches1 = await ctx.db
@@ -224,7 +233,7 @@ export const clearAll = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthenticated");
-    const userId = args.userId || identity.subject;
+    const userId = identity.subject;
 
     // Find where user is user1
     const matches1 = await ctx.db
