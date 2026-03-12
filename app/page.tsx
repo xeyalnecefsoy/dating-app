@@ -28,9 +28,14 @@ export default function HomePage() {
 }
 
 function DashboardContent() {
+  const [mounted, setMounted] = React.useState(false);
   const { user, isOnboarded, isLoading, isAuthenticated } = useUser();
   const { t, language } = useLanguage();
   const notificationsCount = useQuery(api.notifications.getUnreadCount) || 0;
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Text translations
   const txt = {
@@ -50,7 +55,7 @@ function DashboardContent() {
     dailyTitle: language === 'az' ? 'Günün Sualı' : 'Question of the Day',
   };
 
-  if (isLoading) {
+  if (!mounted || isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-pulse flex flex-col items-center gap-4">
@@ -486,14 +491,20 @@ function DailyQuestionMini({ language }: { language: string }) {
     }
   ];
 
-  // Rotate based on the day of the year so everyone sees the same question on a given day
-  const today = new Date();
-  const start = new Date(today.getFullYear(), 0, 0);
-  const diff = (today.getTime() - start.getTime()) + ((start.getTimezoneOffset() - today.getTimezoneOffset()) * 60 * 1000);
-  const oneDay = 1000 * 60 * 60 * 24;
-  const currentDayOfYear = Math.floor(diff / oneDay);
-  
-  const question = questions[currentDayOfYear % questions.length];
+  const [question, setQuestion] = React.useState<any>(null);
+
+  React.useEffect(() => {
+    // Rotate based on the day of the year so everyone sees the same question on a given day
+    const today = new Date();
+    const start = new Date(today.getFullYear(), 0, 0);
+    const diff = (today.getTime() - start.getTime()) + ((start.getTimezoneOffset() - today.getTimezoneOffset()) * 60 * 1000);
+    const oneDay = 1000 * 60 * 60 * 24;
+    const currentDayOfYear = Math.floor(diff / oneDay);
+    
+    setQuestion(questions[currentDayOfYear % questions.length]);
+  }, []);
+
+  if (!question) return <div className="h-32 w-full animate-pulse bg-muted rounded-2xl" />;
 
   return (
     <motion.div 

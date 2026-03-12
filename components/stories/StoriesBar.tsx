@@ -42,8 +42,8 @@ export function StoriesBar({ filterByMatches = true }: StoriesBarProps) {
       mediaUrl: s.mediaUrl,
       mediaType: s.mediaType,
       caption: s.caption,
-      createdAt: s.createdAt,
-      expiresAt: s.expiresAt,
+      createdAt: new Date(s.createdAt),
+      expiresAt: new Date(s.expiresAt),
       viewedBy: s.viewedBy,
     }))
   }));

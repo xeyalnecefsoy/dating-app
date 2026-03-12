@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Compass, MessageCircle, User, Menu, ChevronLeft, Flame, ChevronRight, Search, Bell, Camera, AlertTriangle } from "lucide-react";
+import { Home, Compass, MessageCircle, User, Menu, ChevronLeft, Flame, ChevronRight, Search, Bell, Camera, AlertTriangle, Smartphone } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
@@ -156,6 +156,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { href: "/", icon: Home, labelEn: "Home", labelAz: "Ana Səhifə" },
     { href: "/discovery", icon: Compass, labelEn: "Discover", labelAz: "Kəşf" },
+    { href: "/app", icon: Smartphone, labelEn: "Mobile App", labelAz: "Tətbiqimiz" },
     { href: "/search", icon: Search, labelEn: "Search", labelAz: "Axtar" },
     { href: "/messages", icon: MessageCircle, labelEn: "Chat", labelAz: "Mesaj", badge: (user?.unreadMatches?.length || 0) + (user?.messageRequests?.filter(id => !user?.seenMessageRequests?.includes(id)).length || 0) },
     { href: "/notifications", icon: Bell, labelEn: "Alerts", labelAz: "Bildiriş", badge: notificationsCount },

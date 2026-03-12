@@ -156,7 +156,8 @@ function MessagesContent() {
         // If URL has no userId, clear selectedConv (handle browser back button)
         if (selectedConv) setSelectedConv(null);
     }
-  }, [searchParams, selectedConv]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -273,9 +274,15 @@ function MessagesContent() {
       : "skip"
   );
 
-  // Fetch profiles for users in the match list
+  // Fetch profiles for all relevant users (matches, incoming requests, sent requests)
+  const allIdsToFetch = Array.from(new Set([
+    ...(user?.matches || []),
+    ...(user?.messageRequests || []),
+    ...(user?.sentMessageRequests || [])
+  ]));
+
   const matchProfiles = useQuery(api.users.getUsersByIds, { 
-    ids: user?.matches || [] 
+    ids: allIdsToFetch 
   });
   
   const sendMessageMutation = useMutation(api.messages.send);
@@ -1180,9 +1187,9 @@ function MessagesContent() {
             onClick={() => setShowRequestsModal(false)}
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, scale: 0.95, y: 0 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 0 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               className="w-full max-w-md bg-card border border-border rounded-3xl shadow-xl max-h-[85vh] overflow-hidden flex flex-col"
               onClick={(e) => e.stopPropagation()}

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { useUser } from "@/contexts/UserContext";
 
 type StoryViewerProps = {
   userStories: UserStories[];
@@ -20,6 +21,7 @@ type StoryViewerProps = {
 
 export function StoryViewer({ userStories, initialUserIndex, onClose, onReply }: StoryViewerProps) {
   const { language } = useLanguage();
+  const { user } = useUser();
   const [currentUserIndex, setCurrentUserIndex] = useState(initialUserIndex);
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -67,29 +69,6 @@ export function StoryViewer({ userStories, initialUserIndex, onClose, onReply }:
     }
   }, [currentStory, markViewed]);
 
-  // Progress bar animation
-  useEffect(() => {
-    if (isPaused || !currentStory) return;
-
-    const interval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 100) {
-          // Move to next story
-          goToNextStory();
-          return 0;
-        }
-        return prev + (100 / (STORY_DURATION / 100));
-      });
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [isPaused, currentStoryIndex, currentUserIndex]);
-
-  // Reset reply text when story changes
-  useEffect(() => {
-    setReplyText("");
-  }, [currentStoryIndex, currentUserIndex]);
-
   const goToNextStory = useCallback(() => {
     if (currentStoryIndex < currentUserStories.stories.length - 1) {
       // Next story of same user
@@ -119,6 +98,36 @@ export function StoryViewer({ userStories, initialUserIndex, onClose, onReply }:
       setProgress(0);
     }
   }, [currentStoryIndex, currentUserIndex, userStories]);
+
+  // Progress bar animation
+  useEffect(() => {
+    if (isPaused || !currentStory) return;
+
+    const interval = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 100) {
+          return 100;
+        }
+        return prev + (100 / (STORY_DURATION / 100));
+      });
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [isPaused, currentStoryIndex, currentUserIndex]);
+
+  // Handle automatic transition when progress completes
+  useEffect(() => {
+    if (progress >= 100) {
+      goToNextStory();
+    }
+  }, [progress, goToNextStory]);
+
+  // Reset reply text when story changes
+  useEffect(() => {
+    setReplyText("");
+  }, [currentStoryIndex, currentUserIndex]);
+
+
 
   const handleSendReply = () => {
     if (replyText.trim() && onReply && currentStory) {
@@ -224,14 +233,14 @@ export function StoryViewer({ userStories, initialUserIndex, onClose, onReply }:
           transition={{ duration: 0.3 }}
           src={currentStory.mediaUrl}
           alt="Story"
-          className="w-full h-full object-cover rounded-2xl"
+          className="w-full h-full object-contain bg-black/90 rounded-2xl"
           onClick={() => setIsPaused(!isPaused)}
         />
 
         {/* Caption */}
         {currentStory.caption && (
-          <div className="absolute bottom-24 left-4 right-4 z-20">
-            <p className="text-white text-center text-lg font-medium drop-shadow-lg">
+          <div className="absolute bottom-32 left-4 right-4 z-20">
+            <p className="text-white text-center text-lg font-medium drop-shadow-lg p-2 rounded-xl bg-black/40 backdrop-blur-sm">
               {currentStory.caption}
             </p>
           </div>
@@ -248,7 +257,7 @@ export function StoryViewer({ userStories, initialUserIndex, onClose, onReply }:
         />
 
         {/* Viewers OR Reply Input */}
-        {currentUserStories.userId === "current-user" || currentUserStories.userId === userStories.find(s => s.userId === "current-user")?.userId ? (
+        {currentUserStories.userId === user?.id || currentUserStories.userId === "current-user" ? (
           <div className="absolute bottom-4 left-4 right-4 z-20 flex justify-center">
              <button
                 onClick={() => setShowViewersPanel(true)}

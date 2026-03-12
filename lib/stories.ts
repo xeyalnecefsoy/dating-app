@@ -131,7 +131,7 @@ export function getStoriesByUser(stories: Story[], mockUsers: any[]): UserStorie
     const user = mockUsers.find(u => u.id === oderId);
     if (user) {
       // Sort stories by createdAt (oldest first)
-      userStories.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+      userStories.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
       
       result.push({
         userId: oderId,
@@ -145,8 +145,8 @@ export function getStoriesByUser(stories: Story[], mockUsers: any[]): UserStorie
 
   // Sort by most recent story
   result.sort((a, b) => {
-    const aLatest = a.stories[a.stories.length - 1].createdAt.getTime();
-    const bLatest = b.stories[b.stories.length - 1].createdAt.getTime();
+    const aLatest = new Date(a.stories[a.stories.length - 1].createdAt).getTime();
+    const bLatest = new Date(b.stories[b.stories.length - 1].createdAt).getTime();
     return bLatest - aLatest;
   });
 
@@ -155,13 +155,14 @@ export function getStoriesByUser(stories: Story[], mockUsers: any[]): UserStorie
 
 // Check if user has active stories
 export function userHasStories(userId: string, stories: Story[]): boolean {
-  return stories.some(s => s.userId === userId && new Date() < s.expiresAt);
+  return stories.some(s => s.userId === userId && new Date() < new Date(s.expiresAt));
 }
 
 // Get time ago string
-export function getTimeAgo(date: Date, language: "en" | "az"): string {
+export function getTimeAgo(date: Date | number | string, language: "en" | "az"): string {
   const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
+  const dateMs = new Date(date).getTime();
+  const diffMs = now.getTime() - dateMs;
   const diffMins = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMins / 60);
 

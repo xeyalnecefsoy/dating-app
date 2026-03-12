@@ -63,29 +63,26 @@ export default function UserProfilePage() {
   // The ID could be either a username or a clerkId
   const idParam = (params.id as string) || "";
   
-  // Try username lookup first (lowercase for consistency)
+  // Run BOTH lookups in parallel — no serial waiting
   const userByUsername = useQuery(
     api.users.getUserByUsername, 
     idParam ? { username: idParam.toLowerCase() } : "skip"
   );
   
-  // Fallback to clerkId lookup only if username lookup returned null (not undefined/loading)
   const userByClerkId = useQuery(
     api.users.getUser, 
-    userByUsername === null && idParam ? { clerkId: idParam } : "skip"
+    idParam ? { clerkId: idParam } : "skip"
   );
   
-  // Check if queries are still loading (undefined = loading, null = not found)
-  const isQueryLoading = userByUsername === undefined || 
-    (userByUsername === null && userByClerkId === undefined);
-  
-  // Use username result if found, otherwise use clerkId result
+  // Use whichever result is available (prefer username match)
   const dbUser = userByUsername || userByClerkId;
+  
+  // Still loading if NEITHER query has resolved yet
+  const isQueryLoading = userByUsername === undefined && userByClerkId === undefined;
 
-  // Redirect to username URL if accessed via clerkId but user has username
+  // Silently fix the URL in background (no loading spinner, no delay)
   useEffect(() => {
     if (dbUser?.username && userByClerkId && !userByUsername) {
-      // User was found by clerkId but has a username - redirect to username URL
       router.replace(`/user/${dbUser.username}`);
     }
   }, [dbUser, userByClerkId, userByUsername, router]);
@@ -271,22 +268,25 @@ export default function UserProfilePage() {
             <ArrowLeft className="w-5 h-5 text-white" />
           </button>
 
-          {/* Share Button */}
-          <button 
-            onClick={handleShare}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center hover:bg-black/60 transition-colors z-20"
-          >
-            <Share2 className="w-5 h-5 text-white" />
-          </button>
+          {/* Action Buttons */}
+          <div className="absolute top-4 right-4 flex flex-col gap-3 z-20">
+            {/* Share Button */}
+            <button 
+              onClick={handleShare}
+              className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center hover:bg-black/60 transition-colors"
+            >
+              <Share2 className="w-5 h-5 text-white" />
+            </button>
 
-          {/* Report Button */}
-          <button 
-            onClick={() => setShowReportModal(true)}
-            className="absolute top-16 right-4 w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center hover:bg-red-500/80 transition-colors z-20"
-            title={language === 'az' ? 'Şikayət et' : 'Report user'}
-          >
-            <AlertTriangle className="w-4 h-4 text-white" />
-          </button>
+            {/* Report Button */}
+            <button 
+              onClick={() => setShowReportModal(true)}
+              className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center hover:bg-red-500/80 transition-colors"
+              title={language === 'az' ? 'Şikayət et' : 'Report user'}
+            >
+              <AlertTriangle className="w-4 h-4 text-white" />
+            </button>
+          </div>
 
           {/* Compatibility Badge */}
           {compatibility && (

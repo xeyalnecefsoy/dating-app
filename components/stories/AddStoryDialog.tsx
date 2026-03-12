@@ -44,9 +44,19 @@ export function AddStoryDialog({ isOpen, onClose }: AddStoryDialogProps) {
         });
         return;
       }
+      
+      if (file.type.startsWith("video/")) {
+        showToast({
+          type: "error",
+          title: language === "az" ? "Xəta" : "Error",
+          message: language === "az" ? "Video əlavə etmək hazırda mümkün deyil" : "Video uploads are not supported yet",
+        });
+        return;
+      }
+      
       setSelectedFile(file);
       setPreviewUrl(URL.createObjectURL(file));
-      setIsExpandedPreview(true); // Auto-expand when chosen
+      // setIsExpandedPreview(true); // Don't auto-expand when chosen
     }
   };
 
@@ -197,7 +207,7 @@ export function AddStoryDialog({ isOpen, onClose }: AddStoryDialogProps) {
                       type="file" 
                       ref={fileInputRef}
                       className="hidden" 
-                      accept="image/*,video/mp4,video/quicktime"
+                      accept="image/*"
                       onChange={handleFileSelect}
                     />
                   </div>

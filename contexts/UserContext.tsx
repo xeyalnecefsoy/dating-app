@@ -719,8 +719,26 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const sendMessageRequest = useCallback(async (userId: string) => {
     let currentUserId = "";
     setUser(prev => {
-      if (prev && !prev.sentMessageRequests?.includes(userId)) {
-        currentUserId = prev.id;
+      if (!prev) return prev;
+      
+      currentUserId = prev.id;
+
+      // Superadmins bypass the sentMessageRequest queue
+      if (prev.role === "superadmin") {
+         if (!prev.matches.includes(userId)) {
+           const updated = {
+             ...prev,
+             matches: [...prev.matches, userId]
+           };
+           if (clerkUser) {
+             localStorage.setItem(getStorageKey(clerkUser.id), JSON.stringify(updated));
+           }
+           return updated;
+         }
+         return prev;
+      }
+      
+      if (!prev.sentMessageRequests?.includes(userId)) {
         const updated = {
           ...prev,
           sentMessageRequests: [...(prev.sentMessageRequests || []), userId]
@@ -749,7 +767,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         }
     }
     return null;
-  }, [sendRequestMutation, clerkUser, getStorageKey]);
+  }, [sendRequestMutation, clerkUser, getStorageKey, isAuthenticated]);
 
   const cancelMessageRequest = useCallback((userId: string) => {
      // TODO: Implement cancel implementation in backend if needed
