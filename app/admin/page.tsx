@@ -319,7 +319,10 @@ export default function AdminPage() {
 
   // Full-page loading: wait for mount + auth + initial data
   // Returns null during SSR to prevent hydration mismatch
-  if (!mounted || isUserLoading || isConvexAuthLoading || isDataLoading || !isAdminUser) {
+  // NOTE: We must also wait for isConvexAuthenticated, otherwise
+  // canLoadAdminData is false (queries are skipped) but the loading gate
+  // passes, causing all stats to show as 0 from the fallback defaults.
+  if (!mounted || isUserLoading || isConvexAuthLoading || !isConvexAuthenticated || isDataLoading || !isAdminUser) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Spinner className="w-8 h-8 animate-spin" />
