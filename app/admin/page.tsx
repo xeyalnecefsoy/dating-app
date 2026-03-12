@@ -47,7 +47,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useQuery, useMutation, usePaginatedQuery } from "convex/react";
+import { useQuery, useMutation, usePaginatedQuery, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useUser } from "@/contexts/UserContext";
 import { Badge } from "@/components/ui/badge";
@@ -93,6 +93,7 @@ const FOUNDER_EMAIL = "xeyalnecefsoy@gmail.com";
 export default function AdminPage() {
   const { showToast } = useToast();
   const { user, isLoading: isUserLoading } = useUser();
+  const { isLoading: isConvexAuthLoading, isAuthenticated: isConvexAuthenticated } = useConvexAuth();
   const router = useRouter();
 
   const normalizedRole = (user?.role || "").toLowerCase();
@@ -131,7 +132,11 @@ export default function AdminPage() {
 
   // Convex Queries — only load data needed for active section
   const adminEmail = normalizedUserEmail || FOUNDER_EMAIL;
-  const canLoadAdminData = !isUserLoading && isAdminUser;
+  const canLoadAdminData =
+    !isUserLoading &&
+    !isConvexAuthLoading &&
+    isConvexAuthenticated &&
+    isAdminUser;
   const shouldLoadUsers = canLoadAdminData && activeSection === "users";
   const shouldLoadReports = canLoadAdminData && activeSection === "reports";
   const shouldLoadVerification = canLoadAdminData && activeSection === "verification";
@@ -314,7 +319,7 @@ export default function AdminPage() {
 
   // Full-page loading: wait for mount + auth + initial data
   // Returns null during SSR to prevent hydration mismatch
-  if (!mounted || isUserLoading || isDataLoading || !isAdminUser) {
+  if (!mounted || isUserLoading || isConvexAuthLoading || isDataLoading || !isAdminUser) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Spinner className="w-8 h-8 animate-spin" />

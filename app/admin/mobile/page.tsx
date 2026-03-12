@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useUser } from "@/contexts/UserContext";
 import { useToast } from "@/components/ui/toast";
@@ -17,6 +17,7 @@ export default function AdminMobilePage() {
   const router = useRouter();
   const { showToast } = useToast();
   const { user, isLoading } = useUser();
+  const { isLoading: isConvexAuthLoading, isAuthenticated: isConvexAuthenticated } = useConvexAuth();
   const normalizedRole = (user?.role || "").toLowerCase();
   const normalizedUserEmail = (user?.email || "").toLowerCase();
 
@@ -42,7 +43,8 @@ export default function AdminMobilePage() {
     }
   }, []);
 
-  const snapshot = useQuery(api.ops.getMobileAdminSnapshot, isAdmin ? {} : "skip");
+  const canLoadAdminData = isAdmin && !isConvexAuthLoading && isConvexAuthenticated;
+  const snapshot = useQuery(api.ops.getMobileAdminSnapshot, canLoadAdminData ? {} : "skip");
   const approveWaitlist = useMutation(api.ops.quickApproveWaitlist);
   const rejectWaitlist = useMutation(api.ops.quickRejectWaitlist);
   const resolveReport = useMutation(api.ops.quickResolveReport);
@@ -82,7 +84,7 @@ export default function AdminMobilePage() {
     [summary]
   );
 
-  if (isLoading || !isAdmin) {
+  if (isLoading || isConvexAuthLoading || !isAdmin) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
