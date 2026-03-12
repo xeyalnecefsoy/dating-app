@@ -2,9 +2,8 @@
 
 import React from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { motion } from "framer-motion";
-import { Smartphone, Sparkles, Bell, ArrowRight } from "lucide-react";
+import { Smartphone, Sparkles, Bell } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function MobileAppLandingPage() {
@@ -14,17 +13,16 @@ export default function MobileAppLandingPage() {
     title: language === 'az' ? 'Danyeri İndi Cibinizdə' : 'Danyeri in Your Pocket',
     subtitle: language === 'az' ? 'Yaxında Google Play Store-da' : 'Coming Soon to Google Play Store',
     description: language === 'az' 
-      ? 'Azərbaycanın qabaqcıl tanışlıq platforması danyeri mobil cihazlara gəlir. Yeni insanlarla tanış olmaq heç vaxt bu qədər asan və əyləncəli olmamışdı. Qaranlıq rejim, mükəmməl sürüşdürmə animasiyaları və canlı mesajlaşma ilə tanışlığın yeni səviyyəsinə hazır olun.'
+      ? 'Azərbaycanın qabaqcıl tanışlıq platforması Danyeri indi mobil cihazlara gəlir. Yeni insanlarla tanış olmaq heç vaxt bu qədər asan və əyləncəli olmayıb. Qaranlıq rejim, axıcı sürüşdürmə animasiyaları və canlı mesajlaşma ilə tanışlığın yeni səviyyəsinə hazır olun.'
       : 'Azerbaijan\'s premier dating platform is coming to mobile. Meeting new people has never been this easy and fun. Get ready for a new level of dating with dark mode, perfect swipe animations, and live messaging.',
-    cta: language === 'az' ? 'Çox Yaxında' : 'Coming Very Soon',
-    featuresTitle: language === 'az' ? 'Niyə Mobile?' : 'Why Mobile?',
-    featuresSubtitle: language === 'az' ? 'Mobil tətbiqimizlə daha sürətli və daha immersiv təcrübə' : 'A faster, more immersive experience with our mobile app',
+    featuresTitle: language === 'az' ? 'Niyə Mobil Tətbiqetmə?' : 'Why Mobile?',
+    featuresSubtitle: language === 'az' ? 'Mobil tətbiqimizlə daha sürətli və daha rahat istifadə təcrübəsi' : 'A faster, more immersive experience with our mobile app',
     feat1Title: language === 'az' ? 'Axıcı Sürüşdürmə' : 'Fluid Swiping',
     feat1Desc: language === 'az' ? 'Mükəmməl idarəetmə və animasiyalarla daha əyləncəli və sürətli kəşf təcrübəsi.' : 'A more fun and faster discovery experience with perfect controls and animations.',
     feat2Title: language === 'az' ? 'Canlı Mesajlaşma' : 'Live Messaging',
-    feat2Desc: language === 'az' ? 'Dərhal gələn bildirişlərlə (Push) heç bir önəmli mesajı qaçırmayın.' : 'Never miss an important message with instant push notifications.',
+    feat2Desc: language === 'az' ? 'Ani push bildirişləri ilə vacib mesajları vaxtında görün.' : 'Never miss an important message with instant push notifications.',
     feat3Title: language === 'az' ? 'Premium Təcrübə' : 'Premium Experience',
-    feat3Desc: language === 'az' ? 'Qaranlıq rejim və göz yormayan xüsusi rəng palitrası ilə uzun müddətli istifadə.' : 'Long-term usage comfort with dark mode and an eye-catching custom color palette.',
+    feat3Desc: language === 'az' ? 'Qaranlıq rejim və göz yormayan xüsusi rəng palitrası ilə uzunmüddətli rahat istifadə.' : 'Long-term usage comfort with dark mode and an eye-catching custom color palette.',
   };
 
   return (
@@ -60,16 +58,6 @@ export default function MobileAppLandingPage() {
               {txt.description}
             </p>
 
-            {/* Simple static CTA badge instead of a form */}
-            <div className="mt-4 flex justify-center lg:justify-start">
-               <div className="inline-flex items-center justify-center gap-3 h-14 px-8 rounded-2xl font-bold bg-muted text-muted-foreground border border-border cursor-default select-none shadow-sm">
-                 <span className="relative flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
-                 </span>
-                 {txt.cta}
-               </div>
-            </div>
           </motion.div>
 
           {/* Device Mockups */}

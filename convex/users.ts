@@ -4,6 +4,7 @@ import { v } from "convex/values";
 // Staff emails that bypass waitlist
 const STAFF_EMAILS = ["xeyalnecefsoy@gmail.com"];
 const STAFF_ROLES = new Set(["moderator", "admin", "superadmin"]);
+const FEMALE_WELCOME_NOTIFICATION_KEY = "female-login-welcome-v1";
 
 function isStaffUser(user: any) {
   if (!user) return false;
@@ -42,6 +43,46 @@ async function notifyAdminsAboutWaitlist(ctx: any, waitlistUser: any) {
       })
     )
   );
+}
+
+async function hasWelcomeNotification(
+  ctx: any,
+  clerkId: string,
+  welcomeKey: string
+) {
+  const recent = await ctx.db
+    .query("notifications")
+    .withIndex("by_user", (q: any) => q.eq("userId", clerkId))
+    .order("desc")
+    .take(200);
+
+  return recent.some(
+    (n: any) => n.type === "system" && n?.data?.welcomeKey === welcomeKey
+  );
+}
+
+async function sendWelcomeNotificationIfMissing(
+  ctx: any,
+  clerkId: string,
+  welcomeKey: string,
+  title: string,
+  body: string,
+  url = "/"
+) {
+  const exists = await hasWelcomeNotification(ctx, clerkId, welcomeKey);
+  if (exists) return false;
+
+  await ctx.db.insert("notifications", {
+    userId: clerkId,
+    type: "system",
+    title,
+    body,
+    read: false,
+    createdAt: Date.now(),
+    data: { url, welcomeKey },
+  });
+
+  return true;
 }
 
 

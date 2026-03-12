@@ -4,13 +4,16 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Compass, MessageCircle, User, Menu, ChevronLeft, Flame, ChevronRight, Search, Bell, Camera, AlertTriangle, Smartphone } from "lucide-react";
+import { Home, Compass, MessageCircle, User, Menu, ChevronLeft, Flame, ChevronRight, Search, Bell, Camera, AlertTriangle } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
 import { BottomNav } from "./Navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+
+const FOUNDER_EMAIL = "xeyalnecefsoy@gmail.com";
+const STAFF_ROLES = new Set(["moderator", "admin", "superadmin"]);
 
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
@@ -94,11 +97,21 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
   // Waitlist access control - only allow home and profile
   const isWaitlisted = user?.status === 'waitlist';
+  const normalizedUserEmail = (user?.email || "").toLowerCase();
+  const isStaffUser =
+    STAFF_ROLES.has((user?.role || "").toLowerCase()) ||
+    normalizedUserEmail === FOUNDER_EMAIL;
   const allowedForWaitlist = ['/', '/profile', '/settings', '/onboarding'];
   // We check !isLoading below to decide final render, but for PROVISIONAL blocking:
   // If we are loading, we don't know status yet, so we assume potentially restricted.
   
-  const isRestrictedForWaitlist = !isLoading && isWaitlisted && pathname && !allowedForWaitlist.includes(pathname);
+  const isRestrictedForWaitlist =
+    !isLoading &&
+    isWaitlisted &&
+    !isStaffUser &&
+    !isAdminPage &&
+    pathname &&
+    !allowedForWaitlist.includes(pathname);
 
   useEffect(() => {
     if (isRestrictedForWaitlist) {
@@ -135,9 +148,8 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
   // Handle Maintenance Mode (blocks access unless admin)
   const isMaintenanceMode = activeAlert?.type === 'maintenance' && activeAlert?.blocksAccess;
-  const isAdminUser = user?.role === 'admin' || user?.role === 'superadmin' || user?.email === 'xeyalnecefsoy@gmail.com';
   
-  if (isMaintenanceMode && !isAdminUser && !isAuthPage) {
+  if (isMaintenanceMode && !isStaffUser && !isAuthPage) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background p-6 text-center">
         <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mb-6 border border-red-500/20">
@@ -156,7 +168,6 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { href: "/", icon: Home, labelEn: "Home", labelAz: "Ana Səhifə" },
     { href: "/discovery", icon: Compass, labelEn: "Discover", labelAz: "Kəşf" },
-    { href: "/app", icon: Smartphone, labelEn: "Mobile App", labelAz: "Tətbiqimiz" },
     { href: "/search", icon: Search, labelEn: "Search", labelAz: "Axtar" },
     { href: "/messages", icon: MessageCircle, labelEn: "Chat", labelAz: "Mesaj", badge: (user?.unreadMatches?.length || 0) + (user?.messageRequests?.filter(id => !user?.seenMessageRequests?.includes(id)).length || 0) },
     { href: "/notifications", icon: Bell, labelEn: "Alerts", labelAz: "Bildiriş", badge: notificationsCount },

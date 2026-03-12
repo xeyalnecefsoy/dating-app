@@ -1,12 +1,68 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
+const SUPERADMIN_EMAIL = "xeyalnecefsoy@gmail.com";
+const ADMIN_ROLES = new Set(["moderator", "admin", "superadmin"]);
+
+function getIdentityEmails(identity: any) {
+  const rawEmail = String(
+    identity?.email ||
+      identity?.claims?.email ||
+      identity?.claims?.email_address ||
+      ""
+  ).trim();
+  const normalizedEmail = rawEmail.toLowerCase();
+  return { rawEmail, normalizedEmail };
+}
+
+async function requireAdmin(ctx: any) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    throw new Error("Unauthenticated");
+  }
+
+  const { rawEmail, normalizedEmail } = getIdentityEmails(identity);
+
+  let user = await ctx.db
+    .query("users")
+    .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", identity.subject))
+    .first();
+
+  if (!user && rawEmail) {
+    user = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q: any) => q.eq("email", rawEmail))
+      .first();
+  }
+
+  if (!user && normalizedEmail && normalizedEmail !== rawEmail) {
+    user = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q: any) => q.eq("email", normalizedEmail))
+      .first();
+  }
+
+  const role = String(
+    user?.role ||
+      ((normalizedEmail === SUPERADMIN_EMAIL.toLowerCase())
+        ? "superadmin"
+        : "user")
+  ).toLowerCase();
+
+  if (!ADMIN_ROLES.has(role)) {
+    throw new Error("Unauthorized");
+  }
+
+  return { identity, user };
+}
+
 // -----------------------------------------
 // Upload URL Generation
 // -----------------------------------------
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
+    await requireAdmin(ctx);
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -31,8 +87,7 @@ export const getAll = query({
   args: {},
   handler: async (ctx) => {
     // For admin panel
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated call to getAll banners");
+    await requireAdmin(ctx);
 
     const banners = await ctx.db
       .query("banners")
@@ -61,8 +116,7 @@ export const create = mutation({
     order: v.number(),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated call to create banner");
+    const { identity } = await requireAdmin(ctx);
 
     let imageUrl;
     if (args.storageId) {
@@ -103,8 +157,7 @@ export const update = mutation({
     order: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated call to update banner");
+    await requireAdmin(ctx);
 
     const existing = await ctx.db.get(args.id);
     if (!existing) throw new Error("Banner not found");
@@ -133,8 +186,7 @@ export const update = mutation({
 export const toggleActive = mutation({
   args: { id: v.id("banners"), isActive: v.boolean() },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
+    await requireAdmin(ctx);
 
     await ctx.db.patch(args.id, { isActive: args.isActive });
   },
@@ -143,8 +195,7 @@ export const toggleActive = mutation({
 export const remove = mutation({
   args: { id: v.id("banners") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
+    await requireAdmin(ctx);
 
     const existing = await ctx.db.get(args.id);
     if (existing?.storageId) {

@@ -4,17 +4,44 @@ import { internalMutation, mutation, query } from "./_generated/server";
 const SUPERADMIN_EMAIL = "xeyalnecefsoy@gmail.com";
 const ADMIN_ROLES = new Set(["moderator", "admin", "superadmin"]);
 
+function getIdentityEmails(identity: any) {
+  const rawEmail = String(
+    identity?.email ||
+      identity?.claims?.email ||
+      identity?.claims?.email_address ||
+      ""
+  ).trim();
+  const normalizedEmail = rawEmail.toLowerCase();
+  return { rawEmail, normalizedEmail };
+}
+
 async function requireAdmin(ctx: any) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) throw new Error("Unauthenticated");
 
-  const user = await ctx.db
+  const { rawEmail, normalizedEmail } = getIdentityEmails(identity);
+
+  let user = await ctx.db
     .query("users")
     .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", identity.subject))
     .first();
 
+  if (!user && rawEmail) {
+    user = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q: any) => q.eq("email", rawEmail))
+      .first();
+  }
+
+  if (!user && normalizedEmail && normalizedEmail !== rawEmail) {
+    user = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q: any) => q.eq("email", normalizedEmail))
+      .first();
+  }
+
   const fallbackSuperadmin =
-    (identity.email || "").toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
+    normalizedEmail === SUPERADMIN_EMAIL.toLowerCase();
   const role = user?.role || (fallbackSuperadmin ? "superadmin" : "user");
 
   if (!ADMIN_ROLES.has(role)) {

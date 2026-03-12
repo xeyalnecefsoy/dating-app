@@ -458,9 +458,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // List of paths allowed for waitlisted users
     const allowedPaths = ["/", "/profile", "/settings", "/premium", "/sign-in", "/sign-up", "/onboarding"]; // onboarding is handled separately but good to include
+    const isStaffUser =
+      ["moderator", "admin", "superadmin"].includes((user?.role || "").toLowerCase()) ||
+      (user?.email || "").toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
     
     // Check if user is fully loaded and has waitlist status
-    if (!isLoading && isOnboarded && user?.status === "waitlist") {
+    if (!isLoading && isOnboarded && user?.status === "waitlist" && !isStaffUser) {
       // If current path is not allowed, redirect to home
       if (!allowedPaths.includes(pathname)) {
         router.replace("/");

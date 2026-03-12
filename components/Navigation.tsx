@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Home, Compass, MessageCircle, User, Menu, ChevronLeft, Flame, LogOut, Search, Bell, Crown, MapPin, Smartphone } from "lucide-react";
+import { Home, Compass, MessageCircle, User, Menu, ChevronLeft, Flame, LogOut, Search, Bell, Crown, MapPin } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { useUser as useClerkUser } from "@clerk/nextjs";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -30,7 +30,6 @@ export function BottomNav() {
   const navItems = [
     { href: "/", icon: Home, labelEn: "Home", labelAz: "Ana Səhifə" },
     { href: "/discovery", icon: Compass, labelEn: "Discover", labelAz: "Kəşf" },
-    { href: "/app", icon: Smartphone, labelEn: "App", labelAz: "Tətbiq" },
     { href: "/search", icon: Search, labelEn: "Search", labelAz: "Axtar" },
     { href: "/messages", icon: MessageCircle, labelEn: "Chat", labelAz: "Mesaj", badge: (user?.unreadMatches?.filter(id => user?.matches?.includes(id))?.length || 0) + (user?.messageRequests?.filter(id => !user?.seenMessageRequests?.includes(id)).length || 0) },
   ];
@@ -48,7 +47,7 @@ export function BottomNav() {
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-md border-t border-border">
-      <div className="h-16 grid grid-cols-6">
+      <div className="h-16 grid grid-cols-5">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;

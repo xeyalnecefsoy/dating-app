@@ -3,8 +3,9 @@
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Flame, Heart, MessageCircle, User, Compass, Sparkles, ChevronRight, Star, Bell, ShieldCheck } from "lucide-react";
+import { Flame, Heart, MessageCircle, Compass, Sparkles, ChevronRight, Bell, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -12,30 +13,40 @@ import { BottomNav } from "@/components/Navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { HomeBannerSlider } from "@/components/ui/HomeBannerSlider";
-import { SignedIn, SignedOut } from "@clerk/nextjs";
+import { useAuth } from "@clerk/nextjs";
 
 export default function HomePage() {
-  return (
-    <>
-      <SignedOut>
-        <WelcomeScreen />
-      </SignedOut>
-      <SignedIn>
-        <DashboardContent />
-      </SignedIn>
-    </>
-  );
+  const { isLoaded: isAuthLoaded, isSignedIn } = useAuth();
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted || !isAuthLoaded) {
+    return <WelcomeScreen />;
+  }
+
+  return isSignedIn ? <DashboardContent /> : <WelcomeScreen />;
 }
 
 function DashboardContent() {
   const [mounted, setMounted] = React.useState(false);
   const { user, isOnboarded, isLoading, isAuthenticated } = useUser();
-  const { t, language } = useLanguage();
+  const { language } = useLanguage();
+  const router = useRouter();
   const notificationsCount = useQuery(api.notifications.getUnreadCount) || 0;
 
   React.useEffect(() => {
     setMounted(true);
   }, []);
+
+  React.useEffect(() => {
+    if (!mounted || isLoading) return;
+    if (isAuthenticated && !isOnboarded) {
+      router.replace("/onboarding");
+    }
+  }, [mounted, isLoading, isAuthenticated, isOnboarded, router]);
 
   // Text translations
   const txt = {
@@ -66,15 +77,19 @@ function DashboardContent() {
     );
   }
 
-  // If authenticated but not onboarded, redirect to onboarding
+  // If authenticated but not onboarded, show interim state while redirect effect runs
   if (isAuthenticated && !isOnboarded) {
-    if (typeof window !== 'undefined') {
-      window.location.href = '/onboarding';
-    }
-    return null;
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-pulse flex flex-col items-center gap-4">
+          <div className="w-16 h-16 rounded-full bg-muted"></div>
+          <div className="h-4 w-32 bg-muted rounded"></div>
+        </div>
+      </div>
+    );
   }
 
-  // If not authenticated, we just return null here since SignedOut handles the WelcomeScreen
+  // Safety fallback: if auth context lags behind Clerk state, avoid rendering dashboard UI
   if (!isAuthenticated && !isLoading) {
     return null;
   }

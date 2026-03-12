@@ -6,17 +6,44 @@ import { mutation, query } from "./_generated/server";
 const SUPERADMIN_EMAIL = "xeyalnecefsoy@gmail.com";
 const ADMIN_ROLES = new Set(["moderator", "admin", "superadmin"]);
 
+function getIdentityEmails(identity: any) {
+  const rawEmail = String(
+    identity?.email ||
+      identity?.claims?.email ||
+      identity?.claims?.email_address ||
+      ""
+  ).trim();
+  const normalizedEmail = rawEmail.toLowerCase();
+  return { rawEmail, normalizedEmail };
+}
+
 async function getRequesterRole(ctx: any) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) throw new Error("Unauthenticated");
 
-  const user = await ctx.db
+  const { rawEmail, normalizedEmail } = getIdentityEmails(identity);
+
+  let user = await ctx.db
     .query("users")
     .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", identity.subject))
     .first();
 
+  if (!user && rawEmail) {
+    user = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q: any) => q.eq("email", rawEmail))
+      .first();
+  }
+
+  if (!user && normalizedEmail && normalizedEmail !== rawEmail) {
+    user = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q: any) => q.eq("email", normalizedEmail))
+      .first();
+  }
+
   const isEmailSuperadmin =
-    (identity.email || "").toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
+    normalizedEmail === SUPERADMIN_EMAIL.toLowerCase();
   const role = (user?.role || (isEmailSuperadmin ? "superadmin" : "user")).toLowerCase();
 
   return {
@@ -169,14 +196,6 @@ export const setUserRole = mutation({
   },
   handler: async (ctx, args) => {
     await requireSuperadmin(ctx);
-
-    // Only superadmin can change roles
-    // Basic authorization check
-    const isSuperAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
-    
-    if (!isSuperAdmin) {
-      throw new Error("Unauthorized: Only superadmin can change roles");
-    }
     
     // Validate role
     const validRoles = ["user", "moderator", "admin"];
@@ -200,26 +219,6 @@ export const setUserStatus = mutation({
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-
-    // Check if requester is at least admin
-    // Basic authorization check
-    const isSuperAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
-    
-    // Also allow if user exists and has admin role
-    let hasRole = false;
-    if (!isSuperAdmin) {
-       const user = await ctx.db
-        .query("users")
-        .withIndex("by_email", (q) => q.eq("email", args.adminEmail))
-        .first();
-       if (user && (user.role === 'admin' || user.role === 'superadmin')) {
-         hasRole = true;
-       }
-    }
-
-    if (!isSuperAdmin && !hasRole) {
-      throw new Error("Unauthorized: Admin access required");
-    }
     
     // Validate status
     const validStatuses = ["active", "waitlist", "banned"];
@@ -243,25 +242,6 @@ export const banUser = mutation({
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-
-    // Basic authorization check
-    const isSuperAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
-    
-    // Also allow if user exists and has admin role
-    let hasRole = false;
-    if (!isSuperAdmin) {
-       const user = await ctx.db
-        .query("users")
-        .withIndex("by_email", (q) => q.eq("email", args.adminEmail))
-        .first();
-       if (user && (user.role === 'admin' || user.role === 'superadmin')) {
-         hasRole = true;
-       }
-    }
-
-    if (!isSuperAdmin && !hasRole) {
-      throw new Error("Unauthorized: Admin access required");
-    }
     
     await ctx.db.patch(args.targetUserId, { status: "banned" });
     return { success: true, message: `User banned. Reason: ${args.reason || "No reason provided"}` };
@@ -476,25 +456,6 @@ export const approveUser = mutation({
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-
-    // Basic authorization check
-    const isAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
-    
-    // Also allow if user exists and has admin role
-    let hasRole = false;
-    if (!isAdmin) {
-       const user = await ctx.db
-        .query("users")
-        .withIndex("by_email", (q) => q.eq("email", args.adminEmail))
-        .first();
-       if (user && (user.role === 'admin' || user.role === 'superadmin')) {
-         hasRole = true;
-       }
-    }
-
-    if (!isAdmin && !hasRole) {
-      throw new Error("Unauthorized: Admin access required");
-    }
     
     await ctx.db.patch(args.targetUserId, { status: "active" });
     return { success: true, message: "User approved and activated" };
@@ -512,25 +473,6 @@ export const rejectUser = mutation({
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-
-    // Basic authorization check
-    const isAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
-    
-    // Also allow if user exists and has admin role
-    let hasRole = false;
-    if (!isAdmin) {
-       const user = await ctx.db
-        .query("users")
-        .withIndex("by_email", (q) => q.eq("email", args.adminEmail))
-        .first();
-       if (user && (user.role === 'admin' || user.role === 'superadmin')) {
-         hasRole = true;
-       }
-    }
-
-    if (!isAdmin && !hasRole) {
-      throw new Error("Unauthorized: Admin access required");
-    }
     
     await ctx.db.patch(args.targetUserId, { status: "rejected" });
     return { success: true, message: `User rejected. Reason: ${args.reason || "No reason provided"}` };
@@ -708,11 +650,8 @@ export const getRecentActivity = query({
  */
 export const getPlatformSettings = query({
   args: { adminEmail: v.string() },
-  handler: async (ctx, args) => {
-    await requireAdmin(ctx);
-
-    const isAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
-    if (!isAdmin) throw new Error("Unauthorized");
+  handler: async (ctx, _args) => {
+    await requireSuperadmin(ctx);
 
     const settings = await ctx.db.query("platformSettings").collect();
     const result: Record<string, string> = {};
@@ -733,9 +672,6 @@ export const togglePaywall = mutation({
   },
   handler: async (ctx, args) => {
     await requireSuperadmin(ctx);
-
-    const isSuperAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
-    if (!isSuperAdmin) throw new Error("Unauthorized: Only superadmin can toggle paywall");
 
     const existing = await ctx.db
       .query("platformSettings")
@@ -767,9 +703,6 @@ export const grantPremium = mutation({
   handler: async (ctx, args) => {
     await requireSuperadmin(ctx);
 
-    const isSuperAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
-    if (!isSuperAdmin) throw new Error("Unauthorized: Only superadmin can grant premium");
-
     const durations: Record<string, number> = {
       monthly: 30 * 24 * 60 * 60 * 1000,
       quarterly: 90 * 24 * 60 * 60 * 1000,
@@ -800,9 +733,6 @@ export const revokePremium = mutation({
   handler: async (ctx, args) => {
     await requireSuperadmin(ctx);
 
-    const isSuperAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
-    if (!isSuperAdmin) throw new Error("Unauthorized: Only superadmin can revoke premium");
-
     await ctx.db.patch(args.targetUserId, {
       isPremium: false,
       premiumPlan: undefined,
@@ -824,25 +754,6 @@ export const verifyUser = mutation({
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-
-    // Basic authorization check
-    const isSuperAdmin = args.adminEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
-    
-    // Also allow if user exists and has admin role
-    let hasRole = false;
-    if (!isSuperAdmin) {
-       const user = await ctx.db
-        .query("users")
-        .withIndex("by_email", (q) => q.eq("email", args.adminEmail))
-        .first();
-       if (user && (user.role === 'admin' || user.role === 'superadmin')) {
-         hasRole = true;
-       }
-    }
-
-    if (!isSuperAdmin && !hasRole) {
-      throw new Error("Unauthorized: Admin access required");
-    }
 
     await ctx.db.patch(args.targetUserId, {
       isVerified: args.verify,

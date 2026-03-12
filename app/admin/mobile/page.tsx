@@ -11,18 +11,21 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Check, Clock, RefreshCw, ShieldAlert, UserCheck, UserX, X } from "lucide-react";
 
 type TabType = "waitlist" | "reports";
+const FOUNDER_EMAIL = "xeyalnecefsoy@gmail.com";
 
 export default function AdminMobilePage() {
   const router = useRouter();
   const { showToast } = useToast();
   const { user, isLoading } = useUser();
+  const normalizedRole = (user?.role || "").toLowerCase();
+  const normalizedUserEmail = (user?.email || "").toLowerCase();
 
   const isAdmin =
     !!user &&
-    (user.role === "admin" ||
-      user.role === "moderator" ||
-      user.role === "superadmin" ||
-      user.email === "xeyalnecefsoy@gmail.com");
+    (normalizedRole === "admin" ||
+      normalizedRole === "moderator" ||
+      normalizedRole === "superadmin" ||
+      normalizedUserEmail === FOUNDER_EMAIL);
 
   const [activeTab, setActiveTab] = useState<TabType>("waitlist");
   const [busyKey, setBusyKey] = useState<string | null>(null);

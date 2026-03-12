@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import {
@@ -85,6 +85,8 @@ const sidebarItems = [
   { id: "settings", label: "Tənzimləmələr", icon: SettingsIcon },
 ];
 
+const FOUNDER_EMAIL = "xeyalnecefsoy@gmail.com";
+
 // Mock data for admin
 // All data now comes from real-time Convex queries — no mock data
 
@@ -92,6 +94,13 @@ export default function AdminPage() {
   const { showToast } = useToast();
   const { user, isLoading: isUserLoading } = useUser();
   const router = useRouter();
+
+  const normalizedRole = (user?.role || "").toLowerCase();
+  const normalizedUserEmail = (user?.email || "").toLowerCase();
+  const isFounder = normalizedUserEmail === FOUNDER_EMAIL;
+  const isAdminUser =
+    !!user && (normalizedRole === "admin" || normalizedRole === "superadmin" || isFounder);
+  const isSuperadmin = !!user && (normalizedRole === "superadmin" || isFounder);
 
   const [activeSection, setActiveSection] = useState("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
@@ -104,45 +113,54 @@ export default function AdminPage() {
 
   // Redirect if not admin
   React.useEffect(() => {
-    if (!isUserLoading && (!user || (user.role !== 'admin' && user.role !== 'superadmin'))) {
-        // Allow access for specific email fallback
-        if (user?.email !== 'xeyalnecefsoy@gmail.com') {
-             router.replace("/");
-        }
+    if (!isUserLoading && !isAdminUser) {
+      router.replace("/");
     }
-  }, [user, isUserLoading, router]);
+  }, [isUserLoading, isAdminUser, router]);
+
+  const visibleSidebarItems = useMemo(
+    () => (isSuperadmin ? sidebarItems : sidebarItems.filter((item) => item.id !== "settings")),
+    [isSuperadmin]
+  );
+
+  useEffect(() => {
+    if (!isSuperadmin && activeSection === "settings") {
+      setActiveSection("dashboard");
+    }
+  }, [isSuperadmin, activeSection]);
 
   // Convex Queries — only load data needed for active section
-  const adminEmail = user?.email || "";
-  const shouldLoadUsers = activeSection === "users";
-  const shouldLoadReports = activeSection === "reports";
-  const shouldLoadVerification = activeSection === "verification";
-  const shouldLoadSettings = activeSection === "settings";
-  const shouldLoadRecentActivity = activeSection === "dashboard";
+  const adminEmail = normalizedUserEmail || FOUNDER_EMAIL;
+  const canLoadAdminData = !isUserLoading && isAdminUser;
+  const shouldLoadUsers = canLoadAdminData && activeSection === "users";
+  const shouldLoadReports = canLoadAdminData && activeSection === "reports";
+  const shouldLoadVerification = canLoadAdminData && activeSection === "verification";
+  const shouldLoadSettings = canLoadAdminData && isSuperadmin && activeSection === "settings";
+  const shouldLoadRecentActivity = canLoadAdminData && activeSection === "dashboard";
   const shouldLoadMessageStats =
-    activeSection === "messages" || activeSection === "analytics";
+    canLoadAdminData && (activeSection === "messages" || activeSection === "analytics");
 
-  const stats = useQuery(api.admin.getPlatformStats, adminEmail ? { adminEmail } : "skip");
+  const stats = useQuery(api.admin.getPlatformStats, canLoadAdminData ? { adminEmail } : "skip");
   const { results: allUsersResults, status: usersStatus, loadMore: loadMoreUsers } = usePaginatedQuery(
     api.admin.getAllUsersPaginated,
-    adminEmail && shouldLoadUsers ? { adminEmail } : "skip",
+    shouldLoadUsers ? { adminEmail } : "skip",
     { initialNumItems: 15 }
   );
   const waitlistUsers = useQuery(
     api.admin.getWaitlistUsers,
-    adminEmail && shouldLoadVerification ? { adminEmail } : "skip"
+    shouldLoadVerification ? { adminEmail } : "skip"
   );
   const recentActivity = useQuery(
     api.admin.getRecentActivity,
-    adminEmail && shouldLoadRecentActivity ? { adminEmail } : "skip"
+    shouldLoadRecentActivity ? { adminEmail } : "skip"
   );
   const platformSettings = useQuery(
     api.admin.getPlatformSettings,
-    adminEmail && shouldLoadSettings ? { adminEmail } : "skip"
+    shouldLoadSettings ? { adminEmail } : "skip"
   );
   const messageStats = useQuery(
     api.admin.getMessageStats,
-    adminEmail && shouldLoadMessageStats ? { adminEmail } : "skip"
+    shouldLoadMessageStats ? { adminEmail } : "skip"
   );
   const togglePaywall = useMutation(api.admin.togglePaywall);
   const grantPremium = useMutation(api.admin.grantPremium);
@@ -152,7 +170,7 @@ export default function AdminPage() {
   // Reports
   const { results: reportsResults, status: reportsStatus, loadMore: loadMoreReports } = usePaginatedQuery(
     api.reports.getReportsPaginated,
-    adminEmail && shouldLoadReports ? { statusFilter: "all" } : "skip",
+    shouldLoadReports ? { statusFilter: "all" } : "skip",
     { initialNumItems: 10 }
   );
   const updateReportStatusMut = useMutation(api.reports.updateReportStatus);
@@ -163,7 +181,7 @@ export default function AdminPage() {
   useEffect(() => { setMounted(true); }, []);
 
   // Data loading state — initial page waits only for dashboard stats
-  const isDataLoading = stats === undefined;
+  const isDataLoading = canLoadAdminData && stats === undefined;
 
   // Use real data or fall back to safe defaults
   const displayStats = stats || {
@@ -296,7 +314,7 @@ export default function AdminPage() {
 
   // Full-page loading: wait for mount + auth + initial data
   // Returns null during SSR to prevent hydration mismatch
-  if (!mounted || isUserLoading || isDataLoading) {
+  if (!mounted || isUserLoading || isDataLoading || !isAdminUser) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Spinner className="w-8 h-8 animate-spin" />
@@ -347,7 +365,7 @@ export default function AdminPage() {
         </div>
 
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto hide-scrollbar">
-          {sidebarItems.map((item) => (
+          {visibleSidebarItems.map((item) => (
             <button
               key={item.id}
               onClick={() => { setActiveSection(item.id); setIsSidebarOpen(false); }}
@@ -397,7 +415,7 @@ export default function AdminPage() {
                 <Menu className="w-5 h-5" />
               </Button>
               <h2 className="text-xl font-bold capitalize truncate">
-              {sidebarItems.find(i => i.id === activeSection)?.label}
+              {visibleSidebarItems.find((i) => i.id === activeSection)?.label || "Dashboard"}
             </h2>
             </div>
             <div className="flex items-center gap-3">
@@ -425,7 +443,7 @@ export default function AdminPage() {
                 <div className="flex flex-col">
                   <span className="text-sm font-medium leading-none">{user?.name || "Admin"}</span>
                   <span className="text-[10px] text-muted-foreground font-medium uppercase mt-0.5">
-                    {user?.role === 'superadmin' || user?.email?.toLowerCase() === 'xeyalnecefsoy@gmail.com' 
+                    {isSuperadmin
                       ? 'Super Admin' 
                       : user?.role === 'admin' ? 'Admin' : 'Moderator'}
                   </span>
@@ -768,23 +786,25 @@ export default function AdminPage() {
                               >
                                 <CheckCircle2 className="w-4 h-4" />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className={`h-8 w-8 ${user.isPremium ? 'text-orange-500 hover:text-orange-600' : 'text-muted-foreground hover:text-orange-500'}`}
-                                onClick={async () => {
-                                  try {
-                                    if (user.isPremium) {
-                                      await revokePremium({ adminEmail, targetUserId: user._id });
-                                    } else {
-                                      await grantPremium({ adminEmail, targetUserId: user._id, plan: 'monthly' });
-                                    }
-                                  } catch (e) { console.error(e); }
-                                }}
-                                title={user.isPremium ? 'Premium-u ləğv et' : 'Premium ver'}
-                              >
-                                <Crown className="w-4 h-4" />
-                              </Button>
+                              {isSuperadmin && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className={`h-8 w-8 ${user.isPremium ? 'text-orange-500 hover:text-orange-600' : 'text-muted-foreground hover:text-orange-500'}`}
+                                  onClick={async () => {
+                                    try {
+                                      if (user.isPremium) {
+                                        await revokePremium({ adminEmail, targetUserId: user._id });
+                                      } else {
+                                        await grantPremium({ adminEmail, targetUserId: user._id, plan: 'monthly' });
+                                      }
+                                    } catch (e) { console.error(e); }
+                                  }}
+                                  title={user.isPremium ? 'Premium-u ləğv et' : 'Premium ver'}
+                                >
+                                  <Crown className="w-4 h-4" />
+                                </Button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -1153,7 +1173,7 @@ export default function AdminPage() {
             )}
 
             {/* Settings */}
-            {activeSection === "settings" && (
+            {activeSection === "settings" && isSuperadmin && (
               <motion.div
                 key="settings"
                 initial={{ opacity: 0, y: 20 }}
@@ -1340,7 +1360,7 @@ export default function AdminPage() {
                   </div>
                   
                   {/* Superadmin Actions */}
-                  {user?.role === 'superadmin' && (user as any).email === 'xeyalnecefsoy@gmail.com' && (
+                  {isSuperadmin && (
                       <div className="flex gap-2 justify-center pt-2">
                           <Button size="sm" variant="ghost" onClick={() => handleChangeRole(selectedUser._id, 'user')}>User</Button>
                           <Button size="sm" variant="ghost" onClick={() => handleChangeRole(selectedUser._id, 'moderator')}>Mod</Button>
