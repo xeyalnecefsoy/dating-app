@@ -203,31 +203,30 @@ export const createOrUpdateUser = mutation({
         username = await generateUniqueUsername(ctx, args.name);
       }
       
-      // Update existing user
-      await ctx.db.patch(existingUser._id, {
+      const patchData: any = {
         name: args.name,
-        // Ensure createdAt is present
         createdAt: existingUser.createdAt || Date.now(),
-        email: args.email,
-        gender: normalizedGender,
-        age: args.age,
-        birthDay: args.birthDay,
-        birthMonth: args.birthMonth,
-        birthYear: args.birthYear,
-        location: args.location,
-        bio: args.bio,
-        values: args.values,
-        loveLanguage: args.loveLanguage,
-        interests: args.interests,
-        communicationStyle: args.communicationStyle,
-        avatar: args.avatar,
-        lookingFor: args.lookingFor,
-        // Only update status if not already set or if staff
         status: existingUser.status || status,
-        role: role,
-        // Set username if not already set
+        role,
         ...(existingUser.username ? {} : { username, usernameChangedAt: Date.now() }),
-      });
+      };
+
+      if (args.email !== undefined) patchData.email = args.email;
+      if (normalizedGender !== undefined) patchData.gender = normalizedGender;
+      if (args.age !== undefined) patchData.age = args.age;
+      if (args.birthDay !== undefined) patchData.birthDay = args.birthDay;
+      if (args.birthMonth !== undefined) patchData.birthMonth = args.birthMonth;
+      if (args.birthYear !== undefined) patchData.birthYear = args.birthYear;
+      if (args.location !== undefined) patchData.location = args.location;
+      if (args.bio !== undefined) patchData.bio = args.bio;
+      if (args.values !== undefined) patchData.values = args.values;
+      if (args.loveLanguage !== undefined) patchData.loveLanguage = args.loveLanguage;
+      if (args.interests !== undefined) patchData.interests = args.interests;
+      if (args.communicationStyle !== undefined) patchData.communicationStyle = args.communicationStyle;
+      if (args.avatar !== undefined) patchData.avatar = args.avatar;
+      if (args.lookingFor !== undefined) patchData.lookingFor = args.lookingFor;
+
+      await ctx.db.patch(existingUser._id, patchData);
       return { userId: existingUser._id, status: existingUser.status || status, isNew: false, username };
     } else {
       // Generate username for new user

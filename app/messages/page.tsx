@@ -74,21 +74,6 @@ function MessagesContent() {
   
   const markReadMutation = useMutation(api.messages.markRead);
 
-  // Mark as read when opening conversation
-  useEffect(() => {
-    if (selectedConv && selectedConv.participantId && user?.unreadMatches?.includes(selectedConv.participantId)) {
-        markMatchAsRead(selectedConv.participantId);
-    }
-    
-    // Also mark conversation as read in Convex
-    if (selectedConv && user && selectedConv.id !== "general" && document.hasFocus()) {
-       markReadMutation({ 
-         channelId: selectedConv.id, 
-         userId: user.id 
-       }).catch(console.error);
-    }
-  }, [selectedConv, user?.unreadMatches, markMatchAsRead, user, markReadMutation]);
-
   // Text translations
   const txt = {
     messages: language === 'az' ? 'Mesajlar' : 'Messages',
@@ -256,6 +241,34 @@ function MessagesContent() {
   const convexMessages = useQuery(api.messages.list, 
     activeChannelId ? { channelId: activeChannelId } : "skip"
   );
+
+  // Mark private conversation as read when open and focused
+  useEffect(() => {
+    if (!selectedConv || !user) return;
+
+    if (
+      selectedConv.participantId &&
+      user.unreadMatches?.includes(selectedConv.participantId)
+    ) {
+      markMatchAsRead(selectedConv.participantId);
+    }
+
+    if (!activeChannelId || selectedConv.id === "general" || !document.hasFocus()) {
+      return;
+    }
+
+    markReadMutation({
+      channelId: activeChannelId,
+      userId: user.id,
+    }).catch(console.error);
+  }, [
+    activeChannelId,
+    convexMessages,
+    markMatchAsRead,
+    markReadMutation,
+    selectedConv,
+    user,
+  ]);
   
   // Presence
   const friendPresence = useQuery(api.presence.getStatus, 
@@ -422,7 +435,7 @@ function MessagesContent() {
         return {
              id: dbUser.clerkId || dbUser._id,
              name: dbUser.name,
-             avatar: dbUser.avatar || "/placeholder-avatar.svg",
+             avatar: dbUser.avatar || dbUser.image || "/placeholder-avatar.svg",
              age: dbUser.age || 25,
              location: dbUser.location || "Unknown",
         };
@@ -528,16 +541,18 @@ function MessagesContent() {
 
            {(() => {
              // Unified message handling
-             const remoteMessages = convexMessages?.map((msg: any) => ({
-               id: msg._id,
-               senderId: msg.userId,
-               text: msg.body,
-               timestamp: new Date(msg._creationTime),
-               format: msg.format,
-               venueId: msg.venueId,
-               icebreakerId: msg.icebreakerId,
-               isDeleted: msg.isDeleted
-             })) || [];
+              const remoteMessages = convexMessages?.map((msg: any) => ({
+                id: msg._id,
+                senderId: msg.userId,
+                text: msg.body,
+                timestamp: new Date(msg._creationTime),
+                format: msg.format,
+                venueId: msg.venueId,
+                icebreakerId: msg.icebreakerId,
+                imageUrl: msg.imageUrl,
+                isRead: msg.isRead,
+                isDeleted: msg.isDeleted
+              })) || [];
 
              // If we have remote messages, prefer them. If not, and it's a new private match, show the local intro message.
              // However, general chat (Aura Community) should purely rely on remote or stay empty.

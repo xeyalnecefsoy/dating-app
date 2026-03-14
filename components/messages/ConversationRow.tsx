@@ -30,7 +30,7 @@ export function ConversationRow({ participantId, currentUserId, isSelected, onSe
   const participant = dbUser ? {
       id: dbUser.clerkId || dbUser._id,
       name: dbUser.name,
-      avatar: dbUser.avatar || "/placeholder-avatar.svg",
+      avatar: dbUser.avatar || dbUser.image || "/placeholder-avatar.svg",
   } : null;
 
   if (!participant && !dbUser) return null; // Wait for loading? Or return null if not found.
