@@ -68,6 +68,10 @@ export default defineSchema({
     status: v.string(), // 'pending', 'accepted', 'rejected'
     lastReadUser1: v.optional(v.number()), // Timestamp when user1 last read messages
     lastReadUser2: v.optional(v.number()), // Timestamp when user2 last read messages
+    hiddenByUser1: v.optional(v.boolean()), // Hidden from user1 conversation list
+    hiddenByUser2: v.optional(v.boolean()), // Hidden from user2 conversation list
+    clearedAtUser1: v.optional(v.number()), // Hide messages older than this for user1
+    clearedAtUser2: v.optional(v.number()), // Hide messages older than this for user2
   }).index("by_user1", ["user1Id"])
     .index("by_user2", ["user2Id"])
     .index("by_user1_status", ["user1Id", "status"])

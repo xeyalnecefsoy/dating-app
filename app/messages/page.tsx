@@ -73,6 +73,7 @@ function MessagesContent() {
   );
   
   const markReadMutation = useMutation(api.messages.markRead);
+  const hideConversationMutation = useMutation(api.matches.hideConversation);
 
   // Text translations
   const txt = {
@@ -103,6 +104,9 @@ function MessagesContent() {
     noSentRequests: language === 'az' ? 'Göndərilmiş istəyiniz yoxdur' : 'No sent requests',
     requestAccepted: language === 'az' ? 'İstək qəbul edildi!' : 'Request accepted!',
     requestDeclined: language === 'az' ? 'İstək rədd edildi' : 'Request declined',
+    clearConversation: language === 'az' ? 'Söhbəti məndən sil' : 'Clear from my chats',
+    clearConversationConfirm: language === 'az' ? 'Bu söhbət yalnız sizdən silinəcək. Davam edək?' : 'This will remove the chat only for you. Continue?',
+    conversationCleared: language === 'az' ? 'Söhbət sizdən silindi' : 'Conversation removed from your chats',
   };
 
   useEffect(() => {
@@ -314,9 +318,11 @@ function MessagesContent() {
       : "skip"
   );
 
-  // Fetch profiles for all relevant users (matches, incoming requests, sent requests)
+    const visibleMatchIds = useQuery(api.matches.list, user ? { userId: user.id } : "skip");
+
+  // Fetch profiles for all relevant users (visible matches, incoming requests, sent requests)
   const allIdsToFetch = Array.from(new Set([
-    ...(user?.matches || []),
+    ...((visibleMatchIds || []).map((id) => String(id))),
     ...(user?.messageRequests || []),
     ...(user?.sentMessageRequests || [])
   ]));
@@ -448,6 +454,30 @@ function MessagesContent() {
     }
   };
 
+
+  const handleClearConversation = async () => {
+    if (!selectedConv || selectedConv.id === "general") return;
+    if (!window.confirm(txt.clearConversationConfirm)) return;
+
+    try {
+      await hideConversationMutation({
+        partnerId: selectedConv.participantId,
+        userId: user?.id || "",
+      });
+
+      setSelectedConv(null);
+      router.push('/messages');
+      showToast({ title: txt.conversationCleared, type: 'success', duration: 2200 });
+    } catch (error) {
+      console.error("Failed to clear conversation:", error);
+      showToast({
+        title: language === 'az' ? 'Xəta' : 'Error',
+        message: language === 'az' ? 'Söhbəti silmək mümkün olmadı' : 'Failed to clear conversation',
+        type: 'error',
+      });
+    }
+  };
+
   // Add a "Söhbətgah" option to the conversation list
   const generalChatConv: Conversation = {
      id: "general",
@@ -535,15 +565,26 @@ function MessagesContent() {
             </div>
             
             {!isGeneral && participant && (
-               <Button 
-                variant="ghost" 
-                size="icon" 
-                className="rounded-full text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
-                onClick={() => setShowReportModal(true)}
-                title={language === 'az' ? 'İstifadəçini Şikayət Et' : 'Report User'}
-               >
-                 <AlertTriangle className="w-5 h-5" />
-               </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10 transition-colors"
+                  onClick={handleClearConversation}
+                  title={txt.clearConversation}
+                >
+                  <Trash2 className="w-5 h-5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                  onClick={() => setShowReportModal(true)}
+                  title={language === 'az' ? 'İstifadəçini Şikayət Et' : 'Report User'}
+                >
+                  <AlertTriangle className="w-5 h-5" />
+                </Button>
+              </div>
             )}
           </div>
         </header>

@@ -33,6 +33,7 @@ export const list = query({
     const channelId = args.channelId || "general";
 
     let otherUserReadAt: number | null = null;
+    let viewerClearedAt: number | null = null;
     
     if (channelId.startsWith("match-")) {
        const match = await getMatchForChannel(ctx, channelId);
@@ -46,17 +47,22 @@ export const list = query({
           const isUser1 = match.user1Id === identity.subject;
           // We want the other person's read timestamp to know if OUR messages were read
           otherUserReadAt = isUser1 ? (match.lastReadUser2 || null) : (match.lastReadUser1 || null);
+          viewerClearedAt = isUser1 ? (match.clearedAtUser1 || null) : (match.clearedAtUser2 || null);
        }
     }
-
     const messages = await ctx.db
       .query("messages")
       .withIndex("by_channel", (q) => q.eq("channelId", channelId))
       .order("desc")
-      .take(50);
+      .take(100);
+
+    const visibleMessages =
+      viewerClearedAt === null
+        ? messages
+        : messages.filter((msg) => msg._creationTime > viewerClearedAt);
 
     // Soft delete handling & text localization & image URL resolution
-    const messagesWithUrls = await Promise.all(messages.map(async (msg) => {
+    const messagesWithUrls = await Promise.all(visibleMessages.map(async (msg) => {
       if (msg.isDeleted) {
          return {
           ...msg,
@@ -123,17 +129,20 @@ export const send = mutation({
 
     const channelId = args.channelId || "general";
 
+    let privateMatch: any = null;
     if (channelId.startsWith("match-")) {
-      const match = await getMatchForChannel(ctx, channelId);
-      if (!match) {
+      privateMatch = await getMatchForChannel(ctx, channelId);
+      if (!privateMatch) {
         throw new Error("Conversation not found");
       }
-      if (match.status !== "accepted") {
+      if (privateMatch.status !== "accepted") {
         throw new Error("Conversation is not accepted yet");
       }
-      if (match.user1Id !== userId && match.user2Id !== userId) {
+      if (privateMatch.user1Id !== userId && privateMatch.user2Id !== userId) {
         throw new Error("Unauthorized conversation access");
       }
+
+      await ctx.db.patch(privateMatch._id, { hiddenByUser1: false, hiddenByUser2: false });
     }
 
     await ctx.db.insert("messages", {

@@ -3,6 +3,21 @@ import { v } from "convex/values";
 
 const STAFF_ROLES = new Set(["moderator", "admin", "superadmin"]);
 
+async function getMatchBetweenUsers(ctx: any, userAId: string, userBId: string) {
+  return (
+    (await ctx.db
+      .query("matches")
+      .withIndex("by_user1", (q: any) => q.eq("user1Id", userAId))
+      .filter((q: any) => q.eq(q.field("user2Id"), userBId))
+      .first()) ||
+    (await ctx.db
+      .query("matches")
+      .withIndex("by_user1", (q: any) => q.eq("user1Id", userBId))
+      .filter((q: any) => q.eq(q.field("user2Id"), userAId))
+      .first())
+  );
+}
+
 // Create a new match between two users
 export const create = mutation({
   args: {
@@ -218,13 +233,51 @@ export const list = query({
       .withIndex("by_user2_status", q => q.eq("user2Id", userId).eq("status", "accepted"))
       .collect();
 
-    // Combine and extract partner IDs
+    // Combine and extract partner IDs, excluding conversations hidden by current user
     const partnerIds = [
-      ...matches1.map((m) => m.user2Id),
-      ...matches2.map((m) => m.user1Id),
+      ...matches1
+        .filter((m) => !m.hiddenByUser1)
+        .map((m) => m.user2Id),
+      ...matches2
+        .filter((m) => !m.hiddenByUser2)
+        .map((m) => m.user1Id),
     ];
 
     return partnerIds;
+  },
+});
+
+export const hideConversation = mutation({
+  args: { partnerId: v.string(), userId: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthenticated");
+
+    const userId = identity.subject;
+    const match = await getMatchBetweenUsers(ctx, userId, args.partnerId);
+    if (!match || match.status !== "accepted") {
+      throw new Error("Conversation not found");
+    }
+
+    const now = Date.now();
+    const patch =
+      match.user1Id === userId
+        ? { hiddenByUser1: true, clearedAtUser1: now }
+        : { hiddenByUser2: true, clearedAtUser2: now };
+
+    await ctx.db.patch(match._id, patch);
+
+    const me = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", userId))
+      .first();
+
+    if (me) {
+      const unread = (me.unreadMatches || []).filter((id: string) => id !== args.partnerId);
+      await ctx.db.patch(me._id, { unreadMatches: unread });
+    }
+
+    return { success: true };
   },
 });
 
