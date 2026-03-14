@@ -242,7 +242,18 @@ function MessagesContent() {
     activeChannelId ? { channelId: activeChannelId } : "skip"
   );
 
-  // Mark private conversation as read when open and focused
+  const markCurrentConversationRead = React.useCallback(() => {
+    if (!selectedConv || !user) return;
+    if (!activeChannelId || selectedConv.id === "general") return;
+    if (document.visibilityState !== "visible") return;
+
+    markReadMutation({
+      channelId: activeChannelId,
+      userId: user.id,
+    }).catch(console.error);
+  }, [activeChannelId, markReadMutation, selectedConv, user]);
+
+  // Mark private conversation as read when open
   useEffect(() => {
     if (!selectedConv || !user) return;
 
@@ -253,22 +264,38 @@ function MessagesContent() {
       markMatchAsRead(selectedConv.participantId);
     }
 
-    if (!activeChannelId || selectedConv.id === "general" || !document.hasFocus()) {
+    if (!activeChannelId || selectedConv.id === "general") {
       return;
     }
 
-    markReadMutation({
-      channelId: activeChannelId,
-      userId: user.id,
-    }).catch(console.error);
+    markCurrentConversationRead();
   }, [
     activeChannelId,
     convexMessages,
+    markCurrentConversationRead,
     markMatchAsRead,
-    markReadMutation,
     selectedConv,
     user,
   ]);
+
+  useEffect(() => {
+    if (!activeChannelId || !selectedConv || selectedConv.id === "general") return;
+
+    const onFocus = () => markCurrentConversationRead();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        markCurrentConversationRead();
+      }
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [activeChannelId, markCurrentConversationRead, selectedConv]);
   
   // Presence
   const friendPresence = useQuery(api.presence.getStatus, 
@@ -591,10 +618,11 @@ function MessagesContent() {
                     
                     {/* Content Column */}
                     <div className={`flex flex-col ${isMe ? "items-end" : "items-start"} min-w-0`}>
-                     <span className="text-[10px] text-muted-foreground mb-1 px-1 opacity-50">
-                       {/* Correct Name Display */}
-                       {isMe ? (user?.name || "Siz") : (participant?.name || msg.senderId)}
-                     </span>
+                      {isGeneral && (
+                        <span className="text-[10px] text-muted-foreground mb-1 px-1 opacity-50">
+                          {isMe ? (user?.name || "Siz") : (participant?.name || msg.senderId)}
+                        </span>
+                      )}
                      
                      {isEditing ? (
                         <div className="flex flex-col items-end gap-1 min-w-[200px]">
