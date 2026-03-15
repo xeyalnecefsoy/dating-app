@@ -47,7 +47,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useQuery, useMutation, usePaginatedQuery, useConvexAuth } from "convex/react";
+import { useAction, useQuery, useMutation, usePaginatedQuery, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useUser } from "@/contexts/UserContext";
 import { Badge } from "@/components/ui/badge";
@@ -87,6 +87,21 @@ const sidebarItems = [
 
 const FOUNDER_EMAIL = "xeyalnecefsoy@gmail.com";
 
+type AdminUserRecord = {
+  _id: string;
+  clerkId?: string;
+  name?: string;
+  email?: string;
+  avatar?: string;
+  image?: string;
+  role?: string;
+  status?: string;
+  username?: string;
+  isVerified?: boolean;
+  isPremium?: boolean;
+  createdAt?: number;
+};
+
 // Mock data for admin
 // All data now comes from real-time Convex queries — no mock data
 
@@ -106,7 +121,7 @@ export default function AdminPage() {
   const [activeSection, setActiveSection] = useState("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
   const [userFilterStatus, setUserFilterStatus] = useState<"all" | "verified" | "premium" | "admin" | "banned">("all");
-  const [selectedUser, setSelectedUser] = useState<any | null>(null);
+  const [selectedUser, setSelectedUser] = useState<AdminUserRecord | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -277,6 +292,8 @@ export default function AdminPage() {
   const setRoleMutation = useMutation(api.admin.setUserRole);
   const approveUserMutation = useMutation(api.admin.approveUser);
   const rejectUserMutation = useMutation(api.admin.rejectUser);
+  const deleteUserMutation = useMutation(api.admin.deleteUserPermanently);
+  const hardDeleteUserAction = useAction((api as any).admin.hardDeleteUserWithClerk);
 
   const handleBanUser = async (userId: string) => {
     if (!confirm("Are you sure you want to ban this user?")) return;
@@ -317,17 +334,170 @@ export default function AdminPage() {
     }
   };
 
+  const getDeleteGuardReason = (target: Partial<AdminUserRecord> | null) => {
+    if (!target) return "İstifadəçi tapılmadı.";
+
+    const targetEmail = String(target.email || "").toLowerCase();
+    const targetRole = String(target.role || "").toLowerCase();
+
+    if (targetEmail === FOUNDER_EMAIL) {
+      return "Qurucu hesabı silinə bilməz.";
+    }
+
+    if (targetRole === "superadmin") {
+      return "Superadmin hesabı silinə bilməz.";
+    }
+
+    if (target.clerkId && user?.id && target.clerkId === user.id) {
+      return "Öz hesabınızı admin paneldən silə bilməzsiniz.";
+    }
+
+    return null;
+  };
+
+  const handleDeleteUser = async (target: AdminUserRecord) => {
+    if (!isSuperadmin) {
+      showToast({ title: "Bu əməliyyat yalnız superadmin üçündür.", type: "error" });
+      return;
+    }
+
+    const guardReason = getDeleteGuardReason(target);
+    if (guardReason) {
+      showToast({ title: guardReason, type: "error" });
+      return;
+    }
+
+    const identityLabel = target.name || target.email || target.clerkId || "istifadəçi";
+    const confirmText = window.prompt(
+      `"${identityLabel}" üçün tam app datasını silmək geri qaytarılmır. Təsdiq üçün DELETE yazın.`
+    );
+
+    if (confirmText !== "DELETE") {
+      if (confirmText !== null) {
+        showToast({ title: "Silmə əməliyyatı ləğv edildi.", type: "info" });
+      }
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result: any = await deleteUserMutation({
+        adminEmail,
+        targetUserId: target._id as any,
+        reason: "Deleted from admin panel",
+      });
+
+      setSelectedUser((prev) => (prev?._id === target._id ? null : prev));
+
+      const messageCount = Number(result?.deleted?.messages || 0);
+      const matchCount = Number(result?.deleted?.matches || 0);
+      showToast({
+        title: `İstifadəçi silindi (Mesaj: ${messageCount}, Match: ${matchCount})`,
+        type: "success",
+      });
+    } catch (e: any) {
+      console.error("Failed to delete user:", e);
+      showToast({ title: e?.message || "İstifadəçi silinmədi.", type: "error" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleHardDeleteUser = async (target: AdminUserRecord) => {
+    if (!isSuperadmin) {
+      showToast({ title: "Bu əməliyyat yalnız superadmin üçündür.", type: "error" });
+      return;
+    }
+
+    const guardReason = getDeleteGuardReason(target);
+    if (guardReason) {
+      showToast({ title: guardReason, type: "error" });
+      return;
+    }
+
+    if (!target.clerkId) {
+      showToast({ title: "Bu istifadəçi üçün Clerk ID tapılmadı. Tam sil istifadə edin.", type: "error" });
+      return;
+    }
+
+    const identityLabel = target.name || target.email || target.clerkId || "istifadəçi";
+    const confirmText = window.prompt(
+      `"${identityLabel}" üçün HARD DELETE ediləcək (Clerk + app data). Təsdiq üçün HARD_DELETE yazın.`
+    );
+
+    if (confirmText !== "HARD_DELETE") {
+      if (confirmText !== null) {
+        showToast({ title: "Hard delete ləğv edildi.", type: "info" });
+      }
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result: any = await hardDeleteUserAction({
+        adminEmail,
+        targetUserId: target._id as any,
+        reason: "Hard deleted from admin panel",
+      });
+
+      setSelectedUser((prev) => (prev?._id === target._id ? null : prev));
+
+      const statusText = result?.clerkAlreadyMissing ? "Clerk hesabı yox idi" : "Clerk + app data silindi";
+      showToast({ title: statusText, type: "success" });
+    } catch (e: any) {
+      console.error("Failed to hard delete user:", e);
+      showToast({ title: e?.message || "Hard delete alınmadı.", type: "error" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Timeout to prevent infinite loading — if Convex auth doesn't resolve in 10s, show error
+  const [authTimedOut, setAuthTimedOut] = useState(false);
+  useEffect(() => {
+    if (canLoadAdminData || !mounted) return; // Already resolved or not mounted
+    const timer = setTimeout(() => {
+      if (!canLoadAdminData) {
+        setAuthTimedOut(true);
+      }
+    }, 10_000);
+    return () => clearTimeout(timer);
+  }, [canLoadAdminData, mounted]);
+
+  // Reset timeout when auth succeeds
+  useEffect(() => {
+    if (canLoadAdminData) setAuthTimedOut(false);
+  }, [canLoadAdminData]);
+
   // Full-page loading: wait for mount + auth + initial data
-  // Returns null during SSR to prevent hydration mismatch
-  // NOTE: We must also wait for isConvexAuthenticated, otherwise
-  // canLoadAdminData is false (queries are skipped) but the loading gate
-  // passes, causing all stats to show as 0 from the fallback defaults.
-  if (!mounted || isUserLoading || isConvexAuthLoading || !isConvexAuthenticated || isDataLoading || !isAdminUser) {
+  // If auth times out, show error instead of infinite spinner
+  if (authTimedOut && !canLoadAdminData) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6 text-center">
+        <AlertTriangle className="w-12 h-12 text-yellow-500" />
+        <h2 className="text-xl font-bold">Bağlantı problemi</h2>
+        <p className="text-muted-foreground max-w-md">
+          Convex bağlantısı qurula bilmədi. İnternet bağlantınızı yoxlayın və yenidən cəhd edin.
+        </p>
+        <Button onClick={() => window.location.reload()} className="mt-2">
+          Yenidən yüklə
+        </Button>
+      </div>
+    );
+  }
+
+  if (!mounted || isUserLoading || !isAdminUser) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Spinner className="w-8 h-8 animate-spin" />
       </div>
     );
+  }
+
+  // If Convex auth is still loading but user is confirmed admin, show dashboard with loading state
+  // This prevents the infinite spinner when Convex auth is slow
+  if (isDataLoading && canLoadAdminData) {
+    // Data is actively being fetched — show dashboard skeleton (fall through to main render)
   }
 
   return (
@@ -704,7 +874,9 @@ export default function AdminPage() {
                           </td>
                         </tr>
                       ) : (
-                        filteredUsers.map((user: any) => (
+                        filteredUsers.map((user: any) => {
+                        const deleteGuardReason = getDeleteGuardReason(user);
+                        return (
                         <tr key={user._id} className="hover:bg-muted/30 transition-colors">
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-3">
@@ -773,6 +945,35 @@ export default function AdminPage() {
                               >
                                 <Ban className="w-4 h-4" />
                               </Button>
+                              {isSuperadmin && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-rose-500 hover:text-rose-600"
+                                  onClick={() => handleDeleteUser(user)}
+                                  title={deleteGuardReason || "İstifadəçini app datası ilə birlikdə sil"}
+                                  disabled={!!deleteGuardReason || isLoading}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              )}
+                              {isSuperadmin && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-amber-500 hover:text-amber-600"
+                                  onClick={() => handleHardDeleteUser(user)}
+                                  title={
+                                    deleteGuardReason ||
+                                    (!user.clerkId
+                                      ? "Clerk hesabı tapılmadı"
+                                      : "Hard Delete (Clerk + App)")
+                                  }
+                                  disabled={!!deleteGuardReason || !user.clerkId || isLoading}
+                                >
+                                  <AlertTriangle className="w-4 h-4" />
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -816,7 +1017,8 @@ export default function AdminPage() {
                             </div>
                           </td>
                         </tr>
-                        ))
+                        );
+                        })
                       )}
                     </tbody>
                   </table>
@@ -1365,7 +1567,49 @@ export default function AdminPage() {
                         <Ban className="w-4 h-4 mr-2" />
                         Blokla
                     </Button>
+                    {isSuperadmin && (
+                      <Button
+                        className="flex-1"
+                        variant="destructive"
+                        onClick={() => handleDeleteUser(selectedUser)}
+                        disabled={!!getDeleteGuardReason(selectedUser) || isLoading}
+                        title={getDeleteGuardReason(selectedUser) || "İstifadəçini app datası ilə birlikdə sil"}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Tam Sil
+                      </Button>
+                    )}
                   </div>
+
+                  {isSuperadmin && (
+                    <p className="text-xs text-muted-foreground">
+                      {getDeleteGuardReason(selectedUser) || "Tam silmə əməliyyatı uyğunluq, mesaj, hekayə və şikayət datasını geri qaytarılmayan şəkildə təmizləyir."}
+                    </p>
+                  )}
+
+                  {isSuperadmin && (
+                    <Button
+                      className="w-full"
+                      variant="destructive"
+                      onClick={() => handleHardDeleteUser(selectedUser)}
+                      disabled={!!getDeleteGuardReason(selectedUser) || !selectedUser.clerkId || isLoading}
+                      title={
+                        getDeleteGuardReason(selectedUser) ||
+                        (!selectedUser.clerkId
+                          ? "Clerk hesabı tapılmadı"
+                          : "Clerk hesabı ilə birlikdə geri qaytarılmaz silmə")
+                      }
+                    >
+                      <AlertTriangle className="w-4 h-4 mr-2" />
+                      Hard Delete (Clerk + App)
+                    </Button>
+                  )}
+
+                  {isSuperadmin && (
+                    <p className="text-xs text-red-500/90">
+                      Hard delete istifadəçini Clerk-dən də silir. Bu əməliyyat geri qaytarılmır.
+                    </p>
+                  )}
                   
                   {/* Superadmin Actions */}
                   {isSuperadmin && (

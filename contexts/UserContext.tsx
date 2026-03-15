@@ -100,6 +100,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [isOnboarded, setIsOnboarded] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Track whether we already loaded from localStorage (fast path)
+  const hasLoadedFromLocalStorage = useRef(false);
+  // Track whether Convex data has been merged
+  const hasConvexMerged = useRef(false);
+
   // Clerk hooks
   const { user: clerkUser, isLoaded: isClerkLoaded } = useClerkUser();
   const { isSignedIn } = useAuth();
@@ -246,41 +251,44 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }, [user, convexMatches, createMatchMutation]);
 
-  // Load user profile when Clerk user changes
+  const updateUserInternal = useCallback((newUser: UserProfile | null, storageKey: string) => {
+    setUser(newUser);
+    if (newUser) {
+      localStorage.setItem(storageKey, JSON.stringify(newUser));
+      setIsOnboarded(true);
+    } else {
+      localStorage.removeItem(storageKey);
+      setIsOnboarded(false);
+    }
+  }, []);
+
+  const updateUser = useCallback((newUser: UserProfile | null) => {
+    if (!clerkUser) return;
+    const storageKey = getStorageKey(clerkUser.id);
+    updateUserInternal(newUser, storageKey);
+  }, [clerkUser, getStorageKey, updateUserInternal]);
+
+  // FAST PATH: Load from localStorage immediately when Clerk is loaded (no Convex wait)
   useEffect(() => {
-    if (!isClerkLoaded) return;
+    if (!isClerkLoaded || hasLoadedFromLocalStorage.current) return;
 
     if (isSignedIn && clerkUser) {
       const storageKey = getStorageKey(clerkUser.id);
       const savedUser = localStorage.getItem(storageKey);
       const clerkEmail = clerkUser.emailAddresses?.[0]?.emailAddress?.toLowerCase();
       const isSuperadmin = clerkEmail === SUPERADMIN_EMAIL.toLowerCase();
-      
-      if (savedUser) {
-        if (convexUser === undefined) return;
-        if (convexUser === null) {
-          console.log("localStorage has stale user data but DB record is gone. Clearing...");
-          localStorage.removeItem(storageKey);
-          setUser(null);
-          setIsOnboarded(false);
-          setIsLoading(false);
-          return;
-        }
 
+      if (savedUser) {
+        hasLoadedFromLocalStorage.current = true;
         const parsed = JSON.parse(savedUser);
-        let mergedUser = {
+        let quickUser = {
           ...parsed,
           email: clerkEmail || parsed.email,
-          role: convexUser?.role || parsed.role,
-          status: convexUser?.status || parsed.status,
-          isPremium: (convexUser as any)?.isPremium || false,
-          unreadMatches: (convexUser?.unreadMatches !== undefined ? convexUser.unreadMatches : (parsed.unreadMatches || [])).filter((id: string) => parsed.matches?.includes(id)),
-          seenMessageRequests: convexUser?.seenMessageRequests !== undefined ? convexUser.seenMessageRequests : (parsed.seenMessageRequests || []),
         };
 
         if (isSuperadmin) {
-          mergedUser = {
-            ...mergedUser,
+          quickUser = {
+            ...quickUser,
             name: "Xəyal Nəcəfsoy",
             age: 21,
             birthDay: "28",
@@ -294,108 +302,147 @@ export function UserProvider({ children }: { children: ReactNode }) {
             role: "superadmin",
             status: "active",
           };
-          
-          // Background sync to Convex for superadmin hardcodes if they drifted
-          createOrUpdateUserMutation({
-            clerkId: mergedUser.id,
-            name: mergedUser.name,
-            email: mergedUser.email,
-            gender: mergedUser.gender,
-            age: mergedUser.age,
-            birthDay: mergedUser.birthDay,
-            birthMonth: mergedUser.birthMonth,
-            birthYear: mergedUser.birthYear,
-            location: mergedUser.location,
-            bio: mergedUser.bio,
-            values: mergedUser.values,
-            loveLanguage: mergedUser.loveLanguage,
-            interests: mergedUser.interests,
-            communicationStyle: mergedUser.communicationStyle,
-            avatar: mergedUser.avatar,
-            lookingFor: mergedUser.lookingFor,
-          }).catch(() => {});
         }
 
-        setUser(mergedUser);
+        setUser(quickUser);
         setIsOnboarded(true);
-        
+        setIsLoading(false); // Instantly unblock UI
+
+        // Streak update
         const today = new Date().toDateString();
         if (parsed.lastActiveDate !== today) {
           const yesterday = new Date();
           yesterday.setDate(yesterday.getDate() - 1);
           if (parsed.lastActiveDate === yesterday.toDateString()) {
-            updateUserInternal({ ...mergedUser, streak: mergedUser.streak + 1, lastActiveDate: today }, storageKey);
-          } else if (parsed.lastActiveDate !== today) {
-            updateUserInternal({ ...mergedUser, streak: 1, lastActiveDate: today }, storageKey);
+            updateUserInternal({ ...quickUser, streak: quickUser.streak + 1, lastActiveDate: today }, storageKey);
+          } else {
+            updateUserInternal({ ...quickUser, streak: 1, lastActiveDate: today }, storageKey);
           }
         }
+      }
+    } else {
+      // Not signed in — unblock immediately
+      setUser(null);
+      setIsOnboarded(false);
+      setIsLoading(false);
+    }
+  }, [isClerkLoaded, isSignedIn, clerkUser, getStorageKey, updateUserInternal]);
+
+  // SLOW PATH: Merge Convex data when it arrives (role, status, premium, etc.)
+  useEffect(() => {
+    if (!isClerkLoaded || !isSignedIn || !clerkUser) return;
+    if (convexUser === undefined) return; // Still loading from Convex
+    if (hasConvexMerged.current) return; // Already merged
+    hasConvexMerged.current = true;
+
+    const storageKey = getStorageKey(clerkUser.id);
+    const savedUser = localStorage.getItem(storageKey);
+    const clerkEmail = clerkUser.emailAddresses?.[0]?.emailAddress?.toLowerCase();
+    const isSuperadmin = clerkEmail === SUPERADMIN_EMAIL.toLowerCase();
+
+    if (savedUser) {
+      if (convexUser === null) {
+        console.log("localStorage has stale user data but DB record is gone. Clearing...");
+        localStorage.removeItem(storageKey);
+        setUser(null);
+        setIsOnboarded(false);
         setIsLoading(false);
-      } else {
-        if (convexUser === undefined) return;
+        return;
+      }
 
-        if (convexUser) {
-          console.log("Restoring user session from Convex DB...");
-          let restoredUser: UserProfile = {
-            ...defaultUser,
-            id: clerkUser.id,
-            clerkId: clerkUser.id,
-            email: convexUser.email || clerkEmail,
-            name: convexUser.name || clerkUser.firstName || "User",
-            age: convexUser.age || 0,
-            birthDay: convexUser.birthDay || "",
-            birthMonth: convexUser.birthMonth || "",
-            birthYear: convexUser.birthYear || "",
-            gender: (convexUser.gender as "male" | "female") || "male",
-            lookingFor: (convexUser.lookingFor as "male" | "female") || "female",
-            location: convexUser.location || "",
-            bio: convexUser.bio || "",
-            values: convexUser.values || [],
-            loveLanguage: convexUser.loveLanguage || "",
-            interests: convexUser.interests || [],
-            communicationStyle: (convexUser.communicationStyle as any) || "Empathetic",
-            avatar: convexUser.avatar || "",
-            badges: [], 
-            streak: 0, 
-            lastActiveDate: new Date().toDateString(),
-            matches: [], 
-            unreadMatches: convexUser.unreadMatches || [],
-            likes: [], 
-            messageRequests: [], 
-            sentMessageRequests: [],
-            seenMessageRequests: convexUser.seenMessageRequests || [],
-            status: (convexUser.status as any) || "active",
-            role: (convexUser.role as any) || (isSuperadmin ? 'superadmin' : 'user'),
-            isPremium: (convexUser as any).isPremium || false,
-          };
+      const parsed = JSON.parse(savedUser);
+      let mergedUser = {
+        ...parsed,
+        email: clerkEmail || parsed.email,
+        role: convexUser.role || parsed.role,
+        status: convexUser.status || parsed.status,
+        isPremium: (convexUser as any)?.isPremium || false,
+        unreadMatches: (convexUser.unreadMatches !== undefined ? convexUser.unreadMatches : (parsed.unreadMatches || [])).filter((id: string) => parsed.matches?.includes(id)),
+        seenMessageRequests: convexUser.seenMessageRequests !== undefined ? convexUser.seenMessageRequests : (parsed.seenMessageRequests || []),
+      };
 
-          if (isSuperadmin) {
-            restoredUser = {
-              ...restoredUser,
-              name: "Xəyal Nəcəfsoy",
-              age: 21,
-              birthDay: "28",
-              birthMonth: "5",
-              birthYear: "2004",
-              gender: "male",
-              lookingFor: "female",
-              location: "Xankəndi",
-              bio: "Danyeri platformasının qurucusu",
-              avatar: clerkUser.imageUrl || getAvatarByGender("male"),
-              role: "superadmin",
-              status: "active",
-            };
-          }
+      if (isSuperadmin) {
+        mergedUser = {
+          ...mergedUser,
+          name: "Xəyal Nəcəfsoy",
+          age: 21,
+          birthDay: "28",
+          birthMonth: "5",
+          birthYear: "2004",
+          gender: "male",
+          lookingFor: "female",
+          location: "Xankəndi",
+          bio: "Danyeri platformasının qurucusu",
+          avatar: clerkUser.imageUrl || getAvatarByGender("male"),
+          role: "superadmin",
+          status: "active",
+        };
 
-          updateUserInternal(restoredUser, storageKey);
-          setIsOnboarded(true);
-        } else if (isSuperadmin) {
-          // Auto-register superadmin without onboarding
-          console.log("Auto-registering superadmin user...");
-          const superadminProfile: UserProfile = {
-            ...defaultUser,
-            id: clerkUser.id,
-            clerkId: clerkUser.id,
-            email: clerkEmail,
+        // Background sync to Convex for superadmin hardcodes if they drifted
+        createOrUpdateUserMutation({
+          clerkId: mergedUser.id,
+          name: mergedUser.name,
+          email: mergedUser.email,
+          gender: mergedUser.gender,
+          age: mergedUser.age,
+          birthDay: mergedUser.birthDay,
+          birthMonth: mergedUser.birthMonth,
+          birthYear: mergedUser.birthYear,
+          location: mergedUser.location,
+          bio: mergedUser.bio,
+          values: mergedUser.values,
+          loveLanguage: mergedUser.loveLanguage,
+          interests: mergedUser.interests,
+          communicationStyle: mergedUser.communicationStyle,
+          avatar: mergedUser.avatar,
+          lookingFor: mergedUser.lookingFor,
+        }).catch(() => {});
+      }
+
+      // Silently update user with fresh Convex data (no loading flash)
+      updateUserInternal(mergedUser, storageKey);
+      setIsOnboarded(true);
+      setIsLoading(false);
+    } else {
+      // No localStorage — fully depends on Convex
+      if (convexUser) {
+        console.log("Restoring user session from Convex DB...");
+        let restoredUser: UserProfile = {
+          ...defaultUser,
+          id: clerkUser.id,
+          clerkId: clerkUser.id,
+          email: convexUser.email || clerkEmail,
+          name: convexUser.name || clerkUser.firstName || "User",
+          age: convexUser.age || 0,
+          birthDay: convexUser.birthDay || "",
+          birthMonth: convexUser.birthMonth || "",
+          birthYear: convexUser.birthYear || "",
+          gender: (convexUser.gender as "male" | "female") || "male",
+          lookingFor: (convexUser.lookingFor as "male" | "female") || "female",
+          location: convexUser.location || "",
+          bio: convexUser.bio || "",
+          values: convexUser.values || [],
+          loveLanguage: convexUser.loveLanguage || "",
+          interests: convexUser.interests || [],
+          communicationStyle: (convexUser.communicationStyle as any) || "Empathetic",
+          avatar: convexUser.avatar || clerkUser.imageUrl || "",
+          badges: [], 
+          streak: 0, 
+          lastActiveDate: new Date().toDateString(),
+          matches: [], 
+          unreadMatches: convexUser.unreadMatches || [],
+          likes: [], 
+          messageRequests: [], 
+          sentMessageRequests: [],
+          seenMessageRequests: convexUser.seenMessageRequests || [],
+          status: (convexUser.status as any) || "active",
+          role: (convexUser.role as any) || (isSuperadmin ? 'superadmin' : 'user'),
+          isPremium: (convexUser as any).isPremium || false,
+        };
+
+        if (isSuperadmin) {
+          restoredUser = {
+            ...restoredUser,
             name: "Xəyal Nəcəfsoy",
             age: 21,
             birthDay: "28",
@@ -405,51 +452,103 @@ export function UserProvider({ children }: { children: ReactNode }) {
             lookingFor: "female",
             location: "Xankəndi",
             bio: "Danyeri platformasının qurucusu",
-            values: ["Ehrlichkeit", "Empathie", "Humor"],
-            loveLanguage: "Quality Time",
-            interests: ["Tech", "Music", "Travel"],
-            communicationStyle: "Direct",
             avatar: clerkUser.imageUrl || getAvatarByGender("male"),
             role: "superadmin",
             status: "active",
-            lastActiveDate: new Date().toDateString(),
           };
-          
-          // Create the user in Convex DB
-          createOrUpdateUserMutation({
-            clerkId: clerkUser.id,
-            name: superadminProfile.name,
-            email: superadminProfile.email,
-            gender: superadminProfile.gender,
-            age: superadminProfile.age,
-            birthDay: superadminProfile.birthDay,
-            birthMonth: superadminProfile.birthMonth,
-            birthYear: superadminProfile.birthYear,
-            location: superadminProfile.location,
-            bio: superadminProfile.bio,
-            values: superadminProfile.values,
-            loveLanguage: superadminProfile.loveLanguage,
-            interests: superadminProfile.interests,
-            communicationStyle: superadminProfile.communicationStyle,
-            avatar: superadminProfile.avatar,
-            lookingFor: superadminProfile.lookingFor,
-          }).catch((err) => console.error("Failed to auto-register superadmin:", err));
-          
-          updateUserInternal(superadminProfile, storageKey);
-          setIsOnboarded(true);
-        } else {
-          setUser(null);
-          setIsOnboarded(false);
         }
-        setIsLoading(false);
+
+        updateUserInternal(restoredUser, storageKey);
+        setIsOnboarded(true);
+      } else if (isSuperadmin) {
+        // Auto-register superadmin without onboarding
+        console.log("Auto-registering superadmin user...");
+        const superadminProfile: UserProfile = {
+          ...defaultUser,
+          id: clerkUser.id,
+          clerkId: clerkUser.id,
+          email: clerkEmail,
+          name: "Xəyal Nəcəfsoy",
+          age: 21,
+          birthDay: "28",
+          birthMonth: "5",
+          birthYear: "2004",
+          gender: "male",
+          lookingFor: "female",
+          location: "Xankəndi",
+          bio: "Danyeri platformasının qurucusu",
+          values: ["Ehrlichkeit", "Empathie", "Humor"],
+          loveLanguage: "Quality Time",
+          interests: ["Tech", "Music", "Travel"],
+          communicationStyle: "Direct",
+          avatar: clerkUser.imageUrl || getAvatarByGender("male"),
+          role: "superadmin",
+          status: "active",
+          lastActiveDate: new Date().toDateString(),
+        };
+        
+        // Create the user in Convex DB
+        createOrUpdateUserMutation({
+          clerkId: clerkUser.id,
+          name: superadminProfile.name,
+          email: superadminProfile.email,
+          gender: superadminProfile.gender,
+          age: superadminProfile.age,
+          birthDay: superadminProfile.birthDay,
+          birthMonth: superadminProfile.birthMonth,
+          birthYear: superadminProfile.birthYear,
+          location: superadminProfile.location,
+          bio: superadminProfile.bio,
+          values: superadminProfile.values,
+          loveLanguage: superadminProfile.loveLanguage,
+          interests: superadminProfile.interests,
+          communicationStyle: superadminProfile.communicationStyle,
+          avatar: superadminProfile.avatar,
+          lookingFor: superadminProfile.lookingFor,
+        }).catch((err) => console.error("Failed to auto-register superadmin:", err));
+        
+        updateUserInternal(superadminProfile, storageKey);
+        setIsOnboarded(true);
+      } else {
+        setUser(null);
+        setIsOnboarded(false);
       }
-    } else {
-      // Not signed in
-      setUser(null);
-      setIsOnboarded(false);
       setIsLoading(false);
     }
-  }, [isClerkLoaded, isSignedIn, clerkUser, getStorageKey, convexUser]);
+  }, [isClerkLoaded, isSignedIn, clerkUser, getStorageKey, convexUser, updateUserInternal, createOrUpdateUserMutation]);
+
+  // If avatar is missing in DB/local state, hydrate from Clerk profile image.
+  useEffect(() => {
+    if (!isSignedIn || !clerkUser || !user) return;
+    if ((user.avatar || "").trim().length > 0) return;
+    if (!clerkUser.imageUrl) return;
+
+    const hydratedUser = {
+      ...user,
+      avatar: clerkUser.imageUrl,
+    };
+    const storageKey = getStorageKey(clerkUser.id);
+    updateUserInternal(hydratedUser, storageKey);
+
+    createOrUpdateUserMutation({
+      clerkId: clerkUser.id,
+      name: hydratedUser.name || clerkUser.firstName || clerkUser.username || "User",
+      avatar: clerkUser.imageUrl,
+    }).catch(() => {});
+  }, [
+    clerkUser,
+    createOrUpdateUserMutation,
+    getStorageKey,
+    isSignedIn,
+    updateUserInternal,
+    user,
+  ]);
+
+  // Reset merge flag when clerk user changes (e.g. sign-out then sign-in as different user)
+  useEffect(() => {
+    hasLoadedFromLocalStorage.current = false;
+    hasConvexMerged.current = false;
+  }, [clerkUser?.id]);
 
   // Route Protection for Waitlisted Users
   const pathname = usePathname();
@@ -471,22 +570,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }, [user, pathname, isLoading, isOnboarded, router]);
 
-  const updateUserInternal = useCallback((newUser: UserProfile | null, storageKey: string) => {
-    setUser(newUser);
-    if (newUser) {
-      localStorage.setItem(storageKey, JSON.stringify(newUser));
-      setIsOnboarded(true);
-    } else {
-      localStorage.removeItem(storageKey);
-      setIsOnboarded(false);
-    }
-  }, []);
-
-  const updateUser = useCallback((newUser: UserProfile | null) => {
-    if (!clerkUser) return;
-    const storageKey = getStorageKey(clerkUser.id);
-    updateUserInternal(newUser, storageKey);
-  }, [clerkUser, getStorageKey, updateUserInternal]);
 
   const completeOnboarding = useCallback(async (profile: Partial<UserProfile>) => {
     if (!clerkUser) return;

@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 // SUPERADMIN email - hardcoded for security
 // Only this email has full platform control
@@ -69,6 +70,268 @@ async function requireSuperadmin(ctx: any) {
     throw new Error("Unauthorized: Only superadmin allowed");
   }
   return requester;
+}
+
+function assertTargetCanBeDeleted(targetUser: any, requesterClerkId: string) {
+  const targetEmail = String(targetUser?.email || "").toLowerCase();
+  const targetRole = String(targetUser?.role || "").toLowerCase();
+  const targetClerkId = String(targetUser?.clerkId || "");
+
+  if (targetEmail === SUPERADMIN_EMAIL.toLowerCase() || targetRole === "superadmin") {
+    throw new Error("Founder/Superadmin account cannot be deleted");
+  }
+
+  if (targetClerkId && targetClerkId === requesterClerkId) {
+    throw new Error("You cannot delete your own account from admin panel");
+  }
+
+  return { targetClerkId };
+}
+
+function buildPrivateChannelId(userAId: string, userBId: string) {
+  const sorted = [userAId, userBId].sort();
+  return `match-${sorted[0]}-${sorted[1]}`;
+}
+
+function channelBelongsToUser(channelId: string | undefined, clerkId: string) {
+  if (!channelId || !clerkId || !channelId.startsWith("match-")) return false;
+  const privatePart = channelId.slice("match-".length);
+  return privatePart.startsWith(`${clerkId}-`) || privatePart.endsWith(`-${clerkId}`);
+}
+
+function dedupeDocsById<T extends { _id: any }>(docs: T[]) {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const doc of docs) {
+    const key = String(doc._id);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(doc);
+  }
+  return unique;
+}
+
+async function deleteUserAppData(ctx: any, targetUser: any) {
+  const targetClerkId = String(targetUser?.clerkId || "");
+  const hasClerkId = targetClerkId.length > 0;
+
+  const [
+    matchesAsUser1,
+    matchesAsUser2,
+    likesGiven,
+    likesReceived,
+    presenceRows,
+    subscriptions,
+    stories,
+    reportsByReporter,
+    reportsByReported,
+    allNotifications,
+    allMessages,
+    allUsers,
+    allReports,
+  ] = await Promise.all([
+    hasClerkId
+      ? ctx.db.query("matches").withIndex("by_user1", (q: any) => q.eq("user1Id", targetClerkId)).collect()
+      : Promise.resolve([]),
+    hasClerkId
+      ? ctx.db.query("matches").withIndex("by_user2", (q: any) => q.eq("user2Id", targetClerkId)).collect()
+      : Promise.resolve([]),
+    hasClerkId
+      ? ctx.db.query("likes").withIndex("by_liker", (q: any) => q.eq("likerId", targetClerkId)).collect()
+      : Promise.resolve([]),
+    hasClerkId
+      ? ctx.db.query("likes").withIndex("by_liked", (q: any) => q.eq("likedId", targetClerkId)).collect()
+      : Promise.resolve([]),
+    hasClerkId
+      ? ctx.db.query("presence").withIndex("by_user", (q: any) => q.eq("userId", targetClerkId)).collect()
+      : Promise.resolve([]),
+    hasClerkId
+      ? ctx.db.query("subscriptions").withIndex("by_user", (q: any) => q.eq("userId", targetClerkId)).collect()
+      : Promise.resolve([]),
+    hasClerkId
+      ? ctx.db.query("stories").withIndex("by_user", (q: any) => q.eq("userId", targetClerkId)).collect()
+      : Promise.resolve([]),
+    hasClerkId
+      ? ctx.db.query("reports").withIndex("by_reporter", (q: any) => q.eq("reporterId", targetClerkId)).collect()
+      : Promise.resolve([]),
+    hasClerkId
+      ? ctx.db.query("reports").withIndex("by_reported", (q: any) => q.eq("reportedId", targetClerkId)).collect()
+      : Promise.resolve([]),
+    ctx.db.query("notifications").collect(),
+    ctx.db.query("messages").collect(),
+    ctx.db.query("users").collect(),
+    ctx.db.query("reports").collect(),
+  ]);
+
+  const allMatches = dedupeDocsById([...(matchesAsUser1 as any[]), ...(matchesAsUser2 as any[])]);
+  const allLikes = dedupeDocsById([...(likesGiven as any[]), ...(likesReceived as any[])]);
+  const reportsToDelete = dedupeDocsById([
+    ...(reportsByReporter as any[]),
+    ...(reportsByReported as any[]),
+  ]);
+
+  const matchIdSet = new Set<string>(allMatches.map((m: any) => String(m._id)));
+  const reportDeleteIdSet = new Set<string>(reportsToDelete.map((r: any) => String(r._id)));
+
+  const privateChannelIds = new Set<string>();
+  for (const match of allMatches) {
+    if (match?.user1Id && match?.user2Id) {
+      privateChannelIds.add(buildPrivateChannelId(match.user1Id, match.user2Id));
+    }
+  }
+
+  const messagesToDelete = dedupeDocsById(
+    (allMessages as any[]).filter((message: any) => {
+      if (hasClerkId && message.userId === targetClerkId) return true;
+
+      if (message.matchId && matchIdSet.has(String(message.matchId))) return true;
+
+      if (typeof message.channelId === "string") {
+        if (privateChannelIds.has(message.channelId)) return true;
+        if (hasClerkId && channelBelongsToUser(message.channelId, targetClerkId)) return true;
+      }
+
+      return false;
+    })
+  );
+
+  const notificationsToDelete = hasClerkId
+    ? dedupeDocsById(
+        (allNotifications as any[]).filter((notification: any) => {
+          const data =
+            notification?.data && typeof notification.data === "object"
+              ? notification.data
+              : null;
+          return (
+            notification.userId === targetClerkId ||
+            data?.partnerId === targetClerkId ||
+            data?.senderId === targetClerkId
+          );
+        })
+      )
+    : [];
+
+  let userReferencePatches = 0;
+  if (hasClerkId) {
+    for (const existingUser of allUsers as any[]) {
+      if (String(existingUser._id) === String(targetUser._id)) continue;
+
+      const blockedUsers = Array.isArray(existingUser.blockedUsers)
+        ? existingUser.blockedUsers
+        : [];
+      const unreadMatches = Array.isArray(existingUser.unreadMatches)
+        ? existingUser.unreadMatches
+        : [];
+      const seenMessageRequests = Array.isArray(existingUser.seenMessageRequests)
+        ? existingUser.seenMessageRequests
+        : [];
+
+      const nextBlockedUsers = blockedUsers.filter((id: string) => id !== targetClerkId);
+      const nextUnreadMatches = unreadMatches.filter((id: string) => id !== targetClerkId);
+      const nextSeenRequests = seenMessageRequests.filter((id: string) => id !== targetClerkId);
+
+      const patch: Record<string, any> = {};
+      if (nextBlockedUsers.length !== blockedUsers.length) {
+        patch.blockedUsers = nextBlockedUsers;
+      }
+      if (nextUnreadMatches.length !== unreadMatches.length) {
+        patch.unreadMatches = nextUnreadMatches;
+      }
+      if (nextSeenRequests.length !== seenMessageRequests.length) {
+        patch.seenMessageRequests = nextSeenRequests;
+      }
+
+      if (Object.keys(patch).length > 0) {
+        await ctx.db.patch(existingUser._id, patch);
+        userReferencePatches += 1;
+      }
+    }
+  }
+
+  let reportReferencePatches = 0;
+  if (hasClerkId) {
+    for (const report of allReports as any[]) {
+      if (reportDeleteIdSet.has(String(report._id))) continue;
+      if (report.reviewedBy !== targetClerkId) continue;
+      await ctx.db.patch(report._id, {
+        reviewedBy: undefined,
+        reviewedAt: undefined,
+      });
+      reportReferencePatches += 1;
+    }
+  }
+
+  let deletedStorageFiles = 0;
+  for (const story of stories as any[]) {
+    if (!story.storageId) continue;
+    try {
+      await ctx.storage.delete(story.storageId);
+      deletedStorageFiles += 1;
+    } catch {
+      // Ignore invalid/expired storage IDs and continue cleanup.
+    }
+  }
+
+  for (const message of messagesToDelete) {
+    if (message.format === "image" && message.body) {
+      try {
+        await ctx.storage.delete(message.body as any);
+        deletedStorageFiles += 1;
+      } catch {
+        // Body may not always be a storage ID; skip in that case.
+      }
+    }
+  }
+
+  for (const row of notificationsToDelete) {
+    await ctx.db.delete(row._id);
+  }
+  for (const row of allLikes) {
+    await ctx.db.delete(row._id);
+  }
+  for (const row of messagesToDelete) {
+    await ctx.db.delete(row._id);
+  }
+  for (const row of allMatches) {
+    await ctx.db.delete(row._id);
+  }
+  for (const row of reportsToDelete) {
+    await ctx.db.delete(row._id);
+  }
+  for (const row of stories as any[]) {
+    await ctx.db.delete(row._id);
+  }
+  for (const row of subscriptions as any[]) {
+    await ctx.db.delete(row._id);
+  }
+  for (const row of presenceRows as any[]) {
+    await ctx.db.delete(row._id);
+  }
+
+  await ctx.db.delete(targetUser._id);
+
+  return {
+    target: {
+      _id: targetUser._id,
+      clerkId: hasClerkId ? targetClerkId : null,
+      name: targetUser.name || null,
+      email: targetUser.email || null,
+    },
+    deleted: {
+      user: 1,
+      matches: allMatches.length,
+      likes: allLikes.length,
+      messages: messagesToDelete.length,
+      notifications: notificationsToDelete.length,
+      reports: reportsToDelete.length,
+      stories: (stories as any[]).length,
+      subscriptions: (subscriptions as any[]).length,
+      presence: (presenceRows as any[]).length,
+      userReferencesPatched: userReferencePatches,
+      reportReferencesPatched: reportReferencePatches,
+      storageFiles: deletedStorageFiles,
+    },
+  };
 }
 
 /**
@@ -245,6 +508,171 @@ export const banUser = mutation({
     
     await ctx.db.patch(args.targetUserId, { status: "banned" });
     return { success: true, message: `User banned. Reason: ${args.reason || "No reason provided"}` };
+  },
+});
+
+/**
+ * Permanently delete a user and related app data (superadmin only)
+ */
+export const deleteUserPermanently = mutation({
+  args: {
+    adminEmail: v.string(),
+    targetUserId: v.id("users"),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const requester = await requireSuperadmin(ctx);
+
+    const targetUser = await ctx.db.get(args.targetUserId);
+    if (!targetUser) {
+      throw new Error("User not found");
+    }
+
+    const { targetClerkId } = assertTargetCanBeDeleted(targetUser, requester.identity.subject);
+
+    const result = await deleteUserAppData(ctx, targetUser);
+
+    console.log("[admin] User permanently deleted", {
+      by: requester.identity.subject,
+      targetUserId: String(args.targetUserId),
+      targetClerkId: targetClerkId || null,
+      reason: args.reason || "No reason provided",
+      deleted: result.deleted,
+    });
+
+    return {
+      success: true,
+      message: "User and related app data were permanently deleted",
+      ...result,
+    };
+  },
+});
+
+export const getHardDeleteContext = internalQuery({
+  args: {
+    targetUserId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const requester = await requireSuperadmin(ctx);
+
+    const targetUser = await ctx.db.get(args.targetUserId);
+    if (!targetUser) {
+      throw new Error("User not found");
+    }
+
+    const { targetClerkId } = assertTargetCanBeDeleted(targetUser, requester.identity.subject);
+
+    if (!targetClerkId) {
+      throw new Error("Target user has no Clerk account. Use app-data delete instead.");
+    }
+
+    return {
+      requesterClerkId: requester.identity.subject,
+      requesterEmail: requester.identity.email || requester.identity.claims?.email || null,
+      targetUserId: targetUser._id,
+      targetClerkId,
+      targetName: targetUser.name || null,
+      targetEmail: targetUser.email || null,
+    };
+  },
+});
+
+export const deleteUserAppDataInternal = internalMutation({
+  args: {
+    targetUserId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const targetUser = await ctx.db.get(args.targetUserId);
+    if (!targetUser) {
+      return {
+        target: {
+          _id: args.targetUserId,
+          clerkId: null,
+          name: null,
+          email: null,
+        },
+        deleted: {
+          user: 0,
+          matches: 0,
+          likes: 0,
+          messages: 0,
+          notifications: 0,
+          reports: 0,
+          stories: 0,
+          subscriptions: 0,
+          presence: 0,
+          userReferencesPatched: 0,
+          reportReferencesPatched: 0,
+          storageFiles: 0,
+        },
+      };
+    }
+
+    return await deleteUserAppData(ctx, targetUser);
+  },
+});
+
+/**
+ * Hard delete user: remove Clerk account + all app data (superadmin only)
+ */
+export const hardDeleteUserWithClerk: ReturnType<typeof action> = action({
+  args: {
+    adminEmail: v.string(),
+    targetUserId: v.id("users"),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx: any, args: any): Promise<any> => {
+    const context: any = await ctx.runQuery((internal as any).admin.getHardDeleteContext, {
+      targetUserId: args.targetUserId,
+    });
+
+    const clerkSecretKey = process.env.CLERK_SECRET_KEY;
+    if (!clerkSecretKey) {
+      throw new Error("Missing CLERK_SECRET_KEY in Convex environment.");
+    }
+
+    const clerkDeleteResponse: Response = await fetch(
+      `https://api.clerk.com/v1/users/${encodeURIComponent(context.targetClerkId)}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${clerkSecretKey}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const clerkAlreadyMissing: boolean = clerkDeleteResponse.status === 404;
+    if (!clerkDeleteResponse.ok && !clerkAlreadyMissing) {
+      const errorBody = await clerkDeleteResponse.text();
+      throw new Error(
+        `Clerk deletion failed (${clerkDeleteResponse.status}): ${errorBody || "Unknown error"}`
+      );
+    }
+
+    const appDeletion: any = await ctx.runMutation((internal as any).admin.deleteUserAppDataInternal, {
+      targetUserId: args.targetUserId,
+    });
+
+    console.log("[admin] Hard delete completed", {
+      by: context.requesterClerkId,
+      byEmail: context.requesterEmail || args.adminEmail || null,
+      targetUserId: String(args.targetUserId),
+      targetClerkId: context.targetClerkId,
+      reason: args.reason || "No reason provided",
+      clerkAlreadyMissing,
+      deleted: appDeletion.deleted,
+    });
+
+    return {
+      success: true,
+      message: clerkAlreadyMissing
+        ? "Clerk account was already missing; app data was deleted"
+        : "Clerk account and app data were permanently deleted",
+      clerkDeleted: !clerkAlreadyMissing,
+      clerkAlreadyMissing,
+      ...appDeletion,
+    };
   },
 });
 

@@ -32,17 +32,29 @@ export default function HomePage() {
     setIsClient(true);
   }, []);
 
-  // Always render WelcomeScreen during SSR and initial client render to match server HTML
+  // Render a neutral loading state during SSR/initial hydration to avoid
+  // flashing the signed-out welcome UI for authenticated users.
   if (!isClient) {
-    return <WelcomeScreen />;
+    return <InitialHomeLoadingScreen />;
   }
 
-  // After hydration, we can safely use client-only auth state
+  // After hydration, wait for Clerk auth to be ready before branching UI.
   if (!isAuthLoaded) {
-    return <WelcomeScreen />;
+    return <InitialHomeLoadingScreen />;
   }
 
   return isSignedIn ? <DashboardContent /> : <WelcomeScreen />;
+}
+
+function InitialHomeLoadingScreen() {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="animate-pulse flex flex-col items-center gap-4">
+        <div className="w-16 h-16 rounded-full bg-muted"></div>
+        <div className="h-4 w-32 bg-muted rounded"></div>
+      </div>
+    </div>
+  );
 }
 
 function DashboardContent() {

@@ -22,7 +22,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const { user, isOnboarded, isAuthenticated, isLoading } = useUser();
   const { language } = useLanguage();
   const [isCollapsed, setIsCollapsed] = useState(true); // Default collapsed
-  const notificationsCount = useQuery(api.notifications.getUnreadCount) || 0;
+  const notificationsCount = useQuery(api.notifications.getUnreadCount, isAuthenticated ? undefined : "skip") || 0;
   
   // System Alerts
   const activeAlert = useQuery(api.systemAlerts.getActiveAlert);
