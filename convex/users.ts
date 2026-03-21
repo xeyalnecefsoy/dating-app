@@ -350,7 +350,7 @@ export const logSwipe = mutation({
 
     const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
     const isPremium = user.isPremium === true || user.role === "superadmin";
-    const MAX_SWIPES = isPremium ? 999999 : 15;
+    const MAX_SWIPES = isPremium ? 999999 : 10;
 
     let currentCount = user.dailySwipeCount || 0;
     
@@ -392,7 +392,7 @@ export const getSwipeStatus = query({
 
     const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
     const isPremium = user.isPremium === true || user.role === "superadmin";
-    const MAX_SWIPES = isPremium ? 999999 : 15;
+    const MAX_SWIPES = isPremium ? 999999 : 10;
     
     let currentCount = user.dailySwipeCount || 0;
     
@@ -429,10 +429,9 @@ export const getActiveUsers = query({
       .withIndex("by_status", (q) => q.eq("status", "active"))
       .take(200);
 
-    // Get current user's blocked list + already-liked list
+    // Get current user's blocked list
     let currentUserDoc: any = null;
     let myBlockedUsers: string[] = [];
-    let myLikedUsers: Set<string> = new Set();
     if (args.currentUserId) {
       const currentUser = await ctx.db
         .query("users")
@@ -440,13 +439,6 @@ export const getActiveUsers = query({
         .first();
       currentUserDoc = currentUser;
       myBlockedUsers = currentUser?.blockedUsers || [];
-
-      // Fetch already-liked users to exclude server-side
-      const myLikes = await ctx.db
-        .query("likes")
-        .withIndex("by_liker", q => q.eq("likerId", args.currentUserId!))
-        .collect();
-      myLikedUsers = new Set(myLikes.map(l => l.likedId));
     }
 
     const excludeSet = new Set(args.excludeIds || []);
@@ -457,10 +449,8 @@ export const getActiveUsers = query({
       // Basic filters
       if (u.gender !== targetGender) return false;
       if (u.clerkId === args.currentUserId) return false;
-      // Exclude already-seen users
+      // Exclude explicitly provided IDs (pagination / client logic)
       if (u.clerkId && excludeSet.has(u.clerkId)) return false;
-      // Exclude already-liked users (server-side)
-      if (u.clerkId && myLikedUsers.has(u.clerkId)) return false;
       // Privacy: skip users who hid their profile
       if (u.hideProfile === true) return false;
       // Privacy: skip users I blocked

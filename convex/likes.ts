@@ -137,6 +137,22 @@ export const like = mutation({
   },
 });
 
+// Get all user IDs that the current user has liked (for search grid heart state)
+export const getLikedUserIds = query({
+  args: {
+    userId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity || identity.subject !== args.userId) return [];
+    const likes = await ctx.db
+      .query("likes")
+      .withIndex("by_liker", (q) => q.eq("likerId", args.userId))
+      .collect();
+    return likes.map((l) => l.likedId);
+  },
+});
+
 // Check if user A liked user B
 export const hasLiked = query({
   args: {

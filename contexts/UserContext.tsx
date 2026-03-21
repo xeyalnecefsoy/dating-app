@@ -37,6 +37,7 @@ export type UserProfile = {
   messageRequests: string[]; // Incoming message requests from other users
   sentMessageRequests: string[]; // Sent message requests to other users
   seenMessageRequests: string[]; // Track seen message requests
+  generalLastSeenAt?: number;
   status?: "active" | "waitlist" | "banned"; // Waitlist status
   role?: "user" | "moderator" | "admin" | "superadmin"; // Admin role
   isPremium?: boolean;
@@ -91,6 +92,7 @@ const defaultUser: UserProfile = {
   sentMessageRequests: [],
   seenMessageRequests: [],
   status: "active",
+  generalLastSeenAt: 0,
 };
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -117,7 +119,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const declineRequestMutation = useMutation(api.matches.declineRequest);
   const createOrUpdateUserMutation = useMutation(api.users.createOrUpdateUser);
   const pingPresence = useMutation(api.presence.ping);
-  
+  const setOfflinePresence = useMutation(api.presence.setOffline);
+
   // Query to get user from Convex DB
   const convexUser = useQuery(
     api.users.getUser, 
@@ -130,16 +133,29 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const convexMatches = useQuery(api.matches.list, user ? { userId: user.id } : "skip");
   const convexRequests = useQuery(api.matches.getRequests, user ? { userId: user.id } : "skip");
 
-  // Presence heartbeat — ping every 60 seconds to mark user as online
+  // Presence: heartbeat hər 12 saniyədə bir (online pəncərə 25 saniyə sayılır)
   useEffect(() => {
     if (!isAuthenticated || !user?.id) return;
-    // Initial ping
     pingPresence({ userId: user.id }).catch(() => {});
     const interval = setInterval(() => {
       pingPresence({ userId: user.id }).catch(() => {});
-    }, 60_000);
+    }, 12_000);
     return () => clearInterval(interval);
   }, [isAuthenticated, user?.id, pingPresence]);
+
+  // Brauzer/pəncərə bağlananda dərhal offline göstər (yaşıl nöqtə getsin)
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) return;
+    const handleOffline = () => {
+      setOfflinePresence().catch(() => {});
+    };
+    window.addEventListener("beforeunload", handleOffline);
+    window.addEventListener("pagehide", handleOffline);
+    return () => {
+      window.removeEventListener("beforeunload", handleOffline);
+      window.removeEventListener("pagehide", handleOffline);
+    };
+  }, [isAuthenticated, user?.id, setOfflinePresence]);
 
   // Badge check — run once when user is authenticated
   const checkBadges = useMutation(api.badges.checkAndAwardBadges);
@@ -176,80 +192,40 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const hasInitializedMatches = useRef(false);
 
-  // Sync Convex matches with local matches
+  // Convex = source of truth for matches: siyahı həmişə Convex ilə uyğunlaşır (Dashboard-dan siləndə yenidən yaranmır)
   useEffect(() => {
-    if (user && convexMatches !== undefined && convexRequests !== undefined) {
-        
-        // If this is the very first sync cycle, and the user's local matches are empty
-        // but convex matches exist, it means we loaded from Convex DB on a fresh browser.
-        // We smoothly adopt the convex matches WITHOUT triggering "new match" badges.
-        if (!hasInitializedMatches.current && user.matches.length === 0 && (convexMatches.length > 0 || convexRequests.length > 0)) {
-            hasInitializedMatches.current = true;
-            updateUser({
-                ...user,
-                matches: convexMatches.map(id => String(id)),
-                messageRequests: convexRequests.map(id => String(id))
-            });
-            return;
-        }
+    if (!user || convexMatches === undefined || convexRequests === undefined) return;
 
-        hasInitializedMatches.current = true;
+    const remoteMatchIds = convexMatches.map((id) => String(id));
+    const remoteRequestIds = convexRequests.map((id) => String(id));
+    const localMatchIds = user.matches.map((id) => String(id));
+    const localRequestIds = (user.messageRequests || []).map((id) => String(id));
 
-        const remoteIds = convexMatches.map(id => String(id));
-        const localIds = user.matches.map(id => String(id));
-        const newMatches = remoteIds.filter(id => !localIds.includes(id));
-        
-        const remoteRequests = convexRequests.map(id => String(id));
-        const localRequests = user.messageRequests || [];
-        const newRequests = remoteRequests.filter(id => !localRequests.includes(id));
-        
-        if (newMatches.length > 0 || newRequests.length > 0) {
-             console.log("Convex Sync:", { newMatches, newRequests });
-             
-             // If we found new matches here, they are genuine, append them to DB unread array
-             const finalUnreadMatches = [...(user.unreadMatches || []), ...newMatches];
-             
-             updateUser({
-                ...user,
-                matches: [...user.matches, ...newMatches],
-                unreadMatches: finalUnreadMatches,
-                messageRequests: [...localRequests, ...newRequests]
-            });
+    const matchesEqual =
+      remoteMatchIds.length === localMatchIds.length &&
+      remoteMatchIds.every((id, i) => id === localMatchIds[i]);
+    const requestsEqual =
+      remoteRequestIds.length === localRequestIds.length &&
+      remoteRequestIds.every((id, i) => id === localRequestIds[i]);
 
-            // Attempt to update unread matches in DB immediately to prevent refresh loss
-            if (newMatches.length > 0 && clerkUser) {
-                // Background update
-                createOrUpdateUserMutation({
-                     clerkId: clerkUser.id,
-                     name: user.name,
-                     // We don't want to overwrite all fields, let's just use a dedicated mutation or patch
-                     // Actually, we don't have a patch just for unreadMatches. I will leave it to the next sync
-                }).catch(() => {});
-            }
-        }
-    }
-  }, [convexMatches, convexRequests, user, clerkUser, createOrUpdateUserMutation]);
+    if (matchesEqual && requestsEqual) return;
 
-  // Sync Local -> Convex (One way sync for legacy/local-first matches)
-  const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
+    hasInitializedMatches.current = true;
 
-  // Sync Local -> Convex (One way sync for legacy/local-first matches)
-  useEffect(() => {
-    if (user && convexMatches !== undefined && isConvexAuthenticated) {
-      const remoteIds = convexMatches.map(id => String(id));
-      const localIds = user.matches.map(id => String(id));
-      
-      // Find matches that are in Local but NOT in Convex
-      const missingInRemote = localIds.filter(id => !remoteIds.includes(id));
-      
-      if (missingInRemote.length > 0) {
-        console.log("Pushing local matches to Convex:", missingInRemote);
-        missingInRemote.forEach(id => {
-           createMatchMutation({ user1Id: user.id, user2Id: id });
-        });
-      }
-    }
-  }, [user, convexMatches, createMatchMutation]);
+    const newMatchIds = remoteMatchIds.filter((id) => !localMatchIds.includes(id));
+    const unreadStillValid = (user.unreadMatches || []).filter((id) => remoteMatchIds.includes(id));
+    const unreadMatches = [...unreadStillValid, ...newMatchIds];
+
+    updateUser({
+      ...user,
+      matches: remoteMatchIds,
+      messageRequests: remoteRequestIds,
+      unreadMatches,
+    });
+  }, [convexMatches, convexRequests, user]);
+
+  // Local -> Convex push SÖNDÜRÜLDÜ: Dashboard-dan uyğunluq siləndə lokal köhnə siyahı Convex-a yenidən yazılmır
+  // (Uyğunluqlar normal flow-da createMatchMutation ilə yaranır; Convex artıq tək mənbədir.)
 
   const updateUserInternal = useCallback((newUser: UserProfile | null, storageKey: string) => {
     setUser(newUser);
@@ -351,14 +327,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
 
       const parsed = JSON.parse(savedUser);
+      // matches və messageRequests həmişə Convex-dan gəlir; localStorage-dakı köhnə siyahı merge-da istifadə edilmir (superadmin daxil)
       let mergedUser = {
         ...parsed,
         email: clerkEmail || parsed.email,
         role: convexUser.role || parsed.role,
         status: convexUser.status || parsed.status,
         isPremium: (convexUser as any)?.isPremium || false,
-        unreadMatches: (convexUser.unreadMatches !== undefined ? convexUser.unreadMatches : (parsed.unreadMatches || [])).filter((id: string) => parsed.matches?.includes(id)),
+        matches: [], // Sync effect Convex-dan dolduracaq
+        messageRequests: [], // Sync effect Convex-dan dolduracaq
+        unreadMatches: [], // sync effect Convex siyahısına görə yenidən hesablayacaq
         seenMessageRequests: convexUser.seenMessageRequests !== undefined ? convexUser.seenMessageRequests : (parsed.seenMessageRequests || []),
+        generalLastSeenAt: (convexUser as any)?.generalLastSeenAt ?? parsed.generalLastSeenAt ?? 0,
+        badges: (convexUser as any)?.badges || parsed.badges || [],
       };
 
       if (isSuperadmin) {
@@ -426,7 +407,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           interests: convexUser.interests || [],
           communicationStyle: (convexUser.communicationStyle as any) || "Empathetic",
           avatar: convexUser.avatar || clerkUser.imageUrl || "",
-          badges: [], 
+          badges: (convexUser as any)?.badges || [], 
           streak: 0, 
           lastActiveDate: new Date().toDateString(),
           matches: [], 
@@ -435,6 +416,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           messageRequests: [], 
           sentMessageRequests: [],
           seenMessageRequests: convexUser.seenMessageRequests || [],
+          generalLastSeenAt: (convexUser as any).generalLastSeenAt ?? 0,
           status: (convexUser.status as any) || "active",
           role: (convexUser.role as any) || (isSuperadmin ? 'superadmin' : 'user'),
           isPremium: (convexUser as any).isPremium || false,
@@ -516,6 +498,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     }
   }, [isClerkLoaded, isSignedIn, clerkUser, getStorageKey, convexUser, updateUserInternal, createOrUpdateUserMutation]);
+
+  // Keep generalLastSeenAt in sync when Convex value changes (for Söhbətgah unread badge)
+  useEffect(() => {
+    if (!user) return;
+    if (!convexUser) return;
+    const remoteSeen = (convexUser as any).generalLastSeenAt;
+    if (typeof remoteSeen !== "number") return;
+    if (remoteSeen === user.generalLastSeenAt) return;
+    updateUser({
+      ...user,
+      generalLastSeenAt: remoteSeen,
+    });
+  }, [convexUser, user, updateUser]);
 
   // If avatar is missing in DB/local state, hydrate from Clerk profile image.
   useEffect(() => {

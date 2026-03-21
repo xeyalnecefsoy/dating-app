@@ -10,9 +10,10 @@ import {
 import { Image } from "expo-image";
 import { useAuth } from "@clerk/clerk-expo";
 import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { api } from "../../lib/api";
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { User, CheckCircle2, MessageCircle } from "../../lib/icons";
+import { Colors } from "../../lib/colors";
 
 export default function MatchesScreen() {
   const { userId } = useAuth();
@@ -47,7 +48,7 @@ export default function MatchesScreen() {
   if (!currentUser || convexMatches === undefined) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#e94057" />
+        <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
   }
@@ -73,12 +74,25 @@ export default function MatchesScreen() {
       onPress={() => router.push(`/user/${item.username || item.id}` as any)}
       activeOpacity={0.8}
     >
-      <Image source={{ uri: item.avatar }} style={styles.matchImage} contentFit="cover" />
+      {item.avatar ? (
+        <Image
+          source={{ uri: item.avatar }}
+          style={styles.matchImage}
+          contentFit="cover"
+          placeholder={{ blurhash: "L6PZfSi_.AyE_3t7t7R**0o#DgR4" }}
+          transition={200}
+          recyclingKey={item.id}
+        />
+      ) : (
+        <View style={[styles.matchImage, styles.matchImagePlaceholder]}>
+          <User size={48} color={Colors.mutedForeground} />
+        </View>
+      )}
       <View style={styles.matchGradient} />
       <View style={styles.matchInfo}>
         <View style={styles.nameRow}>
           <Text style={styles.matchName}>{item.name}, {item.age}</Text>
-          {item.isVerified && <Ionicons name="checkmark-circle" size={14} color="#20D5A0" />}
+          {item.isVerified && <CheckCircle2 size={14} color={Colors.green} />}
         </View>
         <Text style={styles.matchLocation}>📍 {item.location}</Text>
       </View>
@@ -86,7 +100,7 @@ export default function MatchesScreen() {
         style={styles.messageBtn}
         onPress={() => router.push(`/chat/${item.id}` as any)}
       >
-        <Ionicons name="chatbubble" size={16} color="#fff" />
+        <MessageCircle size={16} color={Colors.foreground} />
         <Text style={styles.messageBtnText}>Mesaj</Text>
       </TouchableOpacity>
     </TouchableOpacity>
@@ -107,8 +121,8 @@ export default function MatchesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#1a1a2e" },
-  loadingContainer: { flex: 1, backgroundColor: "#1a1a2e", justifyContent: "center", alignItems: "center" },
+  container: { flex: 1, backgroundColor: Colors.background },
+  loadingContainer: { flex: 1, backgroundColor: Colors.background, justifyContent: "center", alignItems: "center" },
   listContent: { padding: 12 },
   row: { justifyContent: "space-between", marginBottom: 12 },
   matchCard: {
@@ -116,9 +130,14 @@ const styles = StyleSheet.create({
     aspectRatio: 0.75,
     borderRadius: 20,
     overflow: "hidden",
-    backgroundColor: "#222",
+    backgroundColor: Colors.card,
   },
   matchImage: { width: "100%", height: "100%" },
+  matchImagePlaceholder: {
+    backgroundColor: Colors.surfaceDark,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   matchGradient: {
     position: "absolute",
     bottom: 0,
@@ -134,7 +153,7 @@ const styles = StyleSheet.create({
     right: 12,
   },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  matchName: { fontSize: 16, fontWeight: "800", color: "#fff" },
+  matchName: { fontSize: 16, fontWeight: "800", color: Colors.foreground },
   matchLocation: { fontSize: 11, color: "rgba(255,255,255,0.7)", marginTop: 2 },
   messageBtn: {
     position: "absolute",
@@ -151,11 +170,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.2)",
   },
-  messageBtnText: { color: "#fff", fontWeight: "600", fontSize: 13 },
-  emptyContainer: { flex: 1, justifyContent: "center", alignItems: "center", padding: 32, backgroundColor: "#1a1a2e" },
+  messageBtnText: { color: Colors.foreground, fontWeight: "600", fontSize: 13 },
+  emptyContainer: { flex: 1, justifyContent: "center", alignItems: "center", padding: 32, backgroundColor: Colors.background },
   emptyEmoji: { fontSize: 64, marginBottom: 16 },
-  emptyTitle: { fontSize: 22, fontWeight: "800", color: "#fff", marginBottom: 8 },
-  emptySubtitle: { fontSize: 14, color: "#888", textAlign: "center", marginBottom: 24 },
-  discoverBtn: { backgroundColor: "#e94057", paddingHorizontal: 32, paddingVertical: 14, borderRadius: 12 },
-  discoverBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  emptyTitle: { fontSize: 22, fontWeight: "800", color: Colors.foreground, marginBottom: 8 },
+  emptySubtitle: { fontSize: 14, color: Colors.mutedForeground, textAlign: "center", marginBottom: 24 },
+  discoverBtn: { backgroundColor: Colors.primary, paddingHorizontal: 32, paddingVertical: 14, borderRadius: 12 },
+  discoverBtnText: { color: Colors.foreground, fontWeight: "700", fontSize: 15 },
 });

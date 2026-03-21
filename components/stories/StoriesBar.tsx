@@ -110,22 +110,21 @@ export function StoriesBar({ filterByMatches = true }: StoriesBarProps) {
 
   return (
     <>
-      <div className="px-4 py-3">
-        <h2 className="text-sm text-muted-foreground mb-3">
+      <div className="px-4 py-4">
+        <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-3">
           {language === "az" ? "Hekayələr" : "Stories"}
         </h2>
-        <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-2">
+        <div className="flex gap-5 overflow-x-auto hide-scrollbar pb-1 scroll-smooth snap-x snap-mandatory">
           {/* Add Story Button (Your Story) */}
           <button
             onClick={handleAddStory}
-            className="flex flex-col items-center shrink-0"
+            className="flex flex-col items-center shrink-0 snap-start group focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-full"
+            aria-label={language === "az" ? "Hekayə əlavə et" : "Add story"}
           >
-            <div className="relative">
-              <div className="w-16 h-16 rounded-full bg-card border-2 border-dashed border-muted-foreground/50 flex items-center justify-center">
-                <Plus className="w-6 h-6 text-muted-foreground" />
-              </div>
+            <div className="w-14 h-14 rounded-full bg-muted/80 border-2 border-dashed border-muted-foreground/40 flex items-center justify-center group-hover:border-primary/50 group-hover:bg-primary/5 transition-colors">
+              <Plus className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
             </div>
-            <span className="text-xs mt-1 text-muted-foreground">
+            <span className="text-[11px] mt-1.5 text-muted-foreground group-hover:text-foreground/80 truncate max-w-[56px]">
               {language === "az" ? "Əlavə et" : "Add"}
             </span>
           </button>
@@ -135,35 +134,33 @@ export function StoriesBar({ filterByMatches = true }: StoriesBarProps) {
             <button
               key={userStory.userId}
               onClick={() => handleStoryClick(index)}
-              className="flex flex-col items-center shrink-0"
+              className="flex flex-col items-center shrink-0 snap-start focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-full"
             >
-              <div className="relative">
-                {/* Gradient Ring for unviewed stories */}
-                <div 
-                  className={`w-[68px] h-[68px] rounded-full p-[3px] ${
-                    userStory.hasUnviewed 
-                      ? "bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600" 
+              <div className="relative w-14 h-14">
+                <div
+                  className={`w-full h-full rounded-full p-[2.5px] ${
+                    userStory.hasUnviewed
+                      ? "bg-gradient-to-tr from-amber-400 via-rose-500 to-fuchsia-500"
                       : "bg-muted"
                   }`}
                 >
                   <div className="relative w-full h-full rounded-full bg-background p-[2px] overflow-hidden">
-                    <Image 
+                    <Image
                       src={userStory.userAvatar}
                       alt={userStory.userName}
                       fill
-                      sizes="68px"
+                      sizes="56px"
                       className="rounded-full object-cover"
                     />
                   </div>
                 </div>
-                {/* Story count badge */}
                 {userStory.stories.length > 1 && (
-                  <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-primary text-[10px] font-bold text-white flex items-center justify-center border-2 border-background">
+                  <span className="absolute -bottom-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-[10px] font-bold text-white flex items-center justify-center border-2 border-background">
                     {userStory.stories.length}
-                  </div>
+                  </span>
                 )}
               </div>
-              <span className="text-xs mt-1 font-medium truncate max-w-[64px]">
+              <span className="text-[11px] mt-1.5 font-medium text-foreground/90 truncate max-w-[64px]">
                 {userStory.userName}
               </span>
             </button>

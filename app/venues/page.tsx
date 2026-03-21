@@ -9,7 +9,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { PARTNER_VENUES, VENUE_TYPES, PartnerVenue } from "@/lib/partner-venues";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { VENUE_TYPES } from "@/lib/partner-venues";
 
 const typeIcons: { [key: string]: any } = {
   restaurant: Utensils,
@@ -21,12 +23,15 @@ const typeIcons: { [key: string]: any } = {
 export default function VenuesPage() {
   const { language } = useLanguage();
   const [selectedType, setSelectedType] = useState("all");
-  const [selectedVenue, setSelectedVenue] = useState<PartnerVenue | null>(null);
+  const [selectedVenue, setSelectedVenue] = useState<any | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
+  const dbVenues = useQuery(api.venues.listVenues);
+  const venueData = dbVenues || [];
+
   const filteredVenues = selectedType === "all" 
-    ? PARTNER_VENUES 
-    : PARTNER_VENUES.filter(v => v.type === selectedType);
+    ? venueData 
+    : venueData.filter((v: any) => v.type === selectedType);
 
   const copyCode = (code: string) => {
     navigator.clipboard.writeText(code);
@@ -78,7 +83,7 @@ export default function VenuesPage() {
 
         {/* Venues List */}
         <div className="space-y-4">
-          {filteredVenues.map((venue, index) => {
+          {filteredVenues.map((venue: any, index: number) => {
             const TypeIcon = typeIcons[venue.type] || Utensils;
             
             return (
@@ -256,7 +261,7 @@ export default function VenuesPage() {
                 
                 {/* Tags */}
                 <div className="flex flex-wrap gap-2 mb-6">
-                  {(language === 'az' ? selectedVenue.tagsAz : selectedVenue.tags).map(tag => (
+                  {(language === 'az' ? selectedVenue.tagsAz : selectedVenue.tags).map((tag: string) => (
                     <span key={tag} className="px-3 py-1 bg-muted text-muted-foreground text-xs rounded-full">
                       {tag}
                     </span>

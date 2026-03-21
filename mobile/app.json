@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1a1a2e"
+      "backgroundColor": "#000108"
     },
     "ios": {
       "supportsTablet": true,
@@ -19,7 +19,7 @@
     "android": {
       "package": "az.danyeri.app",
       "adaptiveIcon": {
-        "backgroundColor": "#1a1a2e",
+        "backgroundColor": "#000108",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png"
       }
@@ -29,7 +29,15 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
-    ]
+      "expo-secure-store",
+      "expo-web-browser"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "7aa1a1fd-e4d4-48f7-93aa-07944402a64e"
+      }
+    },
+    "owner": "xeyalnecefsoy"
   }
 }

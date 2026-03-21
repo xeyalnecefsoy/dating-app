@@ -127,21 +127,22 @@ export function AddStoryDialog({ isOpen, onClose }: AddStoryDialogProps) {
             className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
+              initial={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
+              exit={{ opacity: 0, scale: 0.96 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="w-full max-w-md bg-card border border-border rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+              className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
             >
-              {/* Header */}
-              <div className="flex items-center justify-between p-4 border-b border-border">
-                <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <Upload className="w-5 h-5 text-primary" />
-                  {language === "az" ? "Yeni Hekayə" : "New Story"}
+              <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
+                <h2 className="text-base font-semibold flex items-center gap-2 text-foreground">
+                  <Upload className="w-4 h-4 text-primary" />
+                  {language === "az" ? "Yeni hekayə" : "New story"}
                 </h2>
-                <button 
+                <button
+                  type="button"
                   onClick={handleClose}
-                  className="p-2 bg-muted/50 hover:bg-muted text-muted-foreground rounded-full transition-colors"
+                  className="p-2 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  aria-label={language === "az" ? "Bağla" : "Close"}
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -151,11 +152,11 @@ export function AddStoryDialog({ isOpen, onClose }: AddStoryDialogProps) {
               <div className="flex-1 overflow-y-auto p-4 space-y-6">
                 {/* Media Preview / Selection */}
                 <div className="flex flex-col items-center gap-2">
-                  <div 
-                    className={`relative w-40 sm:w-48 aspect-[9/16] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center overflow-hidden transition-colors ${
-                      previewUrl 
-                        ? "border-primary/50 bg-black shadow-md cursor-zoom-in" 
-                        : "border-border hover:border-primary/50 bg-muted/30 cursor-pointer"
+                  <div
+                    className={`relative w-36 sm:w-44 aspect-[9/16] rounded-xl border-2 border-dashed flex flex-col items-center justify-center overflow-hidden transition-colors ${
+                      previewUrl
+                        ? "border-primary/40 bg-black shadow-lg cursor-zoom-in"
+                        : "border-border hover:border-primary/40 bg-muted/20 cursor-pointer"
                     }`}
                     onClick={() => {
                       if (previewUrl) {

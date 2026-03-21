@@ -43,6 +43,10 @@ export default defineSchema({
     // Swipe Limits
     dailySwipeCount: v.optional(v.number()),
     lastSwipeDate: v.optional(v.string()), // YYYY-MM-DD
+    // Söhbətgah (general chat) üçün son görülmə vaxtı
+    generalLastSeenAt: v.optional(v.number()),
+    // Presence: son dəfə online görülmə (brauzer bağlananda yazılır)
+    lastSeenAt: v.optional(v.number()),
   }).index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"])
     .index("by_username", ["username"])
@@ -60,6 +64,7 @@ export default defineSchema({
     icebreakerId: v.optional(v.string()), // For icebreakers
     isDeleted: v.optional(v.boolean()), // Soft delete flag
     deletedAt: v.optional(v.number()), // When it was deleted
+    editedAt: v.optional(v.number()), // When it was last edited
   }).index("by_channel", ["channelId"]),
 
   matches: defineTable({
@@ -170,4 +175,28 @@ export default defineSchema({
     createdAt: v.number(),
     createdBy: v.string(), // Admin's clerkId
   }).index("by_active", ["isActive"]),
+
+  venues: defineTable({
+    name: v.string(),
+    type: v.string(), // 'restaurant' | 'cafe' | 'cinema' | 'entertainment'
+    typeAz: v.string(),
+    address: v.string(),
+    location: v.string(),
+    image: v.string(),
+    rating: v.number(),
+    priceRange: v.number(), // 1, 2, or 3
+    discount: v.optional(v.number()),
+    discountCode: v.optional(v.string()),
+    tags: v.array(v.string()),
+    tagsAz: v.array(v.string()),
+    description: v.string(),
+    descriptionAz: v.string(),
+    specialOffer: v.optional(v.string()),
+    specialOfferAz: v.optional(v.string()),
+    isActive: v.boolean(),
+    order: v.number(),
+    createdAt: v.number(),
+    createdBy: v.string(),
+  }).index("by_active", ["isActive"])
+    .index("by_order", ["order"]),
 });

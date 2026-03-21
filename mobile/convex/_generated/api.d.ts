@@ -29,6 +29,7 @@ import type * as stories from "../stories.js";
 import type * as subscriptions from "../subscriptions.js";
 import type * as systemAlerts from "../systemAlerts.js";
 import type * as users from "../users.js";
+import type * as venues from "../venues.js";
 
 import type {
   ApiFromModules,
@@ -58,6 +59,7 @@ declare const fullApi: ApiFromModules<{
   subscriptions: typeof subscriptions;
   systemAlerts: typeof systemAlerts;
   users: typeof users;
+  venues: typeof venues;
 }>;
 
 /**

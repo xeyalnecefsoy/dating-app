@@ -71,6 +71,7 @@ const Spinner = ({ className }: { className?: string }) => (
 
 import { BannersAdmin } from "./BannersAdmin";
 import { SystemAlertsAdmin } from "./SystemAlertsAdmin";
+import { VenuesAdmin } from "./VenuesAdmin";
 
 // Admin sidebar items
 const sidebarItems = [
@@ -79,6 +80,7 @@ const sidebarItems = [
   { id: "reports", label: "Şikayətlər", icon: FlagIcon },
   { id: "verification", label: "Təsdiq Növbəsi", icon: ShieldCheck },
   { id: "banners", label: "Qalereya & Slaydlar", icon: ImageIcon },
+  { id: "venues", label: "Məkanlar", icon: MapPin },
   { id: "messages", label: "Mesajlar", icon: MessageSquare },
   { id: "system-alerts", label: "Sistem Bildirişləri", icon: AlertTriangle },
   { id: "analytics", label: "Analitika", icon: BarChart3 },
@@ -636,6 +638,11 @@ export default function AdminPage() {
             {/* Banners */}
             {activeSection === "banners" && (
               <BannersAdmin key="banners" />
+            )}
+
+            {/* Venues */}
+            {activeSection === "venues" && (
+              <VenuesAdmin key="venues" />
             )}
 
             {/* System Alerts */}

@@ -2,6 +2,19 @@ import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 
+const ALLOWED_ORIGINS = [
+  "https://danyeri.com",
+  "https://www.danyeri.com",
+  "https://danyeri.vercel.app",
+  "http://localhost:3000",
+  "http://localhost:3001",
+];
+
+function getCorsOrigin(request: Request): string {
+  const origin = request.headers.get("Origin") || "";
+  return ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+}
+
 const http = httpRouter();
 
 http.route({
@@ -33,7 +46,7 @@ http.route({
         headers: {
           "Content-Type": blob.type || "image/jpeg",
           "Cache-Control": "public, max-age=31536000",
-          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Origin": getCorsOrigin(request),
         },
       });
     } catch (error) {
@@ -44,4 +57,3 @@ http.route({
 });
 
 export default http;
-

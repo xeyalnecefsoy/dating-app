@@ -352,7 +352,7 @@ export default function OnboardingPage() {
         )}
         
         <div className="flex items-center gap-2">
-          <Image src="/logo.jpg" width={32} height={32} className="object-contain rounded-full" priority alt="Danyeri" />
+          <Image src="/logo.png" width={32} height={32} className="object-contain rounded-full" priority alt="Danyeri" />
           <span className="font-bold bg-gradient-to-r from-rose-400 to-pink-500 bg-clip-text text-transparent">Danyeri</span>
         </div>
         

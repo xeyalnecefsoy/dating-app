@@ -6,87 +6,94 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  Linking,
 } from "react-native";
 import { Image } from "expo-image";
 import { useAuth } from "@clerk/clerk-expo";
 import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { api } from "../lib/api";
 import { Stack, useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { CheckCircle2, ChevronRight, ArrowLeft, Crown } from "../lib/icons";
+import { Colors } from "../lib/colors";
 
 export default function LikesScreen() {
   const { userId } = useAuth();
   const router = useRouter();
 
-  const likes = useQuery(api.likes.getLikesReceived, userId ? { userId } : "skip");
-
-  const likerIds = useMemo(() => {
-    if (!likes) return [];
-    return likes.map((l: any) => l.likerId);
-  }, [likes]);
-
-  const likers = useQuery(
-    api.users.getUsersByIds,
-    likerIds.length > 0 ? { ids: likerIds } : "skip"
-  );
+  const currentUser = useQuery(api.users.getUser, userId ? { clerkId: userId } : "skip");
+  const likes = useQuery(api.likes.getWhoLikedMe, userId ? { userId } : "skip");
+  const isPremium = currentUser?.isPremium === true;
 
   const likesList = useMemo(() => {
-    if (!likers || !likes) return [];
-    return likers.map((u: any) => {
-      const like = likes.find((l: any) => l.likerId === (u.clerkId || u._id));
-      return {
-        id: u.clerkId || u._id,
-        name: u.name,
-        age: u.age || 25,
-        avatar: u.avatar || "",
-        username: u.username,
-        isVerified: u.role === "admin" || u.role === "superadmin" || u.isVerified,
-        type: like?.type || "like",
-        createdAt: like?.createdAt,
-      };
-    });
-  }, [likers, likes]);
+    if (!likes) return [];
+    return likes.map((u: any) => ({
+      id: u.id,
+      name: u.name,
+      age: u.age || 25,
+      avatar: u.avatar || "",
+      username: u.username,
+      isVerified: u.isVerified,
+      type: u.type || "like",
+    }));
+  }, [likes]);
 
-  if (likes === undefined) {
+  if (likes === undefined || currentUser === undefined) {
     return (
       <>
-        <Stack.Screen options={{ headerTitle: "Bəyənmələr", headerStyle: { backgroundColor: "#1a1a2e" }, headerTintColor: "#fff" }} />
+        <Stack.Screen options={{ headerTitle: "Bəyənmələr", headerStyle: { backgroundColor: Colors.background }, headerTintColor: Colors.foreground }} />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#e94057" />
+          <ActivityIndicator size="large" color={Colors.primary} />
         </View>
       </>
     );
   }
 
-  const renderLike = ({ item }: { item: typeof likesList[0] }) => (
-    <TouchableOpacity
-      style={styles.likeRow}
-      onPress={() => router.push(`/user/${item.username || item.id}` as any)}
-    >
-      <Image source={{ uri: item.avatar }} style={styles.avatar} contentFit="cover" />
-      <View style={styles.likeInfo}>
-        <View style={styles.nameRow}>
-          <Text style={styles.likeName}>{item.name}, {item.age}</Text>
-          {item.isVerified && <Ionicons name="checkmark-circle" size={14} color="#20D5A0" />}
+  const renderLike = ({ item, index }: { item: typeof likesList[0]; index: number }) => {
+    const isBlurred = !isPremium && index > 0;
+
+    return (
+      <TouchableOpacity
+        style={styles.likeRow}
+        onPress={() => {
+          if (isBlurred) return;
+          router.push(`/user/${item.username || item.id}` as any);
+        }}
+        activeOpacity={isBlurred ? 1 : 0.6}
+      >
+        <View style={styles.avatarWrap}>
+          <Image
+            source={{ uri: item.avatar }}
+            style={styles.avatar}
+            contentFit="cover"
+            blurRadius={isBlurred ? 20 : 0}
+          />
         </View>
-        <Text style={styles.likeType}>
-          {item.type === "super" ? "⭐ Super bəyənmə" : "❤️ Bəyəndi"}
-        </Text>
-      </View>
-      <Ionicons name="chevron-forward" size={18} color="#555" />
-    </TouchableOpacity>
-  );
+        <View style={styles.likeInfo}>
+          <View style={styles.nameRow}>
+            <Text style={[styles.likeName, isBlurred && styles.blurredText]}>
+              {isBlurred ? "••••••" : `${item.name}, ${item.age}`}
+            </Text>
+            {!isBlurred && item.isVerified && <CheckCircle2 size={14} color={Colors.green} />}
+          </View>
+          <Text style={styles.likeType}>
+            {item.type === "super" ? "⭐ Super bəyənmə" : "❤️ Bəyəndi"}
+          </Text>
+        </View>
+        {!isBlurred && <ChevronRight size={18} color={Colors.mutedForeground} />}
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <>
       <Stack.Screen
         options={{
-          headerTitle: "Bəyənmələr",
-          headerStyle: { backgroundColor: "#1a1a2e" },
-          headerTintColor: "#fff",
+          headerTitle: `Bəyənmələr (${likesList.length})`,
+          headerStyle: { backgroundColor: Colors.background },
+          headerTintColor: Colors.foreground,
           headerLeft: () => (
             <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 8 }}>
-              <Ionicons name="arrow-back" size={24} color="#fff" />
+              <ArrowLeft size={24} color={Colors.foreground} />
             </TouchableOpacity>
           ),
         }}
@@ -99,13 +106,40 @@ export default function LikesScreen() {
             <Text style={styles.emptySubtitle}>Profili daha cəlbedici etmək üçün şəkillərinizi yeniləyin</Text>
           </View>
         ) : (
-          <FlatList
-            data={likesList}
-            renderItem={renderLike}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContent}
-            ItemSeparatorComponent={() => <View style={styles.separator} />}
-          />
+          <>
+            <FlatList
+              data={likesList}
+              renderItem={renderLike}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.listContent}
+              ItemSeparatorComponent={() => <View style={styles.separator} />}
+            />
+            {!isPremium && likesList.length > 1 && (
+              <View style={styles.premiumBanner}>
+                <View style={styles.premiumBannerContent}>
+                  <Crown size={28} color={Colors.premium} />
+                  <View style={styles.premiumBannerInfo}>
+                    <Text style={styles.premiumBannerTitle}>
+                      {likesList.length - 1} nəfər sizi bəyənib
+                    </Text>
+                    <Text style={styles.premiumBannerSubtitle}>
+                      Kimin bəyəndiyini görmək üçün Premium alın
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={styles.premiumBannerBtn}
+                  onPress={() => {
+                    const base = process.env.EXPO_PUBLIC_WEB_APP_URL || "https://danyeri.az";
+                    Linking.openURL(`${base.replace(/\/$/, "")}/premium`).catch(() => {});
+                  }}
+                >
+                  <Crown size={18} color={Colors.foreground} style={{ marginRight: 6 }} />
+                  <Text style={styles.premiumBannerBtnText}>Premium Al</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
         )}
       </View>
     </>
@@ -113,18 +147,44 @@ export default function LikesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#1a1a2e" },
-  loadingContainer: { flex: 1, backgroundColor: "#1a1a2e", justifyContent: "center", alignItems: "center" },
+  container: { flex: 1, backgroundColor: Colors.background },
+  loadingContainer: { flex: 1, backgroundColor: Colors.background, justifyContent: "center", alignItems: "center" },
   listContent: { padding: 16 },
   likeRow: { flexDirection: "row", alignItems: "center", paddingVertical: 14 },
-  avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: "#333" },
+  avatarWrap: { overflow: "hidden", borderRadius: 28 },
+  avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: Colors.surfaceDark },
   likeInfo: { flex: 1, marginLeft: 14 },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  likeName: { fontSize: 16, fontWeight: "700", color: "#fff" },
-  likeType: { fontSize: 13, color: "#888", marginTop: 3 },
+  likeName: { fontSize: 16, fontWeight: "700", color: Colors.foreground },
+  blurredText: { color: Colors.mutedForeground },
+  likeType: { fontSize: 13, color: Colors.mutedForeground, marginTop: 3 },
   separator: { height: 1, backgroundColor: "rgba(255,255,255,0.05)" },
   emptyContainer: { flex: 1, justifyContent: "center", alignItems: "center", padding: 32 },
   emptyEmoji: { fontSize: 48, marginBottom: 12 },
-  emptyTitle: { fontSize: 20, fontWeight: "800", color: "#fff", marginBottom: 8 },
-  emptySubtitle: { fontSize: 14, color: "#888", textAlign: "center" },
+  emptyTitle: { fontSize: 20, fontWeight: "800", color: Colors.foreground, marginBottom: 8 },
+  emptySubtitle: { fontSize: 14, color: Colors.mutedForeground, textAlign: "center" },
+  premiumBanner: {
+    backgroundColor: "rgba(251,191,36,0.08)",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(251,191,36,0.15)",
+    padding: 20,
+    paddingBottom: 36,
+  },
+  premiumBannerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  premiumBannerInfo: { flex: 1, marginLeft: 14 },
+  premiumBannerTitle: { color: Colors.premium, fontSize: 16, fontWeight: "700" },
+  premiumBannerSubtitle: { color: Colors.mutedForeground, fontSize: 13, marginTop: 2 },
+  premiumBannerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.primary,
+    paddingVertical: 14,
+    borderRadius: 14,
+  },
+  premiumBannerBtnText: { color: Colors.foreground, fontWeight: "700", fontSize: 16 },
 });

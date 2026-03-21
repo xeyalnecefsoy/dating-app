@@ -5,7 +5,6 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowLeft, Heart, Quote, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function StoriesPage() {
@@ -14,163 +13,216 @@ export default function StoriesPage() {
   const successStories = [
     {
       id: 1,
-      names: language === 'az' ? "Aysel və Rəşad" : "Aysel & Rashad",
-      quote: language === 'az' 
-        ? "Biz ailə və dürüstlük kimi ortaq dəyərlərimiz ətrafında birləşdik. Ünsiyyət Simulyatoru mənə ilk görüşümüzdə özümə inamlı olmağa kömək etdi!" 
-        : "We bonded over our shared values of family and honesty. The conversation simulator helped me feel confident during our first real date!",
-      matchedOn: language === 'az' ? "Ailə, Dürüstlük" : "Shared core values: Family, Authenticity",
+      names: language === "az" ? "Aysel və Rəşad" : "Aysel & Rashad",
+      quote:
+        language === "az"
+          ? "Biz ailə və dürüstlük kimi ortaq dəyərlər ətrafında birləşdik. Ünsiyyət Simulyatoru mənə ilk görüşümüzdə özümə inamlı olmağa kömək etdi!"
+          : "We bonded over our shared values of family and honesty. The conversation simulator helped me feel confident during our first real date!",
+      matchedOn:
+        language === "az" ? "Ailə, Dürüstlük" : "Shared core values: Family, Authenticity",
       location: "Bakı",
-      duration: language === 'az' ? "8 aydır birlikdə" : "Together for 8 months"
+      duration: language === "az" ? "8 aydır birlikdə" : "Together for 8 months",
+      featured: true,
     },
     {
       id: 2,
-      names: language === 'az' ? "Leyla və Emil" : "Leyla & Emil",
-      quote: language === 'az' 
-        ? "Sadəcə bir tətbiq olduğunu düşündüyümüz yer, ən yaxın dostumu tapdığım yerə çevrildi. Şəkillərdən çox şəxsiyyətə önəm verilməsi hər şeyi dəyişdi."
-        : "What we thought was just an app turned into finding my best friend. The focus on personality over photos made all the difference.",
-      matchedOn: language === 'az' ? "Sevgi Dili: Keyfiyyətli Zaman" : "Love Language: Quality Time",
+      names: language === "az" ? "Leyla və Emil" : "Leyla & Emil",
+      quote:
+        language === "az"
+          ? "Sadəcə bir tətbiq olduğunu düşündüyümüz yer, ən yaxın dostumu tapdığım yerə çevrildi. Şəkillərdən çox şəxsiyyətə önəm verilməsi hər şeyi dəyişdi."
+          : "What we thought was just an app turned into finding my best friend. The focus on personality over photos made all the difference.",
+      matchedOn:
+        language === "az" ? "Sevgi Dili: Keyfiyyətli Zaman" : "Love Language: Quality Time",
       location: "Sumqayıt",
-      duration: language === 'az' ? "1 ildir birlikdə" : "Engaged!"
+      duration: language === "az" ? "1 ildir birlikdə" : "Engaged!",
+      featured: false,
     },
     {
       id: 3,
-      names: language === 'az' ? "Nigar və Kamran" : "Nigar & Kamran",
-      quote: language === 'az'
-        ? "Onlayn tanışlıqdan çəkinirdim, amma bacarıq inkişaf etdirmə xüsusiyyətləri mənə özümü ifadə etməyə kömək etdi. Məni həqiqətən anlayan birini tapdım."
-        : "I was nervous about online dating, but the skill-building features helped me find my voice. Found someone who truly understands me.",
-      matchedOn: language === 'az' ? "Ünsiyyət Tərzi: Empatik" : "Communication Style: Empathetic",
+      names: language === "az" ? "Nigar və Kamran" : "Nigar & Kamran",
+      quote:
+        language === "az"
+          ? "Onlayn tanışlıqdan çəkinirdim, amma bacarıq inkişaf etdirmə xüsusiyyətləri mənə özümü ifadə etməyə kömək etdi. Məni həqiqətən anlayan birini tapdım."
+          : "I was nervous about online dating, but the skill-building features helped me find my voice. Found someone who truly understands me.",
+      matchedOn:
+        language === "az" ? "Ünsiyyət Tərzi: Empatik" : "Communication Style: Empathetic",
       location: "Gəncə",
-      duration: language === 'az' ? "1 ildir birlikdə" : "Together for 1 year"
+      duration: language === "az" ? "1 ildir birlikdə" : "Together for 1 year",
+      featured: false,
     },
     {
       id: 4,
-      names: language === 'az' ? "Fidan və Tural" : "Fidan & Tural",
-      quote: language === 'az'
-        ? "Şəxsi inkişaf həvəsimi paylaşan biri ilə tanış olmaq xəyal idi. 'Buzqıran' suallar söhbətə başlamağı o qədər təbii etdi ki!"
-        : "Meeting someone who shares my passion for personal growth was a dream. The icebreakers made starting conversations so natural!",
-      matchedOn: language === 'az' ? "Maraq: Şəxsi İnkişaf" : "Interest: Personal Development",
+      names: language === "az" ? "Fidan və Tural" : "Fidan & Tural",
+      quote:
+        language === "az"
+          ? "Şəxsi inkişaf həvəsimi paylaşan biri ilə tanış olmaq xəyal idi. 'Buzqıran' suallar söhbətə başlamağı o qədər təbii etdi ki!"
+          : "Meeting someone who shares my passion for personal growth was a dream. The icebreakers made starting conversations so natural!",
+      matchedOn:
+        language === "az" ? "Maraq: Şəxsi İnkişaf" : "Interest: Personal Development",
       location: "Bakı",
-      duration: language === 'az' ? "6 aydır birlikdə" : "Together for 6 months"
-    }
+      duration: language === "az" ? "6 aydır birlikdə" : "Together for 6 months",
+      featured: false,
+    },
   ];
+
+  const featured = successStories.find((s) => s.featured) ?? successStories[0];
+  const rest = successStories.filter((s) => s.id !== featured.id);
 
   return (
     <div className="min-h-screen bg-background font-sans">
-      {/* Background Gradient */}
-      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-        <motion.div 
-          animate={{ x: [0, 50, 0], y: [0, -30, 0] }}
-          transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-[-5%] right-[-10%] w-[600px] h-[600px] bg-primary/20 rounded-full blur-[100px]" 
-        />
-        <motion.div 
-          animate={{ x: [0, -40, 0], y: [0, 60, 0] }}
-          transition={{ duration: 25, repeat: Infinity, ease: "easeInOut", delay: 3 }}
-          className="absolute bottom-[5%] left-[-5%] w-[500px] h-[500px] bg-secondary/20 rounded-full blur-[90px]" 
-        />
+      {/* Subtle background */}
+      <div
+        className="fixed inset-0 z-0 pointer-events-none"
+        aria-hidden
+      >
+        <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-primary/5" />
+        <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-primary/[0.03] rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-1/2 h-1/2 bg-primary/[0.03] rounded-full blur-3xl" />
       </div>
 
       {/* Header */}
-      <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border/50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" asChild className="hover:bg-secondary/40 rounded-full">
-              <Link href="/">
-                <ArrowLeft className="w-5 h-5 text-muted-foreground" />
-              </Link>
-            </Button>
-            <div className="flex items-center gap-2">
-              <Heart className="w-5 h-5 text-primary fill-primary" />
-              <h1 className="text-xl font-serif font-semibold text-foreground">
-                {language === 'az' ? 'Uğur Hekayələri' : 'Success Stories'}
-              </h1>
-            </div>
+      <header className="sticky top-0 z-30 bg-background/90 backdrop-blur-md border-b border-border/50">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            asChild
+            className="rounded-full shrink-0"
+            aria-label={language === "az" ? "Geri" : "Back"}
+          >
+            <Link href="/">
+              <ArrowLeft className="w-5 h-5 text-muted-foreground" />
+            </Link>
+          </Button>
+          <div className="flex items-center gap-2 min-w-0">
+            <Heart className="w-5 h-5 text-primary fill-primary shrink-0" />
+            <h1 className="text-lg sm:text-xl font-semibold text-foreground truncate">
+              {language === "az" ? "Uğur Hekayələri" : "Success Stories"}
+            </h1>
           </div>
+          <div className="w-10 shrink-0" />
         </div>
       </header>
 
-      <main className="relative z-10 max-w-6xl mx-auto px-4 md:px-6 py-12">
+      <main className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         {/* Hero */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
+        <motion.section
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          transition={{ duration: 0.4 }}
+          className="text-center mb-10 sm:mb-14"
         >
-          <h1 className="text-4xl md:text-5xl font-serif font-medium text-foreground mb-6">
-            {language === 'az' ? 'Real' : 'Real'} <span className="italic bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary font-bold">{language === 'az' ? 'Əlaqələr' : 'Connections'}</span>, {language === 'az' ? 'Real Hekayələr' : 'Real Stories'}
-          </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            {language === 'az' 
-              ? 'Danyeri hər gün insanlara ortaq dəyərlər, anlayış və səmimi əlaqələrə əsaslanan mənalı münasibətlər qurmağa kömək edir.'
-              : 'Every day, Danyeri helps Azerbaijanis find meaningful relationships based on shared values, understanding, and genuine connection.'}
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-foreground mb-3">
+            {language === "az" ? "Real " : "Real "}
+            <span className="text-primary">
+              {language === "az" ? "əlaqələr" : "connections"}
+            </span>
+            {language === "az" ? ", real hekayələr" : ", real stories"}
+          </h2>
+          <p className="text-muted-foreground text-sm sm:text-base max-w-xl mx-auto leading-relaxed">
+            {language === "az"
+              ? "Danyeri hər gün insanlara ortaq dəyərlər ətrafında mənalı münasibətlər qurmağa kömək edir."
+              : "Every day Danyeri helps people build meaningful relationships around shared values."}
           </p>
-        </motion.div>
+        </motion.section>
 
-        {/* Stories Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {successStories.map((story, index) => (
-            <motion.div
-              key={story.id}
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-            >
-              <Card className="overflow-hidden bg-card/60 backdrop-blur-sm border-border shadow-lg hover:shadow-xl transition-all duration-300 group h-full">
-                <CardContent className="p-8 flex flex-col h-full">
-                  {/* Quote Icon */}
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                    <Quote className="w-5 h-5 text-primary" />
-                  </div>
-                  
-                  {/* Quote */}
-                  <blockquote className="text-lg text-foreground/80 leading-relaxed mb-6 italic flex-1">
-                    "{story.quote}"
+        {/* Featured story */}
+        <motion.article
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+          className="mb-8 sm:mb-10"
+        >
+          <div className="rounded-2xl sm:rounded-3xl border border-border/60 bg-card/80 backdrop-blur-sm overflow-hidden shadow-lg">
+            <div className="p-6 sm:p-8 md:p-10">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <Quote className="w-5 h-5 text-primary" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <blockquote className="text-base sm:text-lg text-foreground/90 leading-relaxed italic">
+                    &ldquo;{featured.quote}&rdquo;
                   </blockquote>
-                  
-                  {/* Names */}
-                  <div className="flex items-center justify-between mb-4 pt-4 border-t border-border">
-                    <h3 className="text-xl font-serif font-semibold text-foreground flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-secondary" />
-                      {story.names}
-                    </h3>
-                    <span className="text-sm text-primary font-medium">{story.duration}</span>
+                  <div className="mt-5 pt-4 border-t border-border/50 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-primary shrink-0" />
+                      <span className="font-semibold text-foreground">{featured.names}</span>
+                    </div>
+                    <span className="text-sm text-primary font-medium">{featured.duration}</span>
                   </div>
-                  
-                  {/* Details */}
-                  <div className="text-sm text-muted-foreground space-y-1">
-                    <p><span className="font-medium">📍</span> {story.location}</p>
-                    <p><span className="font-medium">💕</span> {story.matchedOn}</p>
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                    <span>📍 {featured.location}</span>
+                    <span>💕 {featured.matchedOn}</span>
                   </div>
-                </CardContent>
-              </Card>
-            </motion.div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.article>
+
+        {/* More stories grid */}
+        <section className="space-y-4 sm:space-y-5">
+          {rest.map((story, index) => (
+            <motion.article
+              key={story.id}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, delay: 0.15 + index * 0.06 }}
+              className="rounded-xl sm:rounded-2xl border border-border/50 bg-card/60 backdrop-blur-sm overflow-hidden hover:border-primary/20 hover:bg-card/80 transition-colors"
+            >
+              <div className="flex gap-3 sm:gap-4 p-4 sm:p-5">
+                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <Quote className="w-4 h-4 text-primary" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm sm:text-base text-foreground/85 leading-relaxed line-clamp-3">
+                    &ldquo;{story.quote}&rdquo;
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-medium text-foreground text-sm">{story.names}</span>
+                    <span className="text-xs text-primary">{story.duration}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    📍 {story.location} · {story.matchedOn}
+                  </p>
+                </div>
+              </div>
+            </motion.article>
           ))}
-        </div>
+        </section>
 
         {/* CTA */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.5 }}
-          className="text-center mt-16"
+          transition={{ duration: 0.4, delay: 0.4 }}
+          className="mt-12 sm:mt-16 text-center"
         >
-          <h2 className="text-2xl font-serif font-medium text-foreground mb-4">
-            {language === 'az' ? 'Öz hekayəni yazmağa hazırsan?' : 'Ready to write your own story?'}
-          </h2>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button asChild size="lg" className="h-14 px-8 text-lg rounded-full shadow-xl shadow-primary/20 bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white border-0 transition-all hover:scale-105">
+          <p className="text-foreground font-medium mb-6">
+            {language === "az" ? "Öz hekayəni yazmağa hazırsan?" : "Ready to write your own story?"}
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Button
+              asChild
+              size="lg"
+              className="w-full sm:w-auto h-12 px-8 rounded-full font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
+            >
               <Link href="/discovery">
-                {language === 'az' ? 'Kəşf etməyə başla' : 'Start Discovering'}
+                {language === "az" ? "Kəşf etməyə başla" : "Start discovering"}
               </Link>
             </Button>
-            <Button asChild variant="outline" size="lg" className="h-14 px-8 text-lg rounded-full border-primary/30 bg-background/40 backdrop-blur-sm text-foreground hover:bg-background/60">
+            <Button
+              asChild
+              variant="outline"
+              size="lg"
+              className="w-full sm:w-auto h-12 px-8 rounded-full border-border bg-background/50"
+            >
               <Link href="/simulator">
-                {language === 'az' ? 'Əvvəlcə Məşq Et' : 'Practice First'}
+                {language === "az" ? "Əvvəlcə məşq et" : "Practice first"}
               </Link>
             </Button>
           </div>
-        </motion.div>
+        </motion.section>
       </main>
     </div>
   );

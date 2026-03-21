@@ -176,16 +176,20 @@ export function StoryViewer({ userStories, initialUserIndex, onClose, onReply }:
       className="fixed inset-0 z-[100] bg-black flex items-center justify-center"
     >
       {/* Story Container */}
-      <div className="relative w-full max-w-md h-full max-h-[90vh] m-auto">
+      <div className="relative w-full max-w-md h-full max-h-[90vh] m-auto flex flex-col">
         {/* Progress Bars */}
         <div className="absolute top-4 left-4 right-4 z-20 flex gap-1">
           {currentUserStories.stories.map((_, index) => (
-            <div key={index} className="flex-1 h-1 bg-white/30 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-white rounded-full transition-all duration-100"
-                style={{ 
-                  width: index < currentStoryIndex ? "100%" : 
-                         index === currentStoryIndex ? `${progress}%` : "0%" 
+            <div key={index} className="flex-1 h-0.5 bg-white/25 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-white rounded-full transition-all duration-75 ease-linear"
+                style={{
+                  width:
+                    index < currentStoryIndex
+                      ? "100%"
+                      : index === currentStoryIndex
+                        ? `${progress}%`
+                        : "0%",
                 }}
               />
             </div>
@@ -193,34 +197,36 @@ export function StoryViewer({ userStories, initialUserIndex, onClose, onReply }:
         </div>
 
         {/* Header */}
-        <div className="absolute top-8 left-4 right-4 z-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative w-10 h-10 rounded-full border-2 border-white overflow-hidden">
-              <Image 
-                src={currentUserStories.userAvatar} 
+        <div className="absolute top-3 left-4 right-4 z-20 flex items-center justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="relative w-9 h-9 rounded-full border-2 border-white/90 overflow-hidden shrink-0">
+              <Image
+                src={currentUserStories.userAvatar}
                 alt={currentUserStories.userName}
                 fill
-                sizes="40px"
+                sizes="36px"
                 className="object-cover"
               />
             </div>
-            <div>
-              <p className="text-white font-semibold text-sm">{currentUserStories.userName}</p>
-              <p className="text-white/60 text-xs">{getTimeAgo(currentStory.createdAt, language as "en" | "az")}</p>
+            <div className="min-w-0">
+              <p className="text-white font-semibold text-sm truncate">{currentUserStories.userName}</p>
+              <p className="text-white/70 text-xs">{getTimeAgo(currentStory.createdAt, language as "en" | "az")}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button 
+          <div className="flex items-center gap-1 shrink-0">
+            <button
               onClick={() => setIsPaused(!isPaused)}
-              className="p-2 text-white/80 hover:text-white"
+              className="p-2 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+              aria-label={isPaused ? (language === "az" ? "Davam et" : "Play") : (language === "az" ? "Dayandır" : "Pause")}
             >
               {isPaused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
             </button>
-            <button 
+            <button
               onClick={onClose}
-              className="p-2 text-white/80 hover:text-white"
+              className="p-2 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+              aria-label={language === "az" ? "Bağla" : "Close"}
             >
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -228,19 +234,19 @@ export function StoryViewer({ userStories, initialUserIndex, onClose, onReply }:
         {/* Story Image */}
         <motion.img
           key={currentStory.id}
-          initial={{ opacity: 0, scale: 1.05 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.2 }}
           src={currentStory.mediaUrl}
-          alt="Story"
-          className="w-full h-full object-contain bg-black/90 rounded-2xl"
+          alt={currentStory.caption || "Story"}
+          className="w-full flex-1 min-h-0 object-contain bg-black rounded-none"
           onClick={() => setIsPaused(!isPaused)}
         />
 
         {/* Caption */}
         {currentStory.caption && (
-          <div className="absolute bottom-32 left-4 right-4 z-20">
-            <p className="text-white text-center text-lg font-medium drop-shadow-lg p-2 rounded-xl bg-black/40 backdrop-blur-sm">
+          <div className="absolute bottom-28 left-4 right-4 z-20">
+            <p className="text-white text-center text-sm sm:text-base font-medium drop-shadow-md px-3 py-2 rounded-xl bg-black/50 backdrop-blur-sm max-w-full">
               {currentStory.caption}
             </p>
           </div>
@@ -256,22 +262,20 @@ export function StoryViewer({ userStories, initialUserIndex, onClose, onReply }:
           onClick={goToNextStory}
         />
 
-        {/* Viewers OR Reply Input */}
+        {/* Viewers (own story) OR Reply Input */}
         {currentUserStories.userId === user?.id || currentUserStories.userId === "current-user" ? (
           <div className="absolute bottom-4 left-4 right-4 z-20 flex justify-center">
-             <button
-                onClick={() => setShowViewersPanel(true)}
-                className="flex flex-col items-center gap-1 group bg-black/40 backdrop-blur-md px-6 py-3 rounded-2xl hover:bg-black/60 transition-colors"
-             >
-                <ChevronLeft className="w-5 h-5 text-white transform rotate-90 group-hover:-translate-y-1 transition-transform" />
-                <div className="flex items-center gap-2">
-                   <Eye className="w-5 h-5 text-white" />
-                   <span className="text-white font-medium">{currentStory.viewedBy?.length || 0}</span>
-                </div>
-             </button>
+            <button
+              type="button"
+              onClick={() => setShowViewersPanel(true)}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-sm text-white text-sm font-medium transition-colors"
+            >
+              <Eye className="w-4 h-4" />
+              <span>{currentStory.viewedBy?.length || 0} {language === "az" ? "baxış" : "views"}</span>
+            </button>
           </div>
         ) : (
-          <div className="absolute bottom-4 left-4 right-4 z-20">
+          <div className="absolute bottom-4 left-4 right-4 z-20 space-y-3">
             <div className="flex items-center gap-2">
               <Input
                 placeholder={language === "az" ? "Cavab yaz..." : "Reply..."}
@@ -280,39 +284,42 @@ export function StoryViewer({ userStories, initialUserIndex, onClose, onReply }:
                 onFocus={() => setIsPaused(true)}
                 onBlur={() => !replyText && setIsPaused(false)}
                 onKeyDown={(e) => e.key === "Enter" && handleSendReply()}
-                className="flex-1 bg-white/10 border-white/20 text-white placeholder:text-white/50 rounded-full"
+                className="flex-1 h-11 bg-white/15 border-white/25 text-white placeholder:text-white/60 rounded-full text-sm focus-visible:ring-white/30"
               />
               <Button
                 size="icon"
                 onClick={handleSendReply}
                 disabled={!replyText.trim()}
-                className="rounded-full bg-primary hover:bg-primary/80"
+                className="h-11 w-11 rounded-full bg-primary hover:bg-primary/90 shrink-0"
               >
                 <Send className="w-4 h-4" />
               </Button>
-              <Button
-                size="icon"
-                variant="ghost" 
+              <button
+                type="button"
                 onClick={handleLike}
-                className="rounded-full text-white hover:bg-white/10"
+                className="h-11 w-11 rounded-full flex items-center justify-center text-white/90 hover:bg-white/10 transition-colors shrink-0"
+                aria-label={language === "az" ? "Bəyən" : "Like"}
               >
-                <Heart className={`w-5 h-5 ${currentStory && likedStories.has(currentStory.id) ? "fill-red-500 text-red-500" : ""}`} />
-              </Button>
+                <Heart
+                  className={`w-5 h-5 transition-colors ${
+                    currentStory && likedStories.has(currentStory.id) ? "fill-red-500 text-red-500" : ""
+                  }`}
+                />
+              </button>
             </div>
-            
-            {/* Quick Reactions */}
-            <div className="flex items-center gap-2 mt-3 overflow-x-auto pb-1 hide-scrollbar">
+            {/* Quick reactions */}
+            <div className="flex items-center justify-center gap-1.5 overflow-x-auto hide-scrollbar">
               {["🔥", "❤️", "😍", "😂", "😢", "👏"].map((emoji) => (
                 <button
                   key={emoji}
+                  type="button"
                   onClick={() => {
                     if (onReply && currentStory) {
                       onReply(currentUserStories.userId, emoji, currentStory.mediaUrl);
-                      // Visual feedback
                       setReplyText("");
                     }
                   }}
-                  className="text-2xl hover:scale-125 transition-transform bg-black/30 hover:bg-black/50 w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-sm"
+                  className="text-xl hover:scale-110 active:scale-95 transition-transform w-9 h-9 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 shrink-0"
                 >
                   {emoji}
                 </button>
@@ -345,60 +352,64 @@ export function StoryViewer({ userStories, initialUserIndex, onClose, onReply }:
                animate={{ y: 0 }}
                exit={{ y: "100%" }}
                transition={{ type: "spring", damping: 25, stiffness: 200 }}
-               className="absolute bottom-0 left-0 right-0 bg-background/95 backdrop-blur-xl rounded-t-3xl min-h-[50%] max-h-[80%] z-[60] flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.3)]"
+               className="absolute bottom-0 left-0 right-0 bg-background rounded-t-2xl min-h-[40%] max-h-[75%] z-[60] flex flex-col shadow-[0_-8px_32px_rgba(0,0,0,0.25)] border-t border-border"
              >
-                <div className="flex items-center justify-between p-4 border-b border-white/10 shrink-0">
-                   <div className="w-10" />
-                   <h3 className="text-foreground font-semibold flex items-center gap-2">
-                     <Eye className="w-4 h-4 text-muted-foreground" />
-                     {language === "az" ? "Baxışlar" : "Views"} ({currentStory.viewedBy?.length || 0})
-                   </h3>
-                   <button 
-                     onClick={() => setShowViewersPanel(false)}
-                     className="w-10 h-10 flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-full transition-colors text-foreground"
-                   >
-                     <X className="w-5 h-5" />
-                   </button>
-                </div>
-                
-                <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
-                   {currentStory.viewedByDetails && currentStory.viewedByDetails.length > 0 ? (
-                      currentStory.viewedByDetails.map((viewer: any) => (
-                         <div key={viewer.clerkId} className="flex items-center justify-between bg-white/5 p-3 rounded-2xl">
-                            <div className="flex items-center gap-3">
-                              <div className="relative w-10 h-10 rounded-full border border-white/10 overflow-hidden">
-                                <Image src={viewer.avatar} fill sizes="40px" className="object-cover" alt={viewer.name} />
-                              </div>
-                              <span className="text-foreground font-medium">{viewer.name}</span>
-                            </div>
-                         </div>
-                      ))
-                   ) : (
-                      <div className="flex-1 flex flex-col items-center justify-center opacity-50 py-10">
-                         <Eye className="w-12 h-12 mb-3" />
-                         <p>{language === "az" ? "Hələ heç kim baxmayıb." : "No views yet."}</p>
-                      </div>
-                   )}
-                </div>
+               <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
+                 <h3 className="text-foreground font-semibold flex items-center gap-2 text-sm">
+                   <Eye className="w-4 h-4 text-muted-foreground" />
+                   {language === "az" ? "Baxışlar" : "Views"} ({currentStory.viewedBy?.length || 0})
+                 </h3>
+                 <button
+                   type="button"
+                   onClick={() => setShowViewersPanel(false)}
+                   className="p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                   aria-label={language === "az" ? "Bağla" : "Close"}
+                 >
+                   <X className="w-5 h-5" />
+                 </button>
+               </div>
+               <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2">
+                 {currentStory.viewedByDetails && currentStory.viewedByDetails.length > 0 ? (
+                   currentStory.viewedByDetails.map((viewer: any) => (
+                     <div
+                       key={viewer.clerkId}
+                       className="flex items-center gap-3 p-3 rounded-xl bg-muted/50"
+                     >
+                       <div className="relative w-10 h-10 rounded-full overflow-hidden shrink-0">
+                         <Image src={viewer.avatar} fill sizes="40px" className="object-cover" alt={viewer.name} />
+                       </div>
+                       <span className="text-foreground font-medium text-sm">{viewer.name}</span>
+                     </div>
+                   ))
+                 ) : (
+                   <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground py-12">
+                     <Eye className="w-10 h-10 mb-2 opacity-50" />
+                     <p className="text-sm">{language === "az" ? "Hələ heç kim baxmayıb." : "No views yet."}</p>
+                   </div>
+                 )}
+               </div>
              </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Navigation Arrows (Smart visibility) */}
+        {/* Navigation arrows */}
         <button
+          type="button"
           onClick={(e) => { e.stopPropagation(); goToPrevStory(); }}
-          className={`absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/20 hover:bg-black/50 rounded-full text-white/80 hover:text-white transition-all hidden md:block z-30 ${
-            (currentStoryIndex === 0 && currentUserIndex === 0) ? "opacity-0 pointer-events-none" : "opacity-100"
+          className={`absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full text-white/90 hover:text-white hover:bg-white/15 transition-all z-30 ${
+            currentStoryIndex === 0 && currentUserIndex === 0 ? "invisible" : ""
           }`}
+          aria-label={language === "az" ? "Əvvəlki" : "Previous"}
         >
-          <ChevronLeft className="w-8 h-8" />
+          <ChevronLeft className="w-7 h-7 sm:w-8 sm:h-8" />
         </button>
-
         <button
+          type="button"
           onClick={(e) => { e.stopPropagation(); goToNextStory(); }}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/20 hover:bg-black/50 rounded-full text-white/80 hover:text-white transition-all hidden md:block z-30"
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full text-white/90 hover:text-white hover:bg-white/15 transition-all z-30"
+          aria-label={language === "az" ? "Növbəti" : "Next"}
         >
-          <ChevronRight className="w-8 h-8" />
+          <ChevronRight className="w-7 h-7 sm:w-8 sm:h-8" />
         </button>
       </div>
     </motion.div>

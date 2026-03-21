@@ -125,11 +125,11 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/logo.jpg", sizes: "any", type: "image/jpeg" },
+      { url: "/logo.png", sizes: "any", type: "image/png" },
     ],
-    shortcut: ["/logo.jpg"],
+    shortcut: ["/logo.png"],
     apple: [
-      { url: "/logo.jpg", sizes: "180x180", type: "image/jpeg" },
+      { url: "/logo.png", sizes: "180x180", type: "image/png" },
     ],
   },
 };

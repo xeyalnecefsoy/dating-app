@@ -51,7 +51,7 @@ export default function TanisliqPage() {
         <div className="w-full max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <div className="w-8 h-8 relative rounded-full overflow-hidden">
-              <Image src="/logo.jpg" alt="Danyeri" fill className="object-cover" />
+              <Image src="/logo.png" alt="Danyeri" fill className="object-cover" />
             </div>
             <span className="font-bold text-lg">Danyeri</span>
           </Link>

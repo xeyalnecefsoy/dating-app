@@ -33,7 +33,7 @@ export default function DiscoveryPage() {
   const [matchedProfile, setMatchedProfile] = useState<UserProfile | null>(null);
   const [filters, setFilters] = useState({ 
     minAge: 18, 
-    maxAge: 50, 
+    maxAge: 80, 
     location: "all",
     communicationStyle: "all"
   });
@@ -63,7 +63,12 @@ export default function DiscoveryPage() {
     }
     if (savedFilters) {
       try {
-        setFilters(JSON.parse(savedFilters));
+        const parsed = JSON.parse(savedFilters);
+        // Legacy: older sessiyalarda default maxAge 50 idi, onu yeni default olan 80-ə qaldıraq
+        if (parsed.maxAge === 50) {
+          parsed.maxAge = 80;
+        }
+        setFilters(parsed);
       } catch (e) {
         console.error("Failed to parse saved filters", e);
       }
@@ -166,7 +171,6 @@ export default function DiscoveryPage() {
     uniqueUsers.sort((a, b) => seededHash(a.id, shuffleSeed) - seededHash(b.id, shuffleSeed));
 
     return uniqueUsers.filter(u => {
-      if (currentUser?.likes.includes(u.id)) return false;
       if (currentUser && isOnboarded && u.gender !== currentUser.lookingFor) return false;
       if (u.age < filters.minAge || u.age > filters.maxAge) return false;
       if (filters.location !== "all" && u.location !== filters.location) return false;
@@ -819,8 +823,8 @@ export default function DiscoveryPage() {
                  </h2>
                  <p className="text-muted-foreground text-sm mb-8 leading-relaxed">
                     {language === 'az' 
-                      ? 'Gündəlik bəyənmə limitinizə (50 lik) çatdınız. Limitləri qaldırmaq və istədiyiniz qədər profil bəyənmək üçün Premium ala bilərsiniz və ya sabahadək gözləyə bilərsiniz.'
-                      : "You've reached your daily like limit (50). Get Premium to unlock unlimited likes, or wait until tomorrow."}
+                      ? `Gündəlik bəyənmə limitinizə (${limitStatus?.limit ?? 10} lik) çatdınız. Limitləri qaldırmaq və istədiyiniz qədər profil bəyənmək üçün Premium ala bilərsiniz və ya sabahadək gözləyə bilərsiniz.`
+                      : `You've reached your daily like limit (${limitStatus?.limit ?? 10}). Get Premium to unlock unlimited likes, or wait until tomorrow.`}
                  </p>
                  
                  <div className="space-y-3">

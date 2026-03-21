@@ -1,6 +1,13 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { api } from "./_generated/api";
 import { v } from "convex/values";
+
+/** Söhbətgah (ümumi chat) mesajları bu müddətdən sonra avtomatik silinir; 30 gün "bəyənib sonra tapmaq" üçün kifayətdir */
+const GENERAL_CHAT_RETENTION_DAYS = 30;
+
+function getGeneralChatCutoffMs(): number {
+  return Date.now() - GENERAL_CHAT_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+}
 
 async function getMatchForChannel(ctx: any, channelId: string) {
   if (!channelId.startsWith("match-")) return null;
@@ -50,11 +57,17 @@ export const list = query({
           viewerClearedAt = isUser1 ? (match.clearedAtUser1 || null) : (match.clearedAtUser2 || null);
        }
     }
-    const messages = await ctx.db
+    let messages = await ctx.db
       .query("messages")
       .withIndex("by_channel", (q) => q.eq("channelId", channelId))
       .order("desc")
-      .take(100);
+      .take(channelId === "general" ? 500 : 100);
+
+    if (channelId === "general") {
+      const cutoff = getGeneralChatCutoffMs();
+      messages = messages.filter((msg) => msg._creationTime > cutoff);
+      messages = messages.slice(0, 100);
+    }
 
     const visibleMessages =
       viewerClearedAt === null
@@ -66,7 +79,7 @@ export const list = query({
       if (msg.isDeleted) {
          return {
           ...msg,
-          body: "Bu mesaj silindi", 
+          body: "Bu mesaj silinib", 
           format: "text",
           venueId: undefined,
           icebreakerId: undefined,
@@ -108,6 +121,160 @@ export const last = query({
       .first();
     
     return message;
+  },
+});
+
+/** One-shot conversation list for Messages tab: general + accepted matches + requests */
+export const listConversations = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return { general: null, acceptedMatches: [], incomingRequests: [], sentRequests: [] };
+    const userId = identity.subject;
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
+      .first();
+    const generalLastSeenAt = user?.generalLastSeenAt ?? 0;
+
+    const generalLast = await ctx.db
+      .query("messages")
+      .withIndex("by_channel", (q) => q.eq("channelId", "general"))
+      .order("desc")
+      .first();
+    const general = generalLast
+      ? {
+          lastBody: generalLast.format === "image" ? "📷 Şəkil" : (generalLast.body || "").slice(0, 80),
+          lastTime: generalLast._creationTime,
+          unread: generalLast._creationTime > generalLastSeenAt,
+        }
+      : null;
+
+    const matches1 = await ctx.db
+      .query("matches")
+      .withIndex("by_user1_status", (q: any) => q.eq("user1Id", userId).eq("status", "accepted"))
+      .collect();
+    const matches2 = await ctx.db
+      .query("matches")
+      .withIndex("by_user2_status", (q: any) => q.eq("user2Id", userId).eq("status", "accepted"))
+      .collect();
+    const acceptedList = [
+      ...matches1.filter((m) => !m.hiddenByUser1).map((m) => ({ match: m, partnerId: m.user2Id })),
+      ...matches2.filter((m) => !m.hiddenByUser2).map((m) => ({ match: m, partnerId: m.user1Id })),
+    ];
+
+    const acceptedMatches: Array<{
+      partnerId: string;
+      channelId: string;
+      name: string;
+      avatar?: string;
+      username?: string;
+      isVerified: boolean;
+      isPremium?: boolean;
+      lastBody: string;
+      lastTime: number;
+      unread: boolean;
+    }> = [];
+    for (const { match, partnerId } of acceptedList) {
+      const channelId = `match-${[userId, partnerId].sort().join("-")}`;
+      const lastMsg = await ctx.db
+        .query("messages")
+        .withIndex("by_channel", (q) => q.eq("channelId", channelId))
+        .order("desc")
+        .first();
+      const isUser1 = match.user1Id === userId;
+      const myReadAt = isUser1 ? (match.lastReadUser1 ?? 0) : (match.lastReadUser2 ?? 0);
+      const unread = lastMsg ? lastMsg.userId !== userId && lastMsg._creationTime > myReadAt : false;
+      const partner = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerkId", partnerId))
+        .first();
+      acceptedMatches.push({
+        partnerId,
+        channelId,
+        name: partner?.name ?? "User",
+        avatar: partner?.avatar,
+        username: partner?.username,
+        isVerified: !!(partner?.role === "admin" || partner?.role === "superadmin" || (partner as any)?.isVerified),
+        isPremium: (partner as any)?.isPremium,
+        lastBody: lastMsg
+          ? lastMsg.format === "image"
+            ? "📷 Şəkil"
+            : (lastMsg.body || "").slice(0, 60)
+          : "Söhbətə başlayın",
+        lastTime: lastMsg?._creationTime ?? 0,
+        unread,
+      });
+    }
+    acceptedMatches.sort((a, b) => b.lastTime - a.lastTime);
+
+    const incomingRaw = await ctx.db
+      .query("matches")
+      .withIndex("by_user2_status", (q: any) => q.eq("user2Id", userId).eq("status", "request"))
+      .collect();
+    const sentRaw = await ctx.db
+      .query("matches")
+      .withIndex("by_user1_status", (q: any) => q.eq("user1Id", userId).eq("status", "request"))
+      .collect();
+
+    const incomingRequests: Array<{ id: string; name: string; avatar?: string; username?: string; isVerified: boolean }> = [];
+    for (const r of incomingRaw) {
+      const u = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerkId", r.user1Id))
+        .first();
+      if (u) {
+        incomingRequests.push({
+          id: r.user1Id,
+          name: u.name ?? "User",
+          avatar: u.avatar,
+          username: u.username,
+          isVerified: !!(u.role === "admin" || u.role === "superadmin" || (u as any).isVerified),
+        });
+      }
+    }
+
+    const sentRequests: Array<{ id: string; name: string; avatar?: string; username?: string; isVerified: boolean }> = [];
+    for (const r of sentRaw) {
+      const u = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerkId", r.user2Id))
+        .first();
+      if (u) {
+        sentRequests.push({
+          id: r.user2Id,
+          name: u.name ?? "User",
+          avatar: u.avatar,
+          username: u.username,
+          isVerified: !!(u.role === "admin" || u.role === "superadmin" || (u as any).isVerified),
+        });
+      }
+    }
+
+    return { general, acceptedMatches, incomingRequests, sentRequests };
+  },
+});
+
+// Mark general (Söhbətgah) channel as seen for current user
+export const markGeneralSeen = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthenticated");
+
+    const clerkId = identity.subject;
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
+      .first();
+
+    if (!user) return;
+
+    await ctx.db.patch(user._id, {
+      generalLastSeenAt: Date.now(),
+    });
   },
 });
 
@@ -236,12 +403,18 @@ export const deleteMessage = mutation({
       throw new Error("You can only delete your own messages");
     }
 
-    // Check time limit (15 minutes)
-    const DELETE_LIMIT_MS = 15 * 60 * 1000;
-    const now = Date.now();
-    
-    if (now - message._creationTime > DELETE_LIMIT_MS) {
-      throw new Error("Message is too old to delete (15 min limit)");
+    // For match-... channels keep 15-minute limit; for general/public chats allow anytime.
+    const isMatchChannel =
+      typeof message.channelId === "string" &&
+      message.channelId.startsWith("match-");
+
+    if (isMatchChannel) {
+      const DELETE_LIMIT_MS = 15 * 60 * 1000;
+      const now = Date.now();
+      
+      if (now - message._creationTime > DELETE_LIMIT_MS) {
+        throw new Error("Message is too old to delete (15 min limit)");
+      }
     }
 
     // Soft Delete Implementation
@@ -279,6 +452,7 @@ export const editMessage = mutation({
 
     await ctx.db.patch(args.id, {
       body: args.newBody,
+      editedAt: now,
     });
   },
 });
@@ -309,5 +483,26 @@ export const markRead = mutation({
     } else if (isUser2) {
       await ctx.db.patch(match._id, { lastReadUser2: now });
     }
+  },
+});
+
+/** Söhbətgah: müddəti keçmiş mesajları silir (cron gündəlik işlədilir) */
+export const cleanupOldGeneralChatMessages = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const cutoff = getGeneralChatCutoffMs();
+    const old = await ctx.db
+      .query("messages")
+      .withIndex("by_channel", (q) => q.eq("channelId", "general"))
+      .collect();
+    const toDelete = old.filter((msg) => msg._creationTime < cutoff);
+    const batch = 200;
+    for (let i = 0; i < toDelete.length; i += batch) {
+      const chunk = toDelete.slice(i, i + batch);
+      for (const msg of chunk) {
+        await ctx.db.delete(msg._id);
+      }
+    }
+    return { deleted: toDelete.length };
   },
 });

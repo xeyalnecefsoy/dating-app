@@ -9,9 +9,10 @@ import {
 } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { api } from "../lib/api";
 import { Stack, useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { ArrowLeft, Heart, MessageCircle, Star, Bell, AlertCircle, Ban, Award } from "../lib/icons";
+import { Colors } from "../lib/colors";
 
 export default function NotificationsScreen() {
   const { userId } = useAuth();
@@ -23,9 +24,9 @@ export default function NotificationsScreen() {
   if (notifications === undefined) {
     return (
       <>
-        <Stack.Screen options={{ headerTitle: "Bildirişlər", headerStyle: { backgroundColor: "#1a1a2e" }, headerTintColor: "#fff" }} />
+        <Stack.Screen options={{ headerTitle: "Bildirişlər", headerStyle: { backgroundColor: Colors.background }, headerTintColor: Colors.foreground }} />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#e94057" />
+          <ActivityIndicator size="large" color={Colors.primary} />
         </View>
       </>
     );
@@ -42,24 +43,28 @@ export default function NotificationsScreen() {
     }
   };
 
-  const getIcon = (type: string) => {
+  const getIcon = (type: string): { color: string; Icon: React.ComponentType<{ size: number; color: string }> } => {
     switch (type) {
-      case "match": return { name: "heart", color: "#e94057" };
-      case "message": return { name: "chatbubble", color: "#3b82f6" };
-      case "like": return { name: "star", color: "#f59e0b" };
-      default: return { name: "notifications", color: "#888" };
+      case "match": return { color: Colors.primary, Icon: Heart };
+      case "message": return { color: Colors.infoBlue, Icon: MessageCircle };
+      case "like": return { color: Colors.warningOrange, Icon: Star };
+      case "mod_rejected": return { color: Colors.destructive, Icon: Ban };
+      case "mod_deleted": return { color: Colors.destructive, Icon: AlertCircle };
+      case "system_alert": return { color: Colors.warningOrange, Icon: AlertCircle };
+      case "badge": return { color: "#f59e0b", Icon: Award };
+      default: return { color: Colors.mutedForeground, Icon: Bell };
     }
   };
 
   const renderNotification = ({ item }: { item: any }) => {
-    const icon = getIcon(item.type);
+    const { color, Icon } = getIcon(item.type);
     return (
       <TouchableOpacity
         style={[styles.notifRow, !item.read && styles.unread]}
         onPress={() => handlePress(item)}
       >
-        <View style={[styles.iconContainer, { backgroundColor: `${icon.color}20` }]}>
-          <Ionicons name={icon.name as any} size={20} color={icon.color} />
+        <View style={[styles.iconContainer, { backgroundColor: `${color}20` }]}>
+          <Icon size={20} color={color} />
         </View>
         <View style={styles.notifContent}>
           <Text style={styles.notifTitle}>{item.title}</Text>
@@ -78,11 +83,11 @@ export default function NotificationsScreen() {
       <Stack.Screen
         options={{
           headerTitle: "Bildirişlər",
-          headerStyle: { backgroundColor: "#1a1a2e" },
-          headerTintColor: "#fff",
+          headerStyle: { backgroundColor: Colors.background },
+          headerTintColor: Colors.foreground,
           headerLeft: () => (
             <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 8 }}>
-              <Ionicons name="arrow-back" size={24} color="#fff" />
+              <ArrowLeft size={24} color={Colors.foreground} />
             </TouchableOpacity>
           ),
         }}
@@ -108,19 +113,19 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#1a1a2e" },
-  loadingContainer: { flex: 1, backgroundColor: "#1a1a2e", justifyContent: "center", alignItems: "center" },
+  container: { flex: 1, backgroundColor: Colors.background },
+  loadingContainer: { flex: 1, backgroundColor: Colors.background, justifyContent: "center", alignItems: "center" },
   listContent: { padding: 16 },
   notifRow: { flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 4 },
-  unread: { backgroundColor: "rgba(233,64,87,0.05)", borderRadius: 12, paddingHorizontal: 8 },
+  unread: { backgroundColor: "rgba(233,66,162,0.05)", borderRadius: 12, paddingHorizontal: 8 },
   iconContainer: { width: 44, height: 44, borderRadius: 22, justifyContent: "center", alignItems: "center" },
   notifContent: { flex: 1, marginLeft: 14 },
-  notifTitle: { fontSize: 15, fontWeight: "700", color: "#fff" },
-  notifBody: { fontSize: 13, color: "#888", marginTop: 2 },
-  notifTime: { fontSize: 11, color: "#555", marginTop: 4 },
-  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#e94057" },
+  notifTitle: { fontSize: 15, fontWeight: "700", color: Colors.foreground },
+  notifBody: { fontSize: 13, color: Colors.mutedForeground, marginTop: 2 },
+  notifTime: { fontSize: 11, color: Colors.mutedForeground, marginTop: 4 },
+  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary },
   separator: { height: 1, backgroundColor: "rgba(255,255,255,0.05)" },
   emptyContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   emptyEmoji: { fontSize: 48, marginBottom: 12 },
-  emptyTitle: { color: "#888", fontSize: 16 },
+  emptyTitle: { color: Colors.mutedForeground, fontSize: 16 },
 });

@@ -1,13 +1,36 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
-// Update user presence (heartbeat)
-// Update user presence (heartbeat)
+const ONLINE_WINDOW_MS = 25 * 1000; // 25 saniyə — heartbeat bu müddətdən tez-tez göndərilir
+
+// Heartbeat: istifadəçini online saxlayır
 export const ping = mutation({
-  args: { userId: v.string() }, // Ignored
-  handler: async (ctx, args) => {
+  args: { userId: v.string() },
+  handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return; // Silent fail if not logged in (e.g. landing page)
+    if (!identity) return;
+    const userId = identity.subject;
+
+    const existing = await ctx.db
+      .query("presence")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
+    const now = Date.now();
+    if (existing) {
+      await ctx.db.patch(existing._id, { updatedAt: now });
+    } else {
+      await ctx.db.insert("presence", { userId, updatedAt: now });
+    }
+  },
+});
+
+// Brauzer/pəncərə bağlananda çağrılır — statusu dərhal offline edir
+export const setOffline = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return;
     const userId = identity.subject;
 
     const existing = await ctx.db
@@ -16,14 +39,20 @@ export const ping = mutation({
       .first();
 
     if (existing) {
-      await ctx.db.patch(existing._id, { updatedAt: Date.now() });
-    } else {
-      await ctx.db.insert("presence", { userId: userId, updatedAt: Date.now() });
+      const lastSeen = existing.updatedAt;
+      await ctx.db.delete(existing._id);
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
+        .first();
+      if (user) {
+        await ctx.db.patch(user._id, { lastSeenAt: lastSeen });
+      }
     }
   },
 });
 
-// Get user status
+// İstifadəçi statusu: online və ya son görülmə
 export const getStatus = query({
   args: { userId: v.string() },
   handler: async (ctx, args) => {
@@ -31,12 +60,17 @@ export const getStatus = query({
       .query("presence")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .first();
-    
-    if (!data) return { isOnline: false, lastSeen: 0 };
 
-    // Consider online if updated within last 2 minutes
-    const isOnline = Date.now() - data.updatedAt < 2 * 60 * 1000;
-    
-    return { isOnline, lastSeen: data.updatedAt };
+    if (data) {
+      const isOnline = Date.now() - data.updatedAt < ONLINE_WINDOW_MS;
+      return { isOnline, lastSeen: data.updatedAt };
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.userId))
+      .first();
+    const lastSeen = user?.lastSeenAt ?? 0;
+    return { isOnline: false, lastSeen };
   },
 });

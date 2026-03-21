@@ -196,6 +196,30 @@ export const declineRequest = mutation({
   }
 });
 
+// Cancel a message request (sender cancels their own sent request)
+export const cancelRequest = mutation({
+  args: {
+    senderId: v.string(),
+    receiverId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthenticated");
+    const userId = identity.subject;
+    if (userId !== args.senderId) throw new Error("Only sender can cancel");
+
+    const match = await ctx.db
+      .query("matches")
+      .withIndex("by_user1_status", q => q.eq("user1Id", args.senderId).eq("status", "request"))
+      .filter(q => q.eq(q.field("user2Id"), args.receiverId))
+      .first();
+
+    if (match) {
+      await ctx.db.delete(match._id);
+    }
+  }
+});
+
 // Get incoming requests for a user
 export const getRequests = query({
   args: { userId: v.string() }, 
@@ -211,6 +235,22 @@ export const getRequests = query({
 
     return requests.map(r => r.user1Id);
   }
+});
+
+// Get match status between current user and another user (for chat eligibility + pending state)
+export const getMatchWithUser = query({
+  args: { otherUserId: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+    const userId = identity.subject;
+    const match = await getMatchBetweenUsers(ctx, userId, args.otherUserId);
+    if (!match) return null;
+    return {
+      status: match.status as "accepted" | "request",
+      isSender: match.user1Id === userId,
+    };
+  },
 });
 
 // List all CONFIRMED matches for a specific user and return the partner IDs

@@ -141,7 +141,7 @@ function DashboardContent() {
             {/* Only show logo strictly on mobile if sidebar is hidden, or show always but hide on desktop if sidebar handles it? Sidebar handles it on desktop. */}
             <div className="w-8 h-8 flex items-center justify-center relative rounded-full overflow-hidden">
               <Image
-                src="/logo.jpg"
+                src="/logo.png"
                 alt="Danyeri Logo"
                 fill
                 className="object-contain"
@@ -456,7 +456,7 @@ function WelcomeScreen() {
           {/* Main logo - slightly smaller for mobile fit */}
           <div className="w-28 h-28 rounded-full flex items-center justify-center shadow-2xl shadow-primary/30 bg-background/50 backdrop-blur-md overflow-hidden z-10 relative">
             <Image
-              src="/logo.jpg"
+              src="/logo.png"
               alt="Danyeri Logo"
               fill
               className="object-cover"

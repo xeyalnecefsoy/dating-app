@@ -282,3 +282,45 @@
   color: #a1a1aa !important;
 }
 
+/* Blog article: clear h2/h3, lists, spacing */
+.blog-article {
+  --tw-prose-body: var(--foreground);
+  --tw-prose-headings: var(--foreground);
+}
+.blog-article h1 {
+  @apply text-3xl md:text-4xl font-bold leading-tight text-foreground;
+}
+.blog-article h2 {
+  @apply text-xl md:text-2xl font-extrabold mt-12 first:mt-0 mb-4 pb-2 border-b border-border text-foreground tracking-tight;
+}
+.blog-article.prose h2 {
+  @apply text-xl md:text-2xl font-extrabold text-foreground;
+}
+.blog-article h3 {
+  @apply text-lg font-bold mt-8 mb-3 text-foreground;
+}
+.blog-article.prose h3 {
+  @apply text-lg font-bold text-foreground;
+}
+.blog-article p {
+  @apply text-foreground/90 leading-relaxed mb-4;
+}
+.blog-article ul {
+  @apply my-5 pl-6 list-disc space-y-2 text-foreground/90;
+}
+.blog-article ol {
+  @apply my-5 pl-6 list-decimal space-y-2 text-foreground/90;
+}
+.blog-article li {
+  @apply leading-relaxed;
+}
+.blog-article strong {
+  @apply text-foreground font-semibold;
+}
+.blog-article a {
+  @apply text-primary no-underline hover:underline;
+}
+.blog-article blockquote {
+  @apply border-l-4 border-primary/50 pl-4 py-2 my-5 italic text-foreground/85 bg-muted/30 rounded-r-lg;
+}
+

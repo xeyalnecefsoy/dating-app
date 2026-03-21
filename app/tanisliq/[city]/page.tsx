@@ -131,7 +131,7 @@ export default async function CityPage({
           </Link>
           <Link href="/" className="flex items-center gap-2">
             <div className="w-8 h-8 relative rounded-full overflow-hidden">
-              <Image src="/logo.jpg" alt="Danyeri" fill className="object-cover" />
+              <Image src="/logo.png" alt="Danyeri" fill className="object-cover" />
             </div>
             <span className="font-bold">Danyeri</span>
           </Link>
