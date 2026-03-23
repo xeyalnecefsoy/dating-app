@@ -257,6 +257,8 @@ function ChatInterface({
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [currentTone, setCurrentTone] = useState<AnalysisResult["tone"]>("Neutral");
+  // Per user message analysis accordion state
+  const [analysisExpandedById, setAnalysisExpandedById] = useState<Record<string, boolean>>({});
   
   // Initialize with the scenario's starting message ONLY if empty (first load of scenario)
   useEffect(() => {
@@ -270,6 +272,7 @@ function ChatInterface({
     }
     setInputValue("");
     setCurrentTone("Neutral");
+    setAnalysisExpandedById({});
   }, [scenario, language]);
 
 
@@ -430,28 +433,88 @@ Initial Message: ${scenario.initialMessage[language]}
                   
                   {/* Analysis Feedback for User Messages */}
                   {msg.sender === "user" && msg.analysis && (
-                    <motion.div 
+                    <motion.div
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}
                       className="mt-2 w-full"
                     >
-                      <Card className="bg-primary/5 border-primary/20 shadow-none">
-                        <CardContent className="p-3">
-                          <div className="flex items-center justify-between mb-2">
-                             <div className="flex items-center gap-2">
-                                <Sparkles className="w-3 h-3 text-primary" />
-                                <span className="text-xs font-medium text-primary">AI Analiz</span>
-                             </div>
-                             <Badge variant="secondary" className="text-[10px] h-5">{tones[msg.analysis.tone] || msg.analysis.tone}</Badge>
+                      {(() => {
+                        const expanded = analysisExpandedById[msg.id] ?? true;
+                        const fullFeedback = msg.analysis?.feedback?.[language] ?? "";
+                        const shortFeedback =
+                          fullFeedback.length > 110 ? `${fullFeedback.slice(0, 110)}...` : fullFeedback;
+
+                        return (
+                          <div className="w-full">
+                            <div className="flex items-center justify-between mb-2 px-1">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setAnalysisExpandedById((prev) => ({
+                                    ...prev,
+                                    [msg.id]: !(prev[msg.id] ?? true),
+                                  }))
+                                }
+                                className="flex items-center gap-2 text-xs font-semibold text-primary"
+                              >
+                                <span>Ox</span>
+                                <ChevronRight
+                                  className={cn("w-4 h-4 transition-transform")}
+                                  style={{ transform: expanded ? "rotate(-90deg)" : "rotate(90deg)" }}
+                                />
+                              </button>
+                            </div>
+
+                            {expanded ? (
+                              <Card className="bg-primary/5 border-primary/20 shadow-none">
+                                <CardContent className="p-3">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                      <Sparkles className="w-3 h-3 text-primary" />
+                                      <span className="text-xs font-medium text-primary">AI Analiz</span>
+                                    </div>
+                                    <Badge variant="secondary" className="text-[10px] h-5">
+                                      {tones[msg.analysis.tone] || msg.analysis.tone}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground mb-3">
+                                    {msg.analysis.feedback[language]}
+                                  </p>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    <Stat
+                                      label={language === "az" ? "Empatiya" : "Empathy"}
+                                      value={msg.analysis.empathy}
+                                    />
+                                    <Stat
+                                      label={language === "az" ? "Aydınlıq" : "Clarity"}
+                                      value={msg.analysis.clarity}
+                                    />
+                                    <Stat
+                                      label={language === "az" ? "İnam" : "Confidence"}
+                                      value={msg.analysis.confidence}
+                                    />
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            ) : (
+                              <Card className="bg-primary/5 border-primary/20 shadow-none">
+                                <CardContent className="p-3">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                      <Sparkles className="w-3 h-3 text-primary" />
+                                      <span className="text-xs font-medium text-primary">AI Analiz</span>
+                                    </div>
+                                    <Badge variant="secondary" className="text-[10px] h-5">
+                                      {tones[msg.analysis.tone] || msg.analysis.tone}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">{shortFeedback}</p>
+                                </CardContent>
+                              </Card>
+                            )}
                           </div>
-                          <p className="text-xs text-muted-foreground mb-3">{msg.analysis.feedback[language]}</p>
-                          <div className="grid grid-cols-3 gap-2">
-                             <Stat label={language === 'az' ? 'Empatiya' : 'Empathy'} value={msg.analysis.empathy} />
-                             <Stat label={language === 'az' ? 'Aydınlıq' : 'Clarity'} value={msg.analysis.clarity} />
-                             <Stat label={language === 'az' ? 'İnam' : 'Confidence'} value={msg.analysis.confidence} />
-                          </div>
-                        </CardContent>
-                      </Card>
+                        );
+                      })()}
                     </motion.div>
                   )}
                </div>

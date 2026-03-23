@@ -101,3 +101,107 @@ export function StructuredData() {
     </>
   );
 }
+
+export function FAQStructuredData({ faq }: { faq: { question: string, answer: string }[] }) {
+  if (!faq || faq.length === 0) return null;
+  
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": faq.map(item => ({
+      "@type": "Question",
+      "name": item.question,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": item.answer
+      }
+    }))
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+    />
+  );
+}
+
+export function ArticleStructuredData({
+  title,
+  description,
+  url,
+  imageUrl,
+  datePublished,
+  authorName = "Danyeri Editörləri",
+}: {
+  title: string;
+  description: string;
+  url: string;
+  imageUrl?: string;
+  datePublished?: string;
+  authorName?: string;
+}) {
+  const articleJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": title,
+    "description": description,
+    "image": imageUrl || "https://www.danyeri.az/og-image.jpg",
+    "author": {
+      "@type": "Organization",
+      "name": authorName,
+      "url": "https://www.danyeri.az",
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Danyeri",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://www.danyeri.az/logo.png",
+      },
+    },
+    "datePublished": datePublished || new Date().toISOString().split("T")[0],
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": url,
+    },
+  };
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Ana Səhifə",
+        "item": "https://www.danyeri.az",
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Bloq",
+        "item": "https://www.danyeri.az/blog",
+      },
+      {
+        "@type": "ListItem",
+        "position": 3,
+        "name": title,
+        "item": url,
+      },
+    ],
+  };
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+    </>
+  );
+}

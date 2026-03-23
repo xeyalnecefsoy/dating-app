@@ -19,16 +19,46 @@ export function BlogBannerSlider({ slides }: { slides: BannerSlide[] }) {
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
     if (!el || slides.length === 0) return;
-    const itemWidth = el.scrollWidth / slides.length;
-    const index = Math.round(el.scrollLeft / itemWidth);
-    setActiveIndex(Math.min(Math.max(0, index), slides.length - 1));
+    
+    // Find which slide is closest to the left edge
+    const containerRect = el.getBoundingClientRect();
+    const children = Array.from(el.children) as HTMLElement[];
+    let closestIndex = 0;
+    let minDistance = Infinity;
+
+    // The gap makes simple math less reliable, so we measure actual element positions
+    // We ignore the first non-Slide child which is the empty Link. Wait, all children inside 'ref={scrollRef}' are slides?
+    // Let's filter children that have 'href' or 'tagName' A.
+    const slideChildren = children.filter(c => c.tagName === 'A');
+
+    slideChildren.forEach((child, index) => {
+      const rect = child.getBoundingClientRect();
+      const distance = Math.abs(rect.left - containerRect.left);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestIndex = index;
+      }
+    });
+
+    const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768;
+    const maxDotIndex = isDesktop && slides.length > 2 ? slides.length - 2 : slides.length - 1;
+    setActiveIndex(Math.min(closestIndex, Math.max(0, maxDotIndex)));
   }, [slides.length]);
 
   const scrollTo = (index: number) => {
     const el = scrollRef.current;
     if (!el) return;
-    const itemWidth = el.scrollWidth / slides.length;
-    el.scrollTo({ left: index * itemWidth, behavior: "smooth" });
+    const slideChildren = Array.from(el.children).filter(c => c.tagName === 'A') as HTMLElement[];
+    
+    if (slideChildren[index]) {
+      const targetChild = slideChildren[index];
+      // We want to align the child's left edge with the container's left edge
+      // offsetLeft is relative to the offsetParent, which might not be `el` if `el` is not positioned
+      // A safer robust way is to just use scrollLeft + targetChild.getBoundingClientRect().left - el.getBoundingClientRect().left
+      const targetScrollLeft = el.scrollLeft + targetChild.getBoundingClientRect().left - el.getBoundingClientRect().left;
+      
+      el.scrollTo({ left: targetScrollLeft, behavior: "smooth" });
+    }
   };
 
   return (
@@ -92,22 +122,25 @@ export function BlogBannerSlider({ slides }: { slides: BannerSlide[] }) {
         <div className="pointer-events-none absolute right-0 top-0 h-full w-8 bg-linear-to-l from-background to-transparent" />
       </div>
       <div className="flex items-center justify-center gap-2 mt-4">
-        {slides.map((_, i) => (
-          <button
-            key={i}
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              scrollTo(i);
-            }}
-            className={`w-2 h-2 rounded-full transition-all ${
-              i === activeIndex
-                ? "bg-primary w-6"
-                : "bg-muted-foreground/40 hover:bg-muted-foreground/60"
-            }`}
-            aria-label={`Slayd ${i + 1}`}
-          />
-        ))}
+        {slides.map((_, i) => {
+          const isRedundantOnDesktop = i === slides.length - 1 && slides.length > 2;
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                scrollTo(i);
+              }}
+              className={`w-2 h-2 rounded-full transition-all flex border-0 p-0 ${
+                i === activeIndex
+                  ? "bg-primary w-6"
+                  : "bg-muted-foreground/40 hover:bg-muted-foreground/60"
+              } ${isRedundantOnDesktop ? 'md:hidden' : ''}`}
+              aria-label={`Slayd ${i + 1}`}
+            />
+          );
+        })}
       </div>
     </section>
   );

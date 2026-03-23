@@ -9,11 +9,21 @@ import { Colors } from "../../lib/colors";
 
 export default function TabLayout() {
   const { isLoaded, isSignedIn, userId } = useAuth();
-  const dbUser = useQuery(api.users.getUser, userId ? { clerkId: userId } : "skip");
+  const dbUser = useQuery(
+    api.users.getUser,
+    userId ? { clerkId: userId } : "skip",
+  );
 
   if (!isLoaded) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: Colors.background }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: Colors.background,
+        }}
+      >
         <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
@@ -25,7 +35,14 @@ export default function TabLayout() {
 
   if (dbUser === undefined) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: Colors.background }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: Colors.background,
+        }}
+      >
         <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
@@ -66,9 +83,7 @@ export default function TabLayout() {
         options={{
           title: "Ana Səhifə",
           headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <Home size={size} color={color} />
-          ),
+          tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -86,9 +101,7 @@ export default function TabLayout() {
         options={{
           title: "Axtar",
           headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <Search size={size} color={color} />
-          ),
+          tabBarIcon: ({ color, size }) => <Search size={size} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -106,15 +119,20 @@ export default function TabLayout() {
         options={{
           title: "Profil",
           headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <User size={size} color={color} />
-          ),
+          tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="matches"
         options={{
           href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="simulator"
+        options={{
+          href: null,
+          headerShown: false,
         }}
       />
     </Tabs>

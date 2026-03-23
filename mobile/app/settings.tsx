@@ -87,7 +87,7 @@ export default function SettingsScreen() {
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -99,7 +99,9 @@ export default function SettingsScreen() {
         onPress: async () => {
           try {
             await unblockMutation({ targetUserId: blockedId });
-          } catch (e) { /* ignore */ }
+          } catch (e) {
+            /* ignore */
+          }
         },
       },
     ]);
@@ -113,24 +115,37 @@ export default function SettingsScreen() {
           headerStyle: { backgroundColor: Colors.background },
           headerTintColor: Colors.foreground,
           headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 8 }}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={{ marginRight: 8 }}
+            >
               <ArrowLeft size={24} color={Colors.foreground} />
             </TouchableOpacity>
           ),
         }}
       />
-      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* Account Section */}
         <Text style={styles.sectionTitle}>Hesab</Text>
         <View style={styles.section}>
-          <SettingsRow icon={<User size={20} color={Colors.mutedForeground} />} label="Profili redaktə et" onPress={() => router.push("/(tabs)/profile")} />
+          <SettingsRow
+            icon={<User size={20} color={Colors.mutedForeground} />}
+            label="Profili redaktə et"
+            onPress={() => router.push("/(tabs)/profile")}
+          />
           <SettingsRow
             icon={<Users size={20} color={Colors.mutedForeground} />}
             label="Bloklanan istifadəçilər"
             value={blockedUsers ? `${blockedUsers.length}` : "0"}
             onPress={() => setShowBlockedModal(true)}
           />
-          <SettingsRow icon={<ShieldCheck size={20} color={Colors.mutedForeground} />} label="Gizlilik" />
+          <SettingsRow
+            icon={<ShieldCheck size={20} color={Colors.mutedForeground} />}
+            label="Gizlilik"
+          />
         </View>
 
         {/* Notifications Section */}
@@ -142,7 +157,10 @@ export default function SettingsScreen() {
             <Switch
               value={notifLikes}
               onValueChange={setNotifLikes}
-              trackColor={{ false: Colors.surfaceDark, true: "rgba(233,66,162,0.4)" }}
+              trackColor={{
+                false: Colors.surfaceDark,
+                true: "rgba(233,66,162,0.4)",
+              }}
               thumbColor={notifLikes ? Colors.primary : Colors.mutedForeground}
             />
           </View>
@@ -152,8 +170,13 @@ export default function SettingsScreen() {
             <Switch
               value={notifMessages}
               onValueChange={setNotifMessages}
-              trackColor={{ false: Colors.surfaceDark, true: "rgba(233,66,162,0.4)" }}
-              thumbColor={notifMessages ? Colors.primary : Colors.mutedForeground}
+              trackColor={{
+                false: Colors.surfaceDark,
+                true: "rgba(233,66,162,0.4)",
+              }}
+              thumbColor={
+                notifMessages ? Colors.primary : Colors.mutedForeground
+              }
             />
           </View>
           <View style={rowStyles.container}>
@@ -162,8 +185,13 @@ export default function SettingsScreen() {
             <Switch
               value={notifMatches}
               onValueChange={setNotifMatches}
-              trackColor={{ false: Colors.surfaceDark, true: "rgba(233,66,162,0.4)" }}
-              thumbColor={notifMatches ? Colors.primary : Colors.mutedForeground}
+              trackColor={{
+                false: Colors.surfaceDark,
+                true: "rgba(233,66,162,0.4)",
+              }}
+              thumbColor={
+                notifMatches ? Colors.primary : Colors.mutedForeground
+              }
             />
           </View>
         </View>
@@ -171,17 +199,38 @@ export default function SettingsScreen() {
         {/* App Section */}
         <Text style={styles.sectionTitle}>Tətbiq</Text>
         <View style={styles.section}>
-          <SettingsRow icon={<Globe size={20} color={Colors.mutedForeground} />} label="Dil" value="Azərbaycan" />
-          <SettingsRow icon={<Moon size={20} color={Colors.mutedForeground} />} label="Tema" value="Tünd" />
-          <SettingsRow icon={<Info size={20} color={Colors.mutedForeground} />} label="Versiya" value={Constants.expoConfig?.version || "1.0.0"} />
+          <SettingsRow
+            icon={<Globe size={20} color={Colors.mutedForeground} />}
+            label="Dil"
+            value="Azərbaycan"
+          />
+          <SettingsRow
+            icon={<Moon size={20} color={Colors.mutedForeground} />}
+            label="Tema"
+            value="Tünd"
+          />
+          <SettingsRow
+            icon={<Info size={20} color={Colors.mutedForeground} />}
+            label="Versiya"
+            value={Constants.expoConfig?.version || "1.0.0"}
+          />
         </View>
 
         {/* Support Section */}
         <Text style={styles.sectionTitle}>Dəstək</Text>
         <View style={styles.section}>
-          <SettingsRow icon={<HelpCircle size={20} color={Colors.mutedForeground} />} label="Kömək" />
-          <SettingsRow icon={<FileText size={20} color={Colors.mutedForeground} />} label="Qaydalar və şərtlər" />
-          <SettingsRow icon={<Lock size={20} color={Colors.mutedForeground} />} label="Gizlilik siyasəti" />
+          <SettingsRow
+            icon={<HelpCircle size={20} color={Colors.mutedForeground} />}
+            label="Kömək"
+          />
+          <SettingsRow
+            icon={<FileText size={20} color={Colors.mutedForeground} />}
+            label="Qaydalar və şərtlər"
+          />
+          <SettingsRow
+            icon={<Lock size={20} color={Colors.mutedForeground} />}
+            label="Gizlilik siyasəti"
+          />
         </View>
 
         {/* Sign out */}
@@ -191,7 +240,11 @@ export default function SettingsScreen() {
         </TouchableOpacity>
 
         {/* Delete account */}
-        <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount} disabled={deleting}>
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={handleDeleteAccount}
+          disabled={deleting}
+        >
           {deleting ? (
             <ActivityIndicator size="small" color={Colors.destructive} />
           ) : (
@@ -217,7 +270,9 @@ export default function SettingsScreen() {
             </View>
             {!blockedUsers || blockedUsers.length === 0 ? (
               <View style={styles.emptyBlocked}>
-                <Text style={styles.emptyBlockedText}>Bloklanan istifadəçi yoxdur</Text>
+                <Text style={styles.emptyBlockedText}>
+                  Bloklanan istifadəçi yoxdur
+                </Text>
               </View>
             ) : (
               <FlatList
@@ -226,13 +281,28 @@ export default function SettingsScreen() {
                 renderItem={({ item }: { item: any }) => (
                   <View style={styles.blockedRow}>
                     {item.avatar ? (
-                      <Image source={{ uri: item.avatar }} style={styles.blockedAvatar} contentFit="cover" />
+                      <Image
+                        source={{ uri: item.avatar }}
+                        style={styles.blockedAvatar}
+                        contentFit="cover"
+                      />
                     ) : (
-                      <View style={[styles.blockedAvatar, { backgroundColor: Colors.surfaceDark, justifyContent: "center", alignItems: "center" }]}>
+                      <View
+                        style={[
+                          styles.blockedAvatar,
+                          {
+                            backgroundColor: Colors.surfaceDark,
+                            justifyContent: "center",
+                            alignItems: "center",
+                          },
+                        ]}
+                      >
                         <User size={20} color={Colors.mutedForeground} />
                       </View>
                     )}
-                    <Text style={styles.blockedName}>{item.name || "İstifadəçi"}</Text>
+                    <Text style={styles.blockedName}>
+                      {item.name || "İstifadəçi"}
+                    </Text>
                     <TouchableOpacity
                       style={styles.unblockBtn}
                       onPress={() => handleUnblock(item.clerkId || item._id)}
@@ -272,7 +342,9 @@ function SettingsRow({
       {icon}
       <Text style={rowStyles.label}>{label}</Text>
       {value ? <Text style={rowStyles.value}>{value}</Text> : null}
-      {onPress ? <ChevronRight size={16} color={Colors.mutedForeground} /> : null}
+      {onPress ? (
+        <ChevronRight size={16} color={Colors.mutedForeground} />
+      ) : null}
     </TouchableOpacity>
   );
 }
@@ -285,14 +357,26 @@ const rowStyles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255,255,255,0.04)",
   },
-  label: { color: Colors.mutedForeground, fontSize: 15, flex: 1, marginLeft: 14 },
+  label: {
+    color: Colors.mutedForeground,
+    fontSize: 15,
+    flex: 1,
+    marginLeft: 14,
+  },
   value: { color: Colors.mutedForeground, fontSize: 13, marginRight: 4 },
 });
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   scrollContent: { padding: 20, paddingBottom: 40 },
-  sectionTitle: { color: Colors.mutedForeground, fontSize: 12, fontWeight: "700", textTransform: "uppercase", marginTop: 24, marginBottom: 8 },
+  sectionTitle: {
+    color: Colors.mutedForeground,
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    marginTop: 24,
+    marginBottom: 8,
+  },
   section: {
     backgroundColor: "rgba(255,255,255,0.04)",
     borderRadius: 16,
@@ -326,9 +410,18 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   deleteText: { color: Colors.destructive, fontWeight: "700", fontSize: 15 },
-  footer: { color: Colors.mutedForeground, textAlign: "center", marginTop: 24, fontSize: 12 },
+  footer: {
+    color: Colors.mutedForeground,
+    textAlign: "center",
+    marginTop: 24,
+    fontSize: 12,
+  },
   // Modal
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "flex-end" },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "flex-end",
+  },
   modalContent: {
     backgroundColor: Colors.background,
     borderTopLeftRadius: 20,
@@ -356,7 +449,13 @@ const styles = StyleSheet.create({
     borderBottomColor: "rgba(255,255,255,0.05)",
   },
   blockedAvatar: { width: 40, height: 40, borderRadius: 20 },
-  blockedName: { flex: 1, color: Colors.foreground, fontSize: 15, fontWeight: "600", marginLeft: 12 },
+  blockedName: {
+    flex: 1,
+    color: Colors.foreground,
+    fontSize: 15,
+    fontWeight: "600",
+    marginLeft: 12,
+  },
   unblockBtn: {
     backgroundColor: Colors.primaryAlpha15,
     paddingHorizontal: 14,

@@ -14,17 +14,47 @@ import { useAuth } from "@clerk/clerk-expo";
 import { useQuery } from "convex/react";
 import { api } from "../../lib/api";
 import { useRouter } from "expo-router";
-import { Bell, Compass, Heart, MessageCircle, ChevronRight, Sparkles, Crown, User } from "../../lib/icons";
+import {
+  Bell,
+  Compass,
+  Heart,
+  MessageCircle,
+  ChevronRight,
+  Sparkles,
+  Crown,
+  User,
+} from "../../lib/icons";
 import { Colors } from "../../lib/colors";
 
 const DAILY_QUESTIONS = [
-  { q: "Çətin vaxtlarınızda qarşı tərəfdən necə bir dəstək görmək istəyirsiniz?", purpose: "Çətin anlarda onun yanında necə olmağı bilmək" },
-  { q: "Həyatında ən çox nəyə dəyər verirsən?", purpose: "Dəyərlər üzrə uyğunluğu kəşf etmək" },
-  { q: "Xoşbəxt münasibətin açarı nədir sənin üçün?", purpose: "Münasibətə baxışını anlamaq" },
-  { q: "Son oxuduğun kitab/baxdığın film hansıdır?", purpose: "Maraqları və zövqü kəşf etmək" },
-  { q: "Hansı mahnı sənin sevgi hekayəni ən yaxşı təsvir edər?", purpose: "Emosional dünyasını tanımaq" },
-  { q: "Qarşılaşdığın ən böyük çətinlik nə idi?", purpose: "Dözümlülük və güc haqqında öyrənmək" },
-  { q: "5 il sonra özünü harada görürsən?", purpose: "Gələcəyə baxışı və hədəfləri anlamaq" },
+  {
+    q: "Çətin vaxtlarınızda qarşı tərəfdən necə bir dəstək görmək istəyirsiniz?",
+    purpose: "Çətin anlarda onun yanında necə olmağı bilmək",
+  },
+  {
+    q: "Həyatında ən çox nəyə dəyər verirsən?",
+    purpose: "Dəyərlər üzrə uyğunluğu kəşf etmək",
+  },
+  {
+    q: "Xoşbəxt münasibətin açarı nədir sənin üçün?",
+    purpose: "Münasibətə baxışını anlamaq",
+  },
+  {
+    q: "Son oxuduğun kitab/baxdığın film hansıdır?",
+    purpose: "Maraqları və zövqü kəşf etmək",
+  },
+  {
+    q: "Hansı mahnı sənin sevgi hekayəni ən yaxşı təsvir edər?",
+    purpose: "Emosional dünyasını tanımaq",
+  },
+  {
+    q: "Qarşılaşdığın ən böyük çətinlik nə idi?",
+    purpose: "Dözümlülük və güc haqqında öyrənmək",
+  },
+  {
+    q: "5 il sonra özünü harada görürsən?",
+    purpose: "Gələcəyə baxışı və hədəfləri anlamaq",
+  },
 ];
 
 export default function HomeScreen() {
@@ -32,23 +62,39 @@ export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const currentUser = useQuery(api.users.getUser, userId ? { clerkId: userId } : "skip");
-  const convexMatches = useQuery(api.matches.list, userId ? { userId } : "skip");
+  const currentUser = useQuery(
+    api.users.getUser,
+    userId ? { clerkId: userId } : "skip",
+  );
+  const convexMatches = useQuery(
+    api.matches.list,
+    userId ? { userId } : "skip",
+  );
   const unreadCount = useQuery(api.notifications.getUnreadCount);
-  const sentLikesIds = useQuery(api.likes.getLikedUserIds, userId ? { userId } : "skip");
+  const sentLikesIds = useQuery(
+    api.likes.getLikedUserIds,
+    userId ? { userId } : "skip",
+  );
 
   const matchCount = convexMatches?.length || 0;
   const sentLikesCount = sentLikesIds?.length || 0;
 
   const todaysQuestion = useMemo(() => {
     const dayOfYear = Math.floor(
-      (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
+      (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) /
+        86400000,
     );
     return DAILY_QUESTIONS[dayOfYear % DAILY_QUESTIONS.length];
   }, []);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 8 }]}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[
+        styles.scrollContent,
+        { paddingTop: insets.top + 8 },
+      ]}
+    >
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -83,7 +129,9 @@ export default function HomeScreen() {
           onPress={() => router.push("/(tabs)/discovery")}
           activeOpacity={0.85}
         >
-          <View style={[styles.quickActionIcon, styles.quickActionIconDiscover]}>
+          <View
+            style={[styles.quickActionIcon, styles.quickActionIconDiscover]}
+          >
             <Compass size={24} color={Colors.foreground} />
           </View>
           <View style={styles.quickActionTextWrap}>
@@ -97,12 +145,16 @@ export default function HomeScreen() {
           onPress={() => router.push("/(tabs)/messages")}
           activeOpacity={0.85}
         >
-          <View style={[styles.quickActionIcon, styles.quickActionIconMessages]}>
+          <View
+            style={[styles.quickActionIcon, styles.quickActionIconMessages]}
+          >
             <MessageCircle size={24} color={Colors.foreground} />
           </View>
           <View style={styles.quickActionTextWrap}>
             <Text style={styles.quickActionTitle}>Mesajlar</Text>
-            <Text style={styles.quickActionSubtitle}>{matchCount} uyğunluq</Text>
+            <Text style={styles.quickActionSubtitle}>
+              {matchCount} uyğunluq
+            </Text>
           </View>
         </TouchableOpacity>
       </View>
@@ -110,21 +162,30 @@ export default function HomeScreen() {
       {/* Stats */}
       <View style={styles.statsCard}>
         <View style={styles.statsRow}>
-          <TouchableOpacity style={styles.statItem} onPress={() => router.push("/likes" as any)}>
+          <TouchableOpacity
+            style={styles.statItem}
+            onPress={() => router.push("/likes" as any)}
+          >
             <Text style={[styles.statNumber, { color: Colors.primary }]}>
               {sentLikesCount}
             </Text>
             <Text style={styles.statLabel}>Göndərilən Bəyənmə</Text>
           </TouchableOpacity>
           <View style={styles.statDivider} />
-          <TouchableOpacity style={styles.statItem} onPress={() => router.push("/(tabs)/messages")}>
+          <TouchableOpacity
+            style={styles.statItem}
+            onPress={() => router.push("/(tabs)/messages")}
+          >
             <Text style={[styles.statNumber, { color: Colors.green }]}>
               {matchCount}
             </Text>
             <Text style={styles.statLabel}>Uyğunluqlar</Text>
           </TouchableOpacity>
           <View style={styles.statDivider} />
-          <TouchableOpacity style={styles.statItem} onPress={() => router.push("/(tabs)/profile")}>
+          <TouchableOpacity
+            style={styles.statItem}
+            onPress={() => router.push("/(tabs)/profile")}
+          >
             <Text style={[styles.statNumber, { color: Colors.gold }]}>
               {currentUser?.badges?.length || 0}
             </Text>
@@ -135,19 +196,27 @@ export default function HomeScreen() {
 
       {/* Skills section */}
       <View style={styles.skillsSectionHeader}>
-        <Text style={styles.skillsSectionTitle}>Bacarıqlarını İnkişaf Etdir</Text>
+        <Text style={styles.skillsSectionTitle}>
+          Bacarıqlarını İnkişaf Etdir
+        </Text>
         <TouchableOpacity style={styles.skillsSeeAll}>
           <Text style={styles.skillsSeeAllText}>Hamısını gör</Text>
           <ChevronRight size={16} color={Colors.primary} />
         </TouchableOpacity>
       </View>
-      <TouchableOpacity style={styles.skillsCard} activeOpacity={0.85}>
+      <TouchableOpacity
+        style={styles.skillsCard}
+        activeOpacity={0.85}
+        onPress={() => router.push("/(tabs)/simulator" as any)}
+      >
         <View style={styles.skillsIconWrap}>
           <Sparkles size={28} color={Colors.primary} />
         </View>
         <View style={styles.skillsInfo}>
           <Text style={styles.skillsTitle}>Ünsiyyət Simulyatoru</Text>
-          <Text style={styles.skillsSubtitle}>AI ilə söhbət bacarıqlarını məşq et</Text>
+          <Text style={styles.skillsSubtitle}>
+            AI ilə söhbət bacarıqlarını məşq et
+          </Text>
         </View>
         <ChevronRight size={20} color={Colors.mutedForeground} />
       </TouchableOpacity>
@@ -164,7 +233,9 @@ export default function HomeScreen() {
             <Text style={styles.dailyQuestion}>{todaysQuestion.q}</Text>
             <View style={styles.dailyPurposeBox}>
               <Text style={styles.dailyPurposeLabel}>Məqsəd:</Text>
-              <Text style={styles.dailyPurposeText}>{todaysQuestion.purpose}</Text>
+              <Text style={styles.dailyPurposeText}>
+                {todaysQuestion.purpose}
+              </Text>
             </View>
           </View>
         </View>
@@ -173,7 +244,10 @@ export default function HomeScreen() {
       {/* Success Stories */}
       <View style={styles.storiesSectionHeader}>
         <Text style={styles.storiesSectionTitle}>Uğur Hekayələri</Text>
-        <TouchableOpacity style={styles.storiesSeeAll} onPress={() => router.push("/stories" as any)}>
+        <TouchableOpacity
+          style={styles.storiesSeeAll}
+          onPress={() => router.push("/stories" as any)}
+        >
           <Text style={styles.storiesSeeAllText}>Hamısını gör</Text>
           <ChevronRight size={16} color={Colors.primary} />
         </TouchableOpacity>
@@ -216,7 +290,9 @@ export default function HomeScreen() {
         </View>
         <View style={styles.missionInfo}>
           <Text style={styles.missionTitle}>Missiyamız</Text>
-          <Text style={styles.missionSubtitle}>Danyeri niyə yaradıldı? Dəyərlərimiz haqqında</Text>
+          <Text style={styles.missionSubtitle}>
+            Danyeri niyə yaradıldı? Dəyərlərimiz haqqında
+          </Text>
         </View>
         <ChevronRight size={20} color={Colors.primary} />
       </TouchableOpacity>
@@ -227,7 +303,9 @@ export default function HomeScreen() {
           <Crown size={28} color={Colors.premium} />
           <View style={styles.premiumInfo}>
             <Text style={styles.premiumTitle}>Premium ol</Text>
-            <Text style={styles.premiumSubtitle}>Limitsiz bəyənmə, kimin bəyəndiyini gör</Text>
+            <Text style={styles.premiumSubtitle}>
+              Limitsiz bəyənmə, kimin bəyəndiyini gör
+            </Text>
           </View>
           <ChevronRight size={20} color={Colors.premium} />
         </TouchableOpacity>
@@ -304,7 +382,12 @@ const styles = StyleSheet.create({
   quickActionIconDiscover: { backgroundColor: Colors.primary },
   quickActionIconMessages: { backgroundColor: Colors.green },
   quickActionTextWrap: {},
-  quickActionTitle: { color: Colors.foreground, fontSize: 17, fontWeight: "700", marginBottom: 2 },
+  quickActionTitle: {
+    color: Colors.foreground,
+    fontSize: 17,
+    fontWeight: "700",
+    marginBottom: 2,
+  },
   quickActionSubtitle: { color: Colors.mutedForeground, fontSize: 13 },
 
   statsCard: {
@@ -319,7 +402,11 @@ const styles = StyleSheet.create({
   statsRow: { flexDirection: "row", alignItems: "center" },
   statItem: { flex: 1, alignItems: "center", paddingVertical: 8 },
   statNumber: { fontSize: 24, fontWeight: "800", marginBottom: 4 },
-  statLabel: { color: Colors.mutedForeground, fontSize: 11, textAlign: "center" },
+  statLabel: {
+    color: Colors.mutedForeground,
+    fontSize: 11,
+    textAlign: "center",
+  },
   statDivider: { width: 1, height: 32, backgroundColor: Colors.border },
 
   skillsSectionHeader: {
@@ -328,7 +415,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
   },
-  skillsSectionTitle: { color: Colors.foreground, fontSize: 17, fontWeight: "700" },
+  skillsSectionTitle: {
+    color: Colors.foreground,
+    fontSize: 17,
+    fontWeight: "700",
+  },
   skillsSeeAll: { flexDirection: "row", alignItems: "center", gap: 2 },
   skillsSeeAllText: { color: Colors.primary, fontSize: 13, fontWeight: "600" },
   skillsCard: {
@@ -351,10 +442,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   skillsInfo: { flex: 1 },
-  skillsTitle: { color: Colors.foreground, fontSize: 15, fontWeight: "600", marginBottom: 4 },
+  skillsTitle: {
+    color: Colors.foreground,
+    fontSize: 15,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
   skillsSubtitle: { color: Colors.mutedForeground, fontSize: 13 },
 
-  dailySectionTitle: { color: Colors.foreground, fontSize: 17, fontWeight: "700", marginBottom: 12 },
+  dailySectionTitle: {
+    color: Colors.foreground,
+    fontSize: 17,
+    fontWeight: "700",
+    marginBottom: 12,
+  },
   dailyCard: {
     backgroundColor: Colors.card,
     borderRadius: 16,
@@ -373,8 +474,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   dailyContent: { flex: 1 },
-  dailyLabel: { color: Colors.primary, fontSize: 13, fontWeight: "700", marginBottom: 6 },
-  dailyQuestion: { color: Colors.foreground, fontSize: 15, fontWeight: "600", lineHeight: 22, marginBottom: 10 },
+  dailyLabel: {
+    color: Colors.primary,
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  dailyQuestion: {
+    color: Colors.foreground,
+    fontSize: 15,
+    fontWeight: "600",
+    lineHeight: 22,
+    marginBottom: 10,
+  },
   dailyPurposeBox: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -393,7 +505,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginTop: 1,
   },
-  dailyPurposeText: { color: Colors.mutedForeground, fontSize: 12, lineHeight: 18, flex: 1 },
+  dailyPurposeText: {
+    color: Colors.mutedForeground,
+    fontSize: 12,
+    lineHeight: 18,
+    flex: 1,
+  },
 
   storiesSectionHeader: {
     flexDirection: "row",
@@ -401,7 +518,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
   },
-  storiesSectionTitle: { color: Colors.foreground, fontSize: 17, fontWeight: "700" },
+  storiesSectionTitle: {
+    color: Colors.foreground,
+    fontSize: 17,
+    fontWeight: "700",
+  },
   storiesSeeAll: { flexDirection: "row", alignItems: "center", gap: 2 },
   storiesSeeAllText: { color: Colors.primary, fontSize: 13, fontWeight: "600" },
   storiesScrollOuter: { marginBottom: 24, marginHorizontal: -16 },
@@ -427,7 +548,12 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   storyAvatarOverlap: { marginLeft: -16 },
-  storyNames: { color: Colors.foreground, fontSize: 14, fontWeight: "600", marginBottom: 2 },
+  storyNames: {
+    color: Colors.foreground,
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
   storyDuration: { color: Colors.mutedForeground, fontSize: 12 },
 
   missionCard: {
@@ -450,7 +576,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   missionInfo: { flex: 1 },
-  missionTitle: { color: Colors.foreground, fontSize: 15, fontWeight: "700", marginBottom: 2 },
+  missionTitle: {
+    color: Colors.foreground,
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 2,
+  },
   missionSubtitle: { color: Colors.mutedForeground, fontSize: 13 },
 
   premiumCard: {
@@ -465,5 +596,9 @@ const styles = StyleSheet.create({
   },
   premiumInfo: { flex: 1, marginLeft: 14 },
   premiumTitle: { color: Colors.premium, fontSize: 16, fontWeight: "700" },
-  premiumSubtitle: { color: Colors.mutedForeground, fontSize: 12, marginTop: 2 },
+  premiumSubtitle: {
+    color: Colors.mutedForeground,
+    fontSize: 12,
+    marginTop: 2,
+  },
 });

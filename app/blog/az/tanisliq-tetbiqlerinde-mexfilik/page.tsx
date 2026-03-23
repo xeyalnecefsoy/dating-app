@@ -3,6 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ArticleStructuredData } from "@/components/StructuredData";
 
 export const metadata: Metadata = {
   title: "Tanışlıq tətbiqlərində məxfilik: nələrə diqqət etməli?",
@@ -22,6 +23,12 @@ export const metadata: Metadata = {
 export default function PrivacyAzPage() {
   return (
     <div className="min-h-screen bg-background">
+      <ArticleStructuredData 
+        title={metadata.title as string} 
+        description={metadata.description as string} 
+        url={metadata.alternates?.canonical as string} 
+        imageUrl="https://images.unsplash.com/photo-1563986768609-322da13575f3?w=800&q=80" 
+      />
       <header className="sticky top-0 z-40 glass border-b border-border/50">
         <div className="w-full max-w-3xl mx-auto px-4 h-14 flex items-center">
           <Link href="/blog">

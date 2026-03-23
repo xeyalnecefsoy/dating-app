@@ -1,9 +1,10 @@
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Heart, MapPin, ChevronRight, CheckCircle, ArrowLeft, Users, Shield, Star } from "lucide-react";
+import { Heart, MapPin, ChevronRight, CheckCircle, ArrowLeft, Users, Shield, Star, HelpCircle } from "lucide-react";
 import type { Metadata } from "next";
 import { cities, getCityBySlug, getAllCitySlugs } from "@/lib/cities";
+import { FAQStructuredData } from "@/components/StructuredData";
 import { notFound } from "next/navigation";
 
 // Generate static pages at build time for all cities
@@ -114,6 +115,21 @@ export default async function CityPage({
     }
   };
 
+  const faqItems = [
+    {
+      question: `${city.nameLocative} ciddi münasibət üçün ən yaxşı tətbiq hansıdır?`,
+      answer: `Danyeri, xüsusilə ${city.name} və digər Azərbaycan şəhərlərində ciddi münasibət və evlilik axtaranlar üçün xüsusi olaraq dizayn edilmiş ən etibarlı platformadır. Burada məqsəd yalnız uzunmüddətli əlaqələr qurmaqdır.`
+    },
+    {
+      question: `${city.nameLocative} tanışlıq üçün qeydiyyatdan keçmək ödənişlidirmi?`,
+      answer: `Xeyr, Danyeri tətbiqində qeydiyyatdan keçmək, profil yaratmaq və ${city.nameLocative} yaşayan digər istifadəçiləri kəşf etmək tamamilə pulsuzdur.`
+    },
+    {
+      question: `${city.name} ətrafındakı insanlarla tanış ola bilərəmmi?`,
+      answer: `Bəli, axtarış sistemimiz həm ${city.name} mərkəzində, həm də ətraf rayon və qəsəbələrdə yaşayan istifadəçiləri tapmağa kömək edəcək şəkildə nizamlanıb.`
+    }
+  ];
+
   return (
     <div className="min-h-screen bg-background">
       {/* JSON-LD */}
@@ -121,6 +137,7 @@ export default async function CityPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      <FAQStructuredData faq={faqItems} />
 
       {/* Header */}
       <header className="sticky top-0 z-40 glass border-b border-border/50">
@@ -259,6 +276,27 @@ export default async function CityPage({
                   <h3 className="font-semibold mb-1">{item.title}</h3>
                   <p className="text-muted-foreground text-sm">{item.desc}</p>
                 </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* FAQ Section */}
+        <section className="mb-16">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold mb-2">Tez-tez Verilən Suallar</h2>
+            <p className="text-muted-foreground">{city.nameLocative} ciddi tanışlıq axtaranların ən çox verdiyi suallar.</p>
+          </div>
+          <div className="space-y-4 max-w-3xl mx-auto">
+            {faqItems.map((faq, index) => (
+              <div key={index} className="bg-card rounded-2xl p-6 border border-border">
+                <h3 className="font-bold flex items-start gap-3 mb-2">
+                  <HelpCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  {faq.question}
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed pl-8">
+                  {faq.answer}
+                </p>
               </div>
             ))}
           </div>

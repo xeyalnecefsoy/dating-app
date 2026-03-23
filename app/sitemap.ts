@@ -48,5 +48,36 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.8,
   }));
 
-  return [...staticRoutes, ...cityRoutes];
+  // Blog Routes
+  const blogRoutes: MetadataRoute.Sitemap = [
+    {
+      url: `${baseUrl}/blog`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    },
+    ...[
+      "az/tehlukesiz-online-tanisliq",
+      "az/tanisliq-tetbiqlerinde-mexfilik",
+      "az/ilk-gorus-ucun-tehlukesizlik-checklist",
+      "az/red-flags-yazismada-riskli-davranislar",
+      "az/saglam-munasibete-aparan-tanisliq-qaydalari",
+      "az/ilk-mesaji-nece-yazmali",
+      "az/ciddi-munasibet-axtararken-edilen-sehvler",
+      "az/ideal-profil-sekli-nec-olmalidir",
+      "az/evliliyeye-psixoloji-hazirliq",
+      "az/ilk-gorusde-ugur-qazanmagin-yollari",
+      "az/sevgi-yoxsa-manipulyasiya-gaslighting",
+      "az/qarsi-terefin-ciddi-oldugunu-gosteren-elametler",
+      "az/kisi-ve-qadinlarin-munasibetden-gozlentileri",
+      "az/ghosting-nedir-ve-nece-qorunmali",
+    ].map((slug) => ({
+      url: `${baseUrl}/blog/${slug}`,
+      lastModified: now,
+      changeFrequency: 'monthly' as const,
+      priority: 0.7,
+    }))
+  ];
+
+  return [...staticRoutes, ...cityRoutes, ...blogRoutes];
 }

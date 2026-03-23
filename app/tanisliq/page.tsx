@@ -1,9 +1,29 @@
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Heart, MapPin, Users, Shield, ChevronRight, Star, CheckCircle } from "lucide-react";
+import { Heart, MapPin, Users, Shield, ChevronRight, Star, CheckCircle, HelpCircle } from "lucide-react";
 import type { Metadata } from "next";
 import { cities } from "@/lib/cities";
+import { FAQStructuredData } from "@/components/StructuredData";
+
+const faqItems = [
+  {
+    question: "Danyeri tətbiqində qeydiyyatdan keçmək ödənişlidirmi?",
+    answer: "Xeyr, Danyeri tətbiqində qeydiyyatdan keçmək, profil yaratmaq və əsas funksiyalardan istifadə etmək tamamilə pulsuzdur. Bizim məqsədimiz Azərbaycanda ciddi münasibət qurmaq istəyən insanları bir araya gətirməkdir."
+  },
+  {
+    question: "Danyeri necə ciddi tanışlıq tətbiqidir?",
+    answer: "Bəli, tamamilə. Danyeri məhz Azərbaycanda ciddi münasibət və evlilik məqsədilə yaradılmış tətbiqdir. Sistemimiz sizin dəyərlərinizə və maraqlarınıza uyğun insanları qarşınıza çıxarması üçün xüsusi olaraq dizayn edilib."
+  },
+  {
+    question: "Məxfilik və təhlükəsizlik necə qorunur?",
+    answer: "Danyeri-də bütün profillər yoxlanışdan keçir. Təhqiramiz davranışlara qarşı sıfır tolerantlıq siyasətimiz var. Şəxsi məlumatlarınız və mesajlarınız tam olaraq qorunur."
+  },
+  {
+    question: "Hansı şəhərlərdə tanışlıq mümkündür?",
+    answer: "Danyeri bütün Azərbaycan ərazisində fəaliyyət göstərir. Bakı, Sumqayıt, Gəncə, Naxçıvan, Şəki, Lənkəran, Mingəçevir və digər bölgələrdən olan istifadəçilərlə tanış ola bilərsiniz."
+  }
+];
 
 export const metadata: Metadata = {
   title: "Azərbaycanda Tanışlıq - Ciddi Münasibət və Evlilik Tətbiqi | Danyeri",
@@ -46,6 +66,8 @@ export const metadata: Metadata = {
 export default function TanisliqPage() {
   return (
     <div className="min-h-screen bg-background">
+      <FAQStructuredData faq={faqItems} />
+      
       {/* Header */}
       <header className="sticky top-0 z-40 glass border-b border-border/50">
         <div className="w-full max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
@@ -232,6 +254,27 @@ export default function TanisliqPage() {
                   </div>
                 </div>
               </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* FAQ Section */}
+        <section className="mb-16">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold mb-2">Tez-tez Verilən Suallar</h2>
+            <p className="text-muted-foreground">Azərbaycanda ciddi tanışlıq tətbiqi haqqında maraqlandıran suallar.</p>
+          </div>
+          <div className="space-y-4 max-w-3xl mx-auto">
+            {faqItems.map((faq, index) => (
+              <div key={index} className="bg-card rounded-2xl p-6 border border-border">
+                <h3 className="font-bold flex items-start gap-3 mb-2">
+                  <HelpCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  {faq.question}
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed pl-8">
+                  {faq.answer}
+                </p>
+              </div>
             ))}
           </div>
         </section>

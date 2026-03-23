@@ -3,6 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ArticleStructuredData } from "@/components/StructuredData";
 
 export const metadata: Metadata = {
   title: "Sağlam münasibətə aparan tanışlıq qaydaları",
@@ -22,6 +23,12 @@ export const metadata: Metadata = {
 export default function HealthyRelationshipRulesAzPage() {
   return (
     <div className="min-h-screen bg-background">
+      <ArticleStructuredData 
+        title={metadata.title as string} 
+        description={metadata.description as string} 
+        url={metadata.alternates?.canonical as string} 
+        imageUrl="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=800&q=80" 
+      />
       <header className="sticky top-0 z-40 glass border-b border-border/50">
         <div className="w-full max-w-3xl mx-auto px-4 h-14 flex items-center">
           <Link href="/blog">

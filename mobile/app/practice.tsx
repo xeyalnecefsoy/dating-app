@@ -5,11 +5,9 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Linking,
 } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import Constants from "expo-constants";
 import {
   ArrowLeft,
   Sparkles,
@@ -20,17 +18,13 @@ import {
 } from "../lib/icons";
 import { Colors } from "../lib/colors";
 
-const WEB_URL =
-  Constants.expoConfig?.extra?.webAppUrl ||
-  process.env.EXPO_PUBLIC_WEB_APP_URL ||
-  "https://danyeri.vercel.app";
-
 const SCENARIOS = [
   {
     id: "1",
     emoji: "💬",
     title: "İlk Mesaj",
-    description: "Birini yeni tanıdığınızda ilk mesajınızı necə yazacağınızı məşq edin.",
+    description:
+      "Birini yeni tanıdığınızda ilk mesajınızı necə yazacağınızı məşq edin.",
     tag: "Yeni başlayanlar üçün",
   },
   {
@@ -44,14 +38,16 @@ const SCENARIOS = [
     id: "3",
     emoji: "💕",
     title: "Hisslər Haqqında Danışmaq",
-    description: "Hisslərinizi necə səmimi şəkildə ifadə edəcəyinizi üzərində çalışın.",
+    description:
+      "Hisslərinizi necə səmimi şəkildə ifadə edəcəyinizi üzərində çalışın.",
     tag: "İrəliləmiş",
   },
   {
     id: "4",
     emoji: "🤝",
     title: "Münaqişə Həlli",
-    description: "Fikir ayrılıqlarını konstruktiv şəkildə həll etməyi məşq edin.",
+    description:
+      "Fikir ayrılıqlarını konstruktiv şəkildə həll etməyi məşq edin.",
     tag: "İrəliləmiş",
   },
 ];
@@ -67,7 +63,7 @@ export default function PracticeScreen() {
   const router = useRouter();
 
   const openSimulator = () => {
-    Linking.openURL(`${WEB_URL}/simulator`);
+    router.push("/(tabs)/simulator" as any);
   };
 
   return (
@@ -78,7 +74,10 @@ export default function PracticeScreen() {
           headerStyle: { backgroundColor: Colors.background },
           headerTintColor: Colors.foreground,
           headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 8 }}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={{ marginRight: 8 }}
+            >
               <ArrowLeft size={24} color={Colors.foreground} />
             </TouchableOpacity>
           ),
@@ -92,7 +91,8 @@ export default function PracticeScreen() {
           </View>
           <Text style={s.heroTitle}>Ünsiyyət Simulyatoru</Text>
           <Text style={s.heroSub}>
-            AI ilə gücləndirilmiş simulyatorda münasibətlərdə vacib ünsiyyət bacarıqlarınızı inkişaf etdirin.
+            AI ilə gücləndirilmiş simulyatorda münasibətlərdə vacib ünsiyyət
+            bacarıqlarınızı inkişaf etdirin.
           </Text>
         </View>
 
@@ -132,7 +132,11 @@ export default function PracticeScreen() {
         ))}
 
         {/* CTA */}
-        <TouchableOpacity style={s.ctaBtn} activeOpacity={0.85} onPress={openSimulator}>
+        <TouchableOpacity
+          style={s.ctaBtn}
+          activeOpacity={0.85}
+          onPress={openSimulator}
+        >
           <LinearGradient
             colors={[Colors.brandGradientFrom, Colors.brandGradientTo]}
             start={{ x: 0, y: 0 }}
@@ -145,7 +149,8 @@ export default function PracticeScreen() {
         </TouchableOpacity>
 
         <Text style={s.ctaNote}>
-          Simulyator veb versiyada açılacaq. Tezliklə tam native dəstək əlavə olunacaq.
+          Simulyator veb versiyada açılacaq. Tezliklə tam native dəstək əlavə
+          olunacaq.
         </Text>
       </ScrollView>
     </>
@@ -167,7 +172,12 @@ const s = StyleSheet.create({
     alignItems: "center",
     marginBottom: 14,
   },
-  heroTitle: { fontSize: 22, fontWeight: "800", color: Colors.foreground, marginBottom: 8 },
+  heroTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: Colors.foreground,
+    marginBottom: 8,
+  },
   heroSub: {
     fontSize: 13,
     color: Colors.mutedForeground,
@@ -192,7 +202,11 @@ const s = StyleSheet.create({
     alignItems: "center",
     marginBottom: 6,
   },
-  skillLabel: { fontSize: 10, color: Colors.mutedForeground, textAlign: "center" },
+  skillLabel: {
+    fontSize: 10,
+    color: Colors.mutedForeground,
+    textAlign: "center",
+  },
 
   // Scenarios
   sectionTitle: {

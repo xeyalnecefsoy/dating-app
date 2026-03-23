@@ -1,19 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BookOpen, Shield, AlertTriangle, HeartHandshake, CheckSquare } from "lucide-react";
+import { BookOpen, Shield, AlertTriangle, HeartHandshake, CheckSquare, MessageCircle, AlertOctagon, UserCircle, BrainCircuit, HeartPulse, Sparkles, Target, Scale, Ghost } from "lucide-react";
 import { BlogBannerSlider } from "@/components/BlogBannerSlider";
 
 export const metadata: Metadata = {
-  title: "Təhlükəsiz Tanışlıq Bloqu",
+  title: "Danyeri Bloq - Tanışlıq, Münasibətlər və Psixologiya",
   description:
-    "Azərbaycanda təhlükəsiz online tanışlıq, məxfilik, ilk görüş üçün təhlükəsizlik checklist-i, red flag-lər və sağlam münasibət qaydaları haqqında maarifləndirici yazılar.",
+    "Azərbaycanda təhlükəsiz online tanışlıq, ilk mesaj qaydaları, məxfilik, sağlam münasibət qurmaq və psixologiya haqqında maarifləndirici yazılar.",
   alternates: {
     canonical: "https://www.danyeri.az/blog",
   },
   openGraph: {
-    title: "Təhlükəsiz Tanışlıq Bloqu | Danyeri",
+    title: "Danyeri Bloq | Tanışlıq, Münasibətlər, Psixologiya",
     description:
-      "Online tanışlıqda təhlükəsizlik, məxfilik və sağlam münasibətlər üçün praktiki məsləhətlər və addım-addım bələdçilər.",
+      "Online tanışlıqda uğur qazanmaq, ilk görüş qaydaları, təhlükəsizlik və sağlam münasibətlər üçün praktiki məsləhətlər.",
     url: "https://www.danyeri.az/blog",
   },
 };
@@ -29,26 +29,98 @@ const bannerSlides = [
       "https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?w=800&q=80",
   },
   {
-    tag: "İlk görüş",
-    title: "İlk görüş üçün praktiki checklist",
+    tag: "İlk mesaj",
+    title: "İlk mesajı necə yazmalı?",
     description:
-      "Məkan seçimi, yaxınlara xəbər vermək və çıxış planı – hamısı addım-addım.",
-    href: "/blog/az/ilk-gorus-ucun-tehlukesizlik-checklist",
+      "Darıxdırıcı 'Salam, necəsən?' mesajından qurtulun və qarşı tərəfin diqqətini dərhal cəlb edin.",
+    href: "/blog/az/ilk-mesaji-nece-yazmali",
     image:
-      "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=800&q=80",
+      "https://images.unsplash.com/photo-1512428559087-560fa5ceab42?w=800&q=80",
   },
   {
-    tag: "Red flags",
-    title: "Yazışmada təhlükəli siqnalları tanıyın",
+    tag: "Psixologiya",
+    title: "Ciddi münasibət axtararkən edilən ən böyük səhvlər",
     description:
-      "Manipulyasiya, hörmətsizlik və sərhəd pozuntularını erkən mərhələdə görməyi öyrənin.",
-    href: "/blog/az/red-flags-yazismada-riskli-davranislar",
+      "Niyə bəzən düzgün insanı tapmaq çətin olur? Evlilik axtarışında fərqində olmadan etdiyimiz psixoloji səhvlər.",
+    href: "/blog/az/ciddi-munasibet-axtararken-edilen-sehvler",
     image:
-      "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=800&q=80",
+      "https://images.unsplash.com/photo-1501901609772-df0848060b33?w=800&q=80",
   },
 ];
 
 const posts = [
+  {
+    slug: "az/qarsi-terefin-ciddi-oldugunu-gosteren-elametler",
+    title: "Qarşı tərəfin ciddi olduğunu göstərən 5 əlamət",
+    description:
+      "Sizinlə sadəcə vaxt keçirir yoxsa doğrudan da ciddi fikirlidir? Stabil gələcək vəd edən tərəfdaşın 5 gizli əlaməti.",
+    icon: Target,
+    category: "Məsləhətlər",
+  },
+  {
+    slug: "az/kisi-ve-qadinlarin-munasibetden-gozlentileri",
+    title: "Kişilərin və qadınların münasibətdən fərqli gözləntiləri",
+    description:
+      "Sosioloji qaydada niyə tez-tez anlaşılmazlıqlar yaşayırıq? Kişi beyni və qadın psixologiyasının ən vacib fərqləri.",
+    icon: Scale,
+    category: "Psixologiya",
+  },
+  {
+    slug: "az/ghosting-nedir-ve-nece-qorunmali",
+    title: "Ghosting nədir və bu zərərli trenddən necə qorunmaq olar?",
+    description:
+      "Qarşı tərəfin anidən yoxa çıxması (Ghosting) psixologiyası. Bu travmadan necə qurtulmalı və əvvəlcədən necə hiss etməli?",
+    icon: Ghost,
+    category: "Red flags",
+  },
+  {
+    slug: "az/evliliyeye-psixoloji-hazirliq",
+    title: "Evlilik üçün psixoloji olaraq hazır olduğunuzu necə anlamaq olar?",
+    description:
+      "Evlilik yalnız sevgi deyil, həm də komanda işidir. Ciddi münasibətə və evliliyə psixoloji hazır olduğunuzu göstərən əsas əlamətlər.",
+    icon: BrainCircuit,
+    category: "Ailə",
+  },
+  {
+    slug: "az/ilk-gorusde-ugur-qazanmagin-yollari",
+    title: "İlk görüşdə uğur qazanmağın elmi sübut olunmuş yolları",
+    description:
+      "Bədən dili, aktiv dinləmə və neyropsixoloji taktikalarla ilk görüşü necə unudulmaz etmək olar?",
+    icon: Sparkles,
+    category: "Araşdırma",
+  },
+  {
+    slug: "az/sevgi-yoxsa-manipulyasiya-gaslighting",
+    title: "Sevgi yoxsa manipulyasiya? Gaslighting-i necə tanımaq olar?",
+    description:
+      "Münasibətdə özünüzdən şübhələnməyə başlamısınız? 'Gaslighting' nədir və ondan necə qorunmaq olar?",
+    icon: HeartPulse,
+    category: "Psixologiya",
+  },
+  {
+    slug: "az/ilk-mesaji-nece-yazmali",
+    title: "İlk mesajı necə yazmalı? Diqqət çəkən başlanğıc",
+    description:
+      "Tanışlıq tətbiqlərində ilk təəssürat hər şeydir. Söhbəti başlatmaq və marağı qorumaq üçün 5 qızıl qayda.",
+    icon: MessageCircle,
+    category: "Məsləhətlər",
+  },
+  {
+    slug: "az/ciddi-munasibet-axtararken-edilen-sehvler",
+    title: "Ciddi münasibət axtararkən edilən ən böyük səhvlər",
+    description:
+      "Evlilik və ya ciddi münasibət istəyən həm qadınların, həm də kişilərin yol verdiyi 5 əsas psixoloji səhv.",
+    icon: AlertOctagon,
+    category: "Psixologiya",
+  },
+  {
+    slug: "az/ideal-profil-sekli-nec-olmalidir",
+    title: "İdeal profil şəkli necə olmalıdır?",
+    description:
+      "Profil şəklinizi seçərkən nələrə diqqət etməli və hansı qeyri-səmimi səhvlərdən qaçmalı olduğunuzu öyrənin.",
+    icon: UserCircle,
+    category: "Profil",
+  },
   {
     slug: "az/tehlukesiz-online-tanisliq",
     title: "Azərbaycanda təhlükəsiz online tanışlıq necə olmalıdır?",
@@ -97,15 +169,13 @@ export default function BlogIndexPage() {
       <main className="w-full max-w-5xl mx-auto px-4 py-10 md:py-16">
         <section className="mb-8 md:mb-10 text-center md:text-left">
           <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-semibold uppercase tracking-wide">
-            Təhlükəsiz tanışlıq bloqu
+            Danyeri Bloq
           </span>
           <h1 className="mt-4 text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight">
-            Təhlükəsiz online tanışlıq və münasibətlər üçün bələdçi
+            Tanışlıq, Münasibətlər və Psixologiya
           </h1>
           <p className="mt-4 text-sm md:text-base text-muted-foreground max-w-2xl">
-            Burada məqsədimiz, xüsusilə qadınlar üçün, online tanışlıqda təhlükəsizlik,
-            məxfilik və sağlam münasibətlər mövzusunda qısa, praktik və real həyatdan
-            gələn məsləhətlər paylaşmaqdır.
+            Səmimi, təhlükəsiz və uğurlu tanışlıq üçün həm kişilərin, həm də qadınların bilməli olduğu faydalı psixologiya sirrləri, ilk görüş bələdçiləri və yazışma qaydaları.
           </p>
         </section>
 

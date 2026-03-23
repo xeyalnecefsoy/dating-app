@@ -442,11 +442,13 @@ function WelcomeScreen() {
   };
 
   return (
-    <article className="h-[100dvh] bg-background flex flex-col items-center justify-between pt-10 pb-32 overflow-hidden relative">
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background/50 z-0 pointer-events-none" />
+    <div className="min-h-screen bg-background flex flex-col relative w-full">
+      <div className="fixed inset-0 bg-gradient-to-b from-transparent via-transparent to-background/50 z-0 pointer-events-none" />
 
-      {/* Top Graphic Section (Logo) - Flex grow to push content down but keep centered */}
-      <header className="flex-1 flex items-center justify-center relative w-full">
+      {/* Hero Content - takes 100vh */}
+      <main className="min-h-[100dvh] flex flex-col items-center justify-between pt-10 pb-32 relative z-10 w-full">
+        {/* Top Graphic Section (Logo) */}
+        <header className="flex-1 flex items-center justify-center relative w-full">
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -534,31 +536,42 @@ function WelcomeScreen() {
         </motion.div>
       </section>
 
-      {/* SEO Hidden Content - enriches page for search engines */}
-      <div className="sr-only">
-        <h2>Danyeri - Azərbaycanda Ciddi Tanışlıq və Evlilik Tətbiqi</h2>
-        <p>
-          Danyeri, Azərbaycanda ciddi tanışlıq və evlilik üçün yaradılmış ən
-          etibarlı platformadır. Bakıda tanışlıq, Gəncədə tanışlıq, Sumqayıtda
-          tanışlıq, Xankəndidə tanışlıq, Mingəçevirdə tanışlıq, Lənkəranda
-          tanışlıq, Şəkidə tanışlıq, Naxçıvanda tanışlıq - bütün Azərbaycan
-          şəhərlərində həyat yoldaşınızı tapın.
-        </p>
-        <p>
-          Pulsuz qeydiyyat olun və Azərbaycan mədəniyyətinə hörmət edən,
-          təhlükəsiz mühitdə ciddi münasibət qurmaq istəyən insanlarla tanış
-          olun. Evlilik üçün tanışlıq, online tanışlıq, Azərbaycanda ən yaxşı
-          tanışlıq saytı.
-        </p>
-        <nav>
-          <Link href="/tanisliq">Azərbaycanda Tanışlıq</Link>
-          <Link href="/tanisliq/bakida">Bakıda Tanışlıq</Link>
-          <Link href="/tanisliq/gencede">Gəncədə Tanışlıq</Link>
-          <Link href="/tanisliq/sumqayitda">Sumqayıtda Tanışlıq</Link>
-          <Link href="/about">Haqqımızda</Link>
-        </nav>
-      </div>
-    </article>
+      </main>
+
+      {/* Visible SEO Content / Footer */}
+      <footer className="w-full max-w-5xl mx-auto px-6 py-20 z-10 text-center relative bg-background">
+        <div className="border-t border-border/50 pt-16 space-y-8">
+          <div className="space-y-4">
+            <h2 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-primary to-pink-500 bg-clip-text text-transparent">
+              Danyeri - Azərbaycanda Ciddi Tanışlıq və Evlilik Tətbiqi
+            </h2>
+            <p className="text-muted-foreground leading-relaxed max-w-3xl mx-auto text-sm md:text-base">
+              Danyeri, Azərbaycanda ciddi tanışlıq və evlilik üçün yaradılmış ən etibarlı platformadır. 
+              Bakıda tanışlıq, Gəncədə tanışlıq, Sumqayıtda tanışlıq, Xankəndidə tanışlıq, Mingəçevirdə tanışlıq, 
+              Lənkəranda tanışlıq, Şəkidə tanışlıq, Naxçıvanda tanışlıq - bütün Azərbaycan şəhərlərində həyat yoldaşınızı tapın.
+            </p>
+            <p className="text-muted-foreground leading-relaxed max-w-3xl mx-auto text-sm md:text-base">
+              Pulsuz qeydiyyatdan keçin və Azərbaycan mədəniyyətinə hörmət edən, 
+              təhlükəsiz mühitdə ciddi münasibət qurmaq istəyən insanlarla tanış olun. 
+              Evlilik üçün tanışlıq, online tanışlıq həyatınızı Danyeri ilə dəyişin.
+            </p>
+          </div>
+
+          <nav className="flex flex-wrap items-center justify-center gap-4 md:gap-8 pt-6">
+            <Link href="/tanisliq" className="text-sm font-medium hover:text-primary transition-colors">Azərbaycanda Tanışlıq</Link>
+            <Link href="/tanisliq/bakida" className="text-sm font-medium hover:text-primary transition-colors">Bakıda Tanışlıq</Link>
+            <Link href="/tanisliq/gencede" className="text-sm font-medium hover:text-primary transition-colors">Gəncədə Tanışlıq</Link>
+            <Link href="/tanisliq/sumqayitda" className="text-sm font-medium hover:text-primary transition-colors">Sumqayıtda Tanışlıq</Link>
+            <Link href="/about" className="text-sm font-medium hover:text-primary transition-colors">Haqqımızda</Link>
+            <Link href="/blog" className="text-sm font-medium hover:text-primary transition-colors">Bloq</Link>
+          </nav>
+          
+          <div className="pt-8 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+            <span>&copy; {new Date().getFullYear()} Danyeri. Bütün hüquqlar qorunur.</span>
+          </div>
+        </div>
+      </footer>
+    </div>
   );
 }
 

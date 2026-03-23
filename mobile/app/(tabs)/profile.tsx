@@ -47,10 +47,7 @@ import {
   LOVE_LANGUAGES,
   COMM_STYLES,
 } from "../../lib/constants";
-import {
-  translateLoveLanguage,
-  translateStyle,
-} from "../../lib/translations";
+import { translateLoveLanguage, translateStyle } from "../../lib/translations";
 import { Colors } from "../../lib/colors";
 import { getBadgeById, getBadgeIcon } from "../../lib/badges";
 
@@ -59,7 +56,10 @@ export default function ProfileScreen() {
   const { user: clerkUser } = useUser();
   const router = useRouter();
 
-  const dbUser = useQuery(api.users.getUser, userId ? { clerkId: userId } : "skip");
+  const dbUser = useQuery(
+    api.users.getUser,
+    userId ? { clerkId: userId } : "skip",
+  );
   const updateUser = useMutation(api.users.createOrUpdateUser);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const getUrlFromStorageId = useMutation(api.files.getUrlFromStorageId);
@@ -69,7 +69,9 @@ export default function ProfileScreen() {
   const [isEditingDetails, setIsEditingDetails] = useState(false);
   const [isEditingInterests, setIsEditingInterests] = useState(false);
 
-  const [saving, setSaving] = useState<null | "header" | "bio" | "details" | "interests">(null);
+  const [saving, setSaving] = useState<
+    null | "header" | "bio" | "details" | "interests"
+  >(null);
 
   const [tempName, setTempName] = useState("");
   const [tempLocation, setTempLocation] = useState("");
@@ -80,7 +82,9 @@ export default function ProfileScreen() {
   const [tempLoveLanguage, setTempLoveLanguage] = useState("");
   const [tempCommStyle, setTempCommStyle] = useState("");
 
-  const [showEditModal, setShowEditModal] = useState<"values" | "interests" | "loveLanguage" | "commStyle" | null>(null);
+  const [showEditModal, setShowEditModal] = useState<
+    "values" | "interests" | "loveLanguage" | "commStyle" | null
+  >(null);
 
   useEffect(() => {
     if (!dbUser) return;
@@ -93,15 +97,17 @@ export default function ProfileScreen() {
     setTempCommStyle(dbUser.communicationStyle || "");
   }, [dbUser?._id]);
 
-  const savePartial = async (patch: Partial<{
-    name: string;
-    location: string;
-    bio: string;
-    values: string[];
-    interests: string[];
-    loveLanguage: string;
-    communicationStyle: string;
-  }>) => {
+  const savePartial = async (
+    patch: Partial<{
+      name: string;
+      location: string;
+      bio: string;
+      values: string[];
+      interests: string[];
+      loveLanguage: string;
+      communicationStyle: string;
+    }>,
+  ) => {
     if (!userId || !dbUser) return;
     await updateUser({
       clerkId: userId,
@@ -111,7 +117,8 @@ export default function ProfileScreen() {
       values: patch.values ?? dbUser.values ?? [],
       interests: patch.interests ?? dbUser.interests ?? [],
       loveLanguage: patch.loveLanguage ?? dbUser.loveLanguage ?? "",
-      communicationStyle: patch.communicationStyle ?? dbUser.communicationStyle ?? undefined,
+      communicationStyle:
+        patch.communicationStyle ?? dbUser.communicationStyle ?? undefined,
       gender: dbUser.gender,
       age: dbUser.age,
       lookingFor: dbUser.lookingFor,
@@ -199,7 +206,7 @@ export default function ProfileScreen() {
       const manipulated = await ImageManipulator.manipulateAsync(
         result.assets[0].uri,
         [{ resize: { width: 800, height: 800 } }],
-        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG },
       );
       const uploadUrl = await generateUploadUrl();
       const response = await fetch(manipulated.uri);
@@ -212,7 +219,9 @@ export default function ProfileScreen() {
       if (!uploadRes.ok) throw new Error("Upload failed");
       const data = await uploadRes.json();
       if (data?.storageId) {
-        const url = await getUrlFromStorageId({ storageId: data.storageId as any });
+        const url = await getUrlFromStorageId({
+          storageId: data.storageId as any,
+        });
         if (url && userId && dbUser) {
           await updateUser({
             clerkId: userId,
@@ -235,8 +244,14 @@ export default function ProfileScreen() {
 
   const user = dbUser;
 
-  const convexMatches = useQuery(api.matches.list, userId ? { userId } : "skip");
-  const sentLikesIds = useQuery(api.likes.getLikedUserIds, userId ? { userId } : "skip");
+  const convexMatches = useQuery(
+    api.matches.list,
+    userId ? { userId } : "skip",
+  );
+  const sentLikesIds = useQuery(
+    api.likes.getLikedUserIds,
+    userId ? { userId } : "skip",
+  );
 
   const likesCount = sentLikesIds?.length || 0;
   const matchesCount = convexMatches?.length || 0;
@@ -262,7 +277,11 @@ export default function ProfileScreen() {
     <View style={styles.container}>
       {/* Top Header */}
       <View style={styles.topHeader}>
-        <TouchableOpacity style={styles.headerIconBtn} onPress={() => router.back()} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={styles.headerIconBtn}
+          onPress={() => router.back()}
+          activeOpacity={0.8}
+        >
           <ArrowLeft size={22} color={Colors.foreground} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Profil</Text>
@@ -275,7 +294,10 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Profile Header */}
         <View style={styles.profileHeader}>
           <View style={styles.avatarOuter}>
@@ -286,7 +308,11 @@ export default function ProfileScreen() {
                 contentFit="cover"
               />
             </View>
-            <TouchableOpacity style={styles.cameraBtn} onPress={changeAvatar} activeOpacity={0.85}>
+            <TouchableOpacity
+              style={styles.cameraBtn}
+              onPress={changeAvatar}
+              activeOpacity={0.85}
+            >
               {saving === "header" ? (
                 <ActivityIndicator size="small" color={Colors.foreground} />
               ) : (
@@ -316,19 +342,51 @@ export default function ProfileScreen() {
                 </View>
               ) : (
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", marginBottom: 4, gap: 8 }}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      marginBottom: 4,
+                      gap: 8,
+                    }}
+                  >
                     <Text style={styles.name}>
-                      {user.name}{user.age ? `, ${user.age}` : ""}
+                      {user.name}
+                      {user.age ? `, ${user.age}` : ""}
                     </Text>
-                    {(user.role === "superadmin" || user.role === "admin" || (user as any).email === "xeyalnecefsoy@gmail.com") && (
+                    {(user.role === "superadmin" ||
+                      user.role === "admin" ||
+                      (user as any).email === "xeyalnecefsoy@gmail.com") && (
                       <LinearGradient
                         colors={["#3b82f6", "#2563eb", "#06b6d4"]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
-                        style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 16, gap: 6, shadowColor: "#3b82f6", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 3 }}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          paddingHorizontal: 10,
+                          paddingVertical: 4,
+                          borderRadius: 16,
+                          gap: 6,
+                          shadowColor: "#3b82f6",
+                          shadowOffset: { width: 0, height: 2 },
+                          shadowOpacity: 0.3,
+                          shadowRadius: 3,
+                        }}
                       >
                         <Sparkles size={14} color="#ffffff" />
-                        <Text style={{ fontSize: 11, color: "#ffffff", fontWeight: "900", textTransform: "uppercase", letterSpacing: 0.5 }}>Qurucu</Text>
+                        <Text
+                          style={{
+                            fontSize: 11,
+                            color: "#ffffff",
+                            fontWeight: "900",
+                            textTransform: "uppercase",
+                            letterSpacing: 0.5,
+                          }}
+                        >
+                          Qurucu
+                        </Text>
                       </LinearGradient>
                     )}
                   </View>
@@ -362,28 +420,40 @@ export default function ProfileScreen() {
         </View>
 
         {/* Premium CTA */}
-        <TouchableOpacity style={styles.premiumCard} activeOpacity={0.9} onPress={() => router.push("/premium" as any)}>
+        <TouchableOpacity
+          style={styles.premiumCard}
+          activeOpacity={0.9}
+          onPress={() => router.push("/premium" as any)}
+        >
           <View style={styles.premiumLeft}>
             <View style={styles.premiumIcon}>
               <Crown size={18} color="#fff" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.premiumTitle}>Premium-a keçin</Text>
-              <Text style={styles.premiumSubtitle}>Limitsiz bəyənmə, Super Like və daha çox</Text>
+              <Text style={styles.premiumSubtitle}>
+                Limitsiz bəyənmə, Super Like və daha çox
+              </Text>
             </View>
           </View>
           <ChevronRight size={20} color={Colors.mutedForeground} />
         </TouchableOpacity>
 
         {/* Verify CTA */}
-        <TouchableOpacity style={styles.verifyCard} activeOpacity={0.9} onPress={() => router.push("/verify" as any)}>
+        <TouchableOpacity
+          style={styles.verifyCard}
+          activeOpacity={0.9}
+          onPress={() => router.push("/verify" as any)}
+        >
           <View style={styles.verifyLeft}>
             <View style={styles.verifyIcon}>
               <Shield size={18} color="#fff" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.verifyTitle}>Profilinizi təsdiqləyin</Text>
-              <Text style={styles.verifySubtitle}>Təsdiqlənmiş profillər 3x daha çox uyğunluq tapır</Text>
+              <Text style={styles.verifySubtitle}>
+                Təsdiqlənmiş profillər 3x daha çox uyğunluq tapır
+              </Text>
             </View>
           </View>
           <ChevronRight size={20} color={Colors.mutedForeground} />
@@ -391,20 +461,36 @@ export default function ProfileScreen() {
 
         {/* Stats Row */}
         <View style={styles.statsCard}>
-          <TouchableOpacity style={styles.statItem} onPress={() => router.push("/likes" as any)} activeOpacity={0.85}>
-            <Text style={[styles.statNumber, { color: Colors.primary }]}>{likesCount}</Text>
+          <TouchableOpacity
+            style={styles.statItem}
+            onPress={() => router.push("/likes" as any)}
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.statNumber, { color: Colors.primary }]}>
+              {likesCount}
+            </Text>
             <Text style={styles.statLabel}>Bəyənmələr</Text>
           </TouchableOpacity>
           <View style={styles.statDivider} />
-          <TouchableOpacity style={styles.statItem} onPress={() => router.push("/(tabs)/matches" as any)} activeOpacity={0.85}>
-            <Text style={[styles.statNumber, { color: Colors.green }]}>{matchesCount}</Text>
+          <TouchableOpacity
+            style={styles.statItem}
+            onPress={() => router.push("/(tabs)/matches" as any)}
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.statNumber, { color: Colors.green }]}>
+              {matchesCount}
+            </Text>
             <Text style={styles.statLabel}>Uyğunluqlar</Text>
           </TouchableOpacity>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+            >
               <Flame size={16} color={Colors.gold} />
-              <Text style={[styles.statNumber, { color: Colors.gold }]}>{user.streak || 0}</Text>
+              <Text style={[styles.statNumber, { color: Colors.gold }]}>
+                {user.streak || 0}
+              </Text>
             </View>
             <Text style={styles.statLabel}>Gün Seriyası</Text>
           </View>
@@ -442,7 +528,9 @@ export default function ProfileScreen() {
               maxLength={400}
             />
           ) : (
-            <Text style={styles.sectionBody}>{user.bio || "Məlumat yoxdur"}</Text>
+            <Text style={styles.sectionBody}>
+              {user.bio || "Məlumat yoxdur"}
+            </Text>
           )}
         </View>
 
@@ -450,7 +538,11 @@ export default function ProfileScreen() {
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>Qalereya</Text>
-            <TouchableOpacity style={styles.addPhotoBtn} onPress={changeAvatar} activeOpacity={0.85}>
+            <TouchableOpacity
+              style={styles.addPhotoBtn}
+              onPress={changeAvatar}
+              activeOpacity={0.85}
+            >
               <Camera size={16} color={Colors.foreground} />
               <Text style={styles.addPhotoText}>Şəkil əlavə et</Text>
             </TouchableOpacity>
@@ -458,7 +550,11 @@ export default function ProfileScreen() {
           <View style={styles.galleryGrid}>
             <View style={styles.galleryTile}>
               {user.avatar ? (
-                <Image source={{ uri: user.avatar }} style={styles.galleryImg} contentFit="cover" />
+                <Image
+                  source={{ uri: user.avatar }}
+                  style={styles.galleryImg}
+                  contentFit="cover"
+                />
               ) : null}
             </View>
             <View style={styles.galleryTilePlaceholder}>
@@ -495,48 +591,90 @@ export default function ProfileScreen() {
           </View>
 
           <View style={styles.chipsRow}>
-            {(isEditingDetails ? tempValues : user.values || []).map((value: string, i: number) => (
-              <TouchableOpacity
-                key={i}
-                style={styles.chip}
-                onPress={
-                  isEditingDetails
-                    ? () => setTempValues(tempValues.includes(value) ? tempValues.filter((x) => x !== value) : tempValues)
-                    : undefined
-                }
-                activeOpacity={0.85}
-              >
-                <Text style={styles.chipText}>{value}</Text>
-              </TouchableOpacity>
-            ))}
-            {(isEditingDetails ? tempValues : user.values || []).length === 0 ? (
+            {(isEditingDetails ? tempValues : user.values || []).map(
+              (value: string, i: number) => (
+                <TouchableOpacity
+                  key={i}
+                  style={styles.chip}
+                  onPress={
+                    isEditingDetails
+                      ? () =>
+                          setTempValues(
+                            tempValues.includes(value)
+                              ? tempValues.filter((x) => x !== value)
+                              : tempValues,
+                          )
+                      : undefined
+                  }
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.chipText}>{value}</Text>
+                </TouchableOpacity>
+              ),
+            )}
+            {(isEditingDetails ? tempValues : user.values || []).length ===
+            0 ? (
               <Text style={styles.sectionBody}>Məlumat yoxdur</Text>
             ) : null}
           </View>
 
           {isEditingDetails ? (
             <View style={{ marginTop: 12 }}>
-              <TouchableOpacity style={styles.optionRow} onPress={() => setShowEditModal("loveLanguage")} activeOpacity={0.85}>
+              <TouchableOpacity
+                style={styles.optionRow}
+                onPress={() => setShowEditModal("loveLanguage")}
+                activeOpacity={0.85}
+              >
                 <Text style={styles.optionLabel}>Sevgi dili</Text>
                 <Text style={styles.optionValue}>
-                  {tempLoveLanguage ? translateLoveLanguage(tempLoveLanguage, "az") : "Seçin"}
+                  {tempLoveLanguage
+                    ? translateLoveLanguage(tempLoveLanguage, "az")
+                    : "Seçin"}
                 </Text>
                 <ChevronRight size={18} color={Colors.mutedForeground} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.optionRow} onPress={() => setShowEditModal("commStyle")} activeOpacity={0.85}>
+              <TouchableOpacity
+                style={styles.optionRow}
+                onPress={() => setShowEditModal("commStyle")}
+                activeOpacity={0.85}
+              >
                 <Text style={styles.optionLabel}>Ünsiyyət tərzi</Text>
-                <Text style={styles.optionValue}>{tempCommStyle ? translateStyle(tempCommStyle, "az") : "Seçin"}</Text>
+                <Text style={styles.optionValue}>
+                  {tempCommStyle
+                    ? translateStyle(tempCommStyle, "az")
+                    : "Seçin"}
+                </Text>
                 <ChevronRight size={18} color={Colors.mutedForeground} />
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.optionRow, { borderBottomWidth: 0 }]} onPress={() => setShowEditModal("values")} activeOpacity={0.85}>
+              <TouchableOpacity
+                style={[styles.optionRow, { borderBottomWidth: 0 }]}
+                onPress={() => setShowEditModal("values")}
+                activeOpacity={0.85}
+              >
                 <Text style={styles.optionLabel}>Dəyərlər seç</Text>
                 <ChevronRight size={18} color={Colors.mutedForeground} />
               </TouchableOpacity>
             </View>
           ) : (
             <View style={{ marginTop: 12 }}>
-              <InfoRow icon={<Heart size={18} color={Colors.primary} />} label="Sevgi dili" value={user.loveLanguage ? translateLoveLanguage(user.loveLanguage, "az") : "—"} />
-              <InfoRow icon={<MessageCircle size={18} color={Colors.primary} />} label="Ünsiyyət" value={user.communicationStyle ? translateStyle(user.communicationStyle, "az") : "—"} />
+              <InfoRow
+                icon={<Heart size={18} color={Colors.primary} />}
+                label="Sevgi dili"
+                value={
+                  user.loveLanguage
+                    ? translateLoveLanguage(user.loveLanguage, "az")
+                    : "—"
+                }
+              />
+              <InfoRow
+                icon={<MessageCircle size={18} color={Colors.primary} />}
+                label="Ünsiyyət"
+                value={
+                  user.communicationStyle
+                    ? translateStyle(user.communicationStyle, "az")
+                    : "—"
+                }
+              />
             </View>
           )}
         </View>
@@ -563,31 +701,41 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
           <View style={styles.chipsRow}>
-            {(isEditingInterests ? tempInterests : user.interests || []).map((interest: string, i: number) => (
-              <TouchableOpacity
-                key={i}
-                style={styles.chip}
-                onPress={
-                  isEditingInterests
-                    ? () =>
-                        setTempInterests(
-                          tempInterests.includes(interest)
-                            ? tempInterests.filter((x) => x !== interest)
-                            : tempInterests,
-                        )
-                    : undefined
-                }
-                activeOpacity={0.85}
-              >
-                <Text style={styles.chipText}>{interest}</Text>
-              </TouchableOpacity>
-            ))}
-            {(isEditingInterests ? tempInterests : user.interests || []).length === 0 ? (
+            {(isEditingInterests ? tempInterests : user.interests || []).map(
+              (interest: string, i: number) => (
+                <TouchableOpacity
+                  key={i}
+                  style={styles.chip}
+                  onPress={
+                    isEditingInterests
+                      ? () =>
+                          setTempInterests(
+                            tempInterests.includes(interest)
+                              ? tempInterests.filter((x) => x !== interest)
+                              : tempInterests,
+                          )
+                      : undefined
+                  }
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.chipText}>{interest}</Text>
+                </TouchableOpacity>
+              ),
+            )}
+            {(isEditingInterests ? tempInterests : user.interests || [])
+              .length === 0 ? (
               <Text style={styles.sectionBody}>Məlumat yoxdur</Text>
             ) : null}
           </View>
           {isEditingInterests ? (
-            <TouchableOpacity style={[styles.optionRow, { borderBottomWidth: 0, marginTop: 12 }]} onPress={() => setShowEditModal("interests")} activeOpacity={0.85}>
+            <TouchableOpacity
+              style={[
+                styles.optionRow,
+                { borderBottomWidth: 0, marginTop: 12 },
+              ]}
+              onPress={() => setShowEditModal("interests")}
+              activeOpacity={0.85}
+            >
               <Text style={styles.optionLabel}>Maraqlar seç</Text>
               <ChevronRight size={18} color={Colors.mutedForeground} />
             </TouchableOpacity>
@@ -595,43 +743,95 @@ export default function ProfileScreen() {
         </View>
 
         {/* Badges */}
-        <TouchableOpacity style={[styles.badgesCard, { flexDirection: "column", alignItems: "stretch" }]} activeOpacity={0.9} onPress={() => router.push("/badges" as any)}>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: user.badges?.length > 0 ? 16 : 0 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <TouchableOpacity
+          style={[
+            styles.badgesCard,
+            { flexDirection: "column", alignItems: "stretch" },
+          ]}
+          activeOpacity={0.9}
+          onPress={() => router.push("/badges" as any)}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: user.badges?.length > 0 ? 16 : 0,
+            }}
+          >
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
+            >
               <View style={styles.badgesIcon}>
                 <Award size={18} color={Colors.foreground} />
               </View>
               <Text style={styles.badgesTitle}>Nişanlar</Text>
             </View>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+            >
               <Text style={styles.badgesSubtitle}>{badgesCount} qazanılıb</Text>
               <ChevronRight size={18} color={Colors.mutedForeground} />
             </View>
-           </View>
-           
-           {user.badges && user.badges.length > 0 ? (
+          </View>
+
+          {user.badges && user.badges.length > 0 ? (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
               {user.badges.slice(0, 4).map((badgeId: string) => {
-                const badge = getBadgeById(badgeId.toLowerCase().replace(/ /g, "-"));
+                const badge = getBadgeById(
+                  badgeId.toLowerCase().replace(/ /g, "-"),
+                );
                 if (!badge) return null;
                 const IconComponent = getBadgeIcon(badge.icon);
-                
+
                 let badgeColor = "#ffffff";
                 const badgeColorClass = badge.color || "";
-                if (badgeColorClass.includes("amber") || badgeColorClass.includes("yellow")) badgeColor = "#f59e0b";
-                if (badgeColorClass.includes("rose") || badgeColorClass.includes("red")) badgeColor = "#ef4444";
-                if (badgeColorClass.includes("indigo") || badgeColorClass.includes("purple")) badgeColor = "#6366f1";
+                if (
+                  badgeColorClass.includes("amber") ||
+                  badgeColorClass.includes("yellow")
+                )
+                  badgeColor = "#f59e0b";
+                if (
+                  badgeColorClass.includes("rose") ||
+                  badgeColorClass.includes("red")
+                )
+                  badgeColor = "#ef4444";
+                if (
+                  badgeColorClass.includes("indigo") ||
+                  badgeColorClass.includes("purple")
+                )
+                  badgeColor = "#6366f1";
                 if (badgeColorClass.includes("orange")) badgeColor = "#f97316";
                 if (badgeColorClass.includes("green")) badgeColor = "#22c55e";
                 if (badgeColorClass.includes("cyan")) badgeColor = "#06b6d4";
                 if (badgeColorClass.includes("pink")) badgeColor = "#ec4899";
 
                 return (
-                  <View key={badgeId} style={{ alignItems: "center", width: 65 }}>
-                    <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(255,255,255,0.05)", justifyContent: "center", alignItems: "center", marginBottom: 6 }}>
+                  <View
+                    key={badgeId}
+                    style={{ alignItems: "center", width: 65 }}
+                  >
+                    <View
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 22,
+                        backgroundColor: "rgba(255,255,255,0.05)",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        marginBottom: 6,
+                      }}
+                    >
                       <IconComponent size={22} color={badgeColor} />
                     </View>
-                    <Text style={{ fontSize: 10, color: Colors.mutedForeground, textAlign: "center" }} numberOfLines={2}>
+                    <Text
+                      style={{
+                        fontSize: 10,
+                        color: Colors.mutedForeground,
+                        textAlign: "center",
+                      }}
+                      numberOfLines={2}
+                    >
                       {badge.name.az}
                     </Text>
                   </View>
@@ -639,7 +839,14 @@ export default function ProfileScreen() {
               })}
             </View>
           ) : (
-            <Text style={{ fontSize: 12, color: Colors.mutedForeground, marginTop: 12, textAlign: "center" }}>
+            <Text
+              style={{
+                fontSize: 12,
+                color: Colors.mutedForeground,
+                marginTop: 12,
+                textAlign: "center",
+              }}
+            >
               Nişan qazanmaq üçün tətbiqi istifadə etməyə başlayın!
             </Text>
           )}
@@ -647,160 +854,226 @@ export default function ProfileScreen() {
 
         {/* Bottom actions */}
         <View style={styles.actionsSection}>
-          <TouchableOpacity style={styles.actionRow} onPress={() => router.push("/settings" as any)} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={styles.actionRow}
+            onPress={() => router.push("/settings" as any)}
+            activeOpacity={0.85}
+          >
             <Settings size={22} color={Colors.mutedForeground} />
             <Text style={styles.actionText}>Parametrlər</Text>
             <ChevronRight size={18} color={Colors.mutedForeground} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionRow} onPress={() => router.push("/practice" as any)} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={styles.actionRow}
+            onPress={() => router.push("/practice" as any)}
+            activeOpacity={0.85}
+          >
             <Sparkles size={22} color={Colors.mutedForeground} />
             <Text style={styles.actionText}>Ünsiyyəti Məşq Et</Text>
             <ChevronRight size={18} color={Colors.mutedForeground} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={styles.signOutButton}
+            onPress={handleSignOut}
+            activeOpacity={0.85}
+          >
             <LogOut size={20} color={Colors.primary} />
             <Text style={styles.signOutText}>Çıxış</Text>
           </TouchableOpacity>
         </View>
 
-      {/* Edit modals */}
-      <Modal visible={showEditModal === "interests"} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Maraqlar (max 7)</Text>
-              <TouchableOpacity onPress={() => setShowEditModal(null)}>
-                <X size={28} color={Colors.foreground} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={{ maxHeight: 400 }}>
-              <View style={styles.chipWrapModal}>
-                {AVAILABLE_INTERESTS.map((item) => {
-                  const selected = tempInterests.includes(item);
-                  return (
-                    <TouchableOpacity
-                      key={item}
-                      style={[styles.chipModal, selected && styles.chipModalActive]}
-                      onPress={() => {
-                        if (selected) {
-                          setTempInterests(tempInterests.filter((x) => x !== item));
-                        } else if (tempInterests.length < 7) {
-                          setTempInterests([...tempInterests, item]);
-                        }
-                      }}
-                    >
-                      <Text style={styles.chipModalText}>{item}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={showEditModal === "values"} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Dəyərlər (max 5)</Text>
-              <TouchableOpacity onPress={() => setShowEditModal(null)}>
-                <X size={28} color={Colors.foreground} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={{ maxHeight: 400 }}>
-              <View style={styles.chipWrapModal}>
-                {AVAILABLE_VALUES.map((item) => {
-                  const selected = tempValues.includes(item);
-                  return (
-                    <TouchableOpacity
-                      key={item}
-                      style={[styles.chipModal, selected && styles.chipModalActiveBlue]}
-                      onPress={() => {
-                        if (selected) {
-                          setTempValues(tempValues.filter((x) => x !== item));
-                        } else if (tempValues.length < 5) {
-                          setTempValues([...tempValues, item]);
-                        }
-                      }}
-                    >
-                      <Text style={styles.chipModalText}>{item}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={showEditModal === "loveLanguage"} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Sevgi dili</Text>
-              <TouchableOpacity onPress={() => setShowEditModal(null)}>
-                <X size={28} color={Colors.foreground} />
-              </TouchableOpacity>
-            </View>
-            <FlatList
-              data={LOVE_LANGUAGES}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[styles.optionRow, tempLoveLanguage === item.id && styles.optionRowActive]}
-                  onPress={() => {
-                    setTempLoveLanguage(item.id);
-                    setShowEditModal(null);
-                  }}
-                >
-                  <Text style={styles.optionEmoji}>{item.emoji}</Text>
-                  <Text style={styles.optionText}>{translateLoveLanguage(item.id, "az")}</Text>
-                  {tempLoveLanguage === item.id && <Check size={18} color={Colors.primary} style={{ marginLeft: "auto" }} />}
+        {/* Edit modals */}
+        <Modal
+          visible={showEditModal === "interests"}
+          transparent
+          animationType="slide"
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Maraqlar (max 7)</Text>
+                <TouchableOpacity onPress={() => setShowEditModal(null)}>
+                  <X size={28} color={Colors.foreground} />
                 </TouchableOpacity>
-              )}
-              style={{ maxHeight: 400 }}
-            />
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={showEditModal === "commStyle"} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Ünsiyyət tərzi</Text>
-              <TouchableOpacity onPress={() => setShowEditModal(null)}>
-                <X size={28} color={Colors.foreground} />
-              </TouchableOpacity>
+              </View>
+              <ScrollView style={{ maxHeight: 400 }}>
+                <View style={styles.chipWrapModal}>
+                  {AVAILABLE_INTERESTS.map((item) => {
+                    const selected = tempInterests.includes(item);
+                    return (
+                      <TouchableOpacity
+                        key={item}
+                        style={[
+                          styles.chipModal,
+                          selected && styles.chipModalActive,
+                        ]}
+                        onPress={() => {
+                          if (selected) {
+                            setTempInterests(
+                              tempInterests.filter((x) => x !== item),
+                            );
+                          } else if (tempInterests.length < 7) {
+                            setTempInterests([...tempInterests, item]);
+                          }
+                        }}
+                      >
+                        <Text style={styles.chipModalText}>{item}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </ScrollView>
             </View>
-            <FlatList
-              data={COMM_STYLES}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[styles.optionRow, tempCommStyle === item.id && styles.optionRowActive]}
-                  onPress={() => {
-                    setTempCommStyle(item.id);
-                    setShowEditModal(null);
-                  }}
-                >
-                  <Text style={styles.optionEmoji}>{item.emoji}</Text>
-                  <Text style={styles.optionText}>{translateStyle(item.id, "az")}</Text>
-                  {tempCommStyle === item.id && <Check size={18} color={Colors.primary} style={{ marginLeft: "auto" }} />}
-                </TouchableOpacity>
-              )}
-              style={{ maxHeight: 400 }}
-            />
           </View>
-        </View>
-      </Modal>
+        </Modal>
+
+        <Modal
+          visible={showEditModal === "values"}
+          transparent
+          animationType="slide"
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Dəyərlər (max 5)</Text>
+                <TouchableOpacity onPress={() => setShowEditModal(null)}>
+                  <X size={28} color={Colors.foreground} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={{ maxHeight: 400 }}>
+                <View style={styles.chipWrapModal}>
+                  {AVAILABLE_VALUES.map((item) => {
+                    const selected = tempValues.includes(item);
+                    return (
+                      <TouchableOpacity
+                        key={item}
+                        style={[
+                          styles.chipModal,
+                          selected && styles.chipModalActiveBlue,
+                        ]}
+                        onPress={() => {
+                          if (selected) {
+                            setTempValues(tempValues.filter((x) => x !== item));
+                          } else if (tempValues.length < 5) {
+                            setTempValues([...tempValues, item]);
+                          }
+                        }}
+                      >
+                        <Text style={styles.chipModalText}>{item}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal
+          visible={showEditModal === "loveLanguage"}
+          transparent
+          animationType="slide"
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Sevgi dili</Text>
+                <TouchableOpacity onPress={() => setShowEditModal(null)}>
+                  <X size={28} color={Colors.foreground} />
+                </TouchableOpacity>
+              </View>
+              <FlatList
+                data={LOVE_LANGUAGES}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[
+                      styles.optionRow,
+                      tempLoveLanguage === item.id && styles.optionRowActive,
+                    ]}
+                    onPress={() => {
+                      setTempLoveLanguage(item.id);
+                      setShowEditModal(null);
+                    }}
+                  >
+                    <Text style={styles.optionEmoji}>{item.emoji}</Text>
+                    <Text style={styles.optionText}>
+                      {translateLoveLanguage(item.id, "az")}
+                    </Text>
+                    {tempLoveLanguage === item.id && (
+                      <Check
+                        size={18}
+                        color={Colors.primary}
+                        style={{ marginLeft: "auto" }}
+                      />
+                    )}
+                  </TouchableOpacity>
+                )}
+                style={{ maxHeight: 400 }}
+              />
+            </View>
+          </View>
+        </Modal>
+
+        <Modal
+          visible={showEditModal === "commStyle"}
+          transparent
+          animationType="slide"
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Ünsiyyət tərzi</Text>
+                <TouchableOpacity onPress={() => setShowEditModal(null)}>
+                  <X size={28} color={Colors.foreground} />
+                </TouchableOpacity>
+              </View>
+              <FlatList
+                data={COMM_STYLES}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[
+                      styles.optionRow,
+                      tempCommStyle === item.id && styles.optionRowActive,
+                    ]}
+                    onPress={() => {
+                      setTempCommStyle(item.id);
+                      setShowEditModal(null);
+                    }}
+                  >
+                    <Text style={styles.optionEmoji}>{item.emoji}</Text>
+                    <Text style={styles.optionText}>
+                      {translateStyle(item.id, "az")}
+                    </Text>
+                    {tempCommStyle === item.id && (
+                      <Check
+                        size={18}
+                        color={Colors.primary}
+                        style={{ marginLeft: "auto" }}
+                      />
+                    )}
+                  </TouchableOpacity>
+                )}
+                style={{ maxHeight: 400 }}
+              />
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </View>
   );
 }
 
-function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function InfoRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
   return (
     <View style={infoStyles.row}>
       {icon}
@@ -811,14 +1084,30 @@ function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string;
 }
 
 const infoStyles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.05)" },
-  label: { color: Colors.mutedForeground, fontSize: 13, marginLeft: 12, flex: 1 },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.05)",
+  },
+  label: {
+    color: Colors.mutedForeground,
+    fontSize: 13,
+    marginLeft: 12,
+    flex: 1,
+  },
   value: { color: Colors.foreground, fontSize: 14, fontWeight: "600" },
 });
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  loading: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: Colors.background },
+  loading: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: Colors.background,
+  },
 
   topHeader: {
     height: 56,
@@ -840,7 +1129,12 @@ const styles = StyleSheet.create({
 
   scrollContent: { padding: 16, paddingBottom: 40 },
 
-  profileHeader: { flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 16 },
+  profileHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    marginBottom: 16,
+  },
   avatarOuter: { position: "relative" },
   avatarRing: {
     width: 96,
@@ -872,8 +1166,18 @@ const styles = StyleSheet.create({
   },
   headerInfo: { flex: 1, minWidth: 0 },
   nameRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
-  name: { fontSize: 24, fontWeight: "700", color: Colors.foreground, flexShrink: 1 },
-  locationRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 },
+  name: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: Colors.foreground,
+    flexShrink: 1,
+  },
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 6,
+  },
   locationText: { color: Colors.mutedForeground, fontSize: 14, flexShrink: 1 },
   headerEditBtn: {
     width: 36,
@@ -931,7 +1235,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   premiumTitle: { color: Colors.foreground, fontSize: 14, fontWeight: "800" },
-  premiumSubtitle: { color: Colors.mutedForeground, fontSize: 12, marginTop: 2 },
+  premiumSubtitle: {
+    color: Colors.mutedForeground,
+    fontSize: 12,
+    marginTop: 2,
+  },
 
   verifyCard: {
     flexDirection: "row",
@@ -970,7 +1278,11 @@ const styles = StyleSheet.create({
   statItem: { flex: 1, alignItems: "center", paddingVertical: 8 },
   statDivider: { width: 1, height: 32, backgroundColor: Colors.border },
   statNumber: { fontSize: 24, fontWeight: "800", marginBottom: 4 },
-  statLabel: { color: Colors.mutedForeground, fontSize: 11, textAlign: "center" },
+  statLabel: {
+    color: Colors.mutedForeground,
+    fontSize: 11,
+    textAlign: "center",
+  },
 
   sectionCard: {
     backgroundColor: Colors.card,
@@ -1045,7 +1357,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 6,
   },
-  galleryPlaceholderText: { color: Colors.mutedForeground, fontSize: 10, fontWeight: "500" },
+  galleryPlaceholderText: {
+    color: Colors.mutedForeground,
+    fontSize: 10,
+    fontWeight: "500",
+  },
 
   chipsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
@@ -1066,7 +1382,12 @@ const styles = StyleSheet.create({
     borderBottomColor: "rgba(255,255,255,0.06)",
   },
   optionLabel: { color: Colors.mutedForeground, fontSize: 14, flex: 1 },
-  optionValue: { color: Colors.foreground, fontSize: 14, fontWeight: "600", marginRight: 8 },
+  optionValue: {
+    color: Colors.foreground,
+    fontSize: 14,
+    fontWeight: "600",
+    marginRight: 8,
+  },
 
   badgesCard: {
     backgroundColor: Colors.card,
@@ -1105,7 +1426,13 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     marginBottom: 12,
   },
-  actionText: { color: Colors.foreground, fontSize: 15, fontWeight: "600", flex: 1, marginLeft: 12 },
+  actionText: {
+    color: Colors.foreground,
+    fontSize: 15,
+    fontWeight: "600",
+    flex: 1,
+    marginLeft: 12,
+  },
   signOutButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -1120,7 +1447,11 @@ const styles = StyleSheet.create({
   signOutText: { color: Colors.primary, fontWeight: "700", fontSize: 15 },
 
   // Modals
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "flex-end" },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "flex-end",
+  },
   modalContent: {
     backgroundColor: Colors.background,
     borderTopLeftRadius: 20,
@@ -1137,7 +1468,12 @@ const styles = StyleSheet.create({
     borderBottomColor: "rgba(255,255,255,0.08)",
   },
   modalTitle: { fontSize: 18, fontWeight: "700", color: Colors.foreground },
-  chipWrapModal: { flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 16 },
+  chipWrapModal: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    padding: 16,
+  },
   chipModal: {
     paddingVertical: 10,
     paddingHorizontal: 14,
@@ -1146,10 +1482,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.1)",
   },
-  chipModalActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  chipModalActiveBlue: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  chipModalActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  chipModalActiveBlue: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
   chipModalText: { fontSize: 13, color: Colors.foreground, fontWeight: "600" },
-  optionRowActive: { borderWidth: 1, borderColor: Colors.primary, backgroundColor: Colors.primaryAlpha10 },
+  optionRowActive: {
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primaryAlpha10,
+  },
   optionEmoji: { fontSize: 22, marginRight: 12 },
   optionText: { fontSize: 15, color: Colors.foreground, fontWeight: "600" },
 });
