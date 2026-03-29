@@ -126,7 +126,14 @@ function DashboardContent() {
     return null;
   }
 
-  // Check for Waitlist Status
+  if (user?.status === "rejected" || user?.status === "needs_revision") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-pulse text-muted-foreground text-sm">Yönləndirilir...</div>
+      </div>
+    );
+  }
+
   if (user?.status === "waitlist") {
     return <WaitlistScreen user={user} />;
   }

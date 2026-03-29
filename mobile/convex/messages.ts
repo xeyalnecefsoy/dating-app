@@ -1,6 +1,7 @@
 import { query, mutation, internalMutation } from "./_generated/server";
 import { api } from "./_generated/api";
 import { v } from "convex/values";
+import { messagesDeepLinkForClerkId } from "./messageUrls";
 
 /** Söhbətgah (ümumi chat) mesajları bu müddətdən sonra avtomatik silinir; 30 gün "bəyənib sonra tapmaq" üçün kifayətdir */
 const GENERAL_CHAT_RETENTION_DAYS = 30;
@@ -258,8 +259,11 @@ export const listConversations = query({
 
 // Mark general (Söhbətgah) channel as seen for current user
 export const markGeneralSeen = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    /** Ensures seen time is never before the latest message we are viewing (avoids stale unread after refresh). */
+    lastMessageCreationTime: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthenticated");
 
@@ -272,8 +276,11 @@ export const markGeneralSeen = mutation({
 
     if (!user) return;
 
+    const now = Date.now();
+    const at = Math.max(now, args.lastMessageCreationTime ?? 0);
+
     await ctx.db.patch(user._id, {
-      generalLastSeenAt: Date.now(),
+      generalLastSeenAt: at,
     });
   },
 });
@@ -334,11 +341,12 @@ export const send = mutation({
                                    args.format === 'icebreaker' ? '✨ Yeni buzqıran sual!' :
                                    args.body.substring(0, 100);
 
+          const chatUrl = await messagesDeepLinkForClerkId(ctx, userId);
           await ctx.scheduler.runAfter(0, api.push.sendPush, {
              userId: otherUserId,
              title: "Yeni Mesaj", 
              body: notificationBody,
-             url: `/messages?userId=${userId}`
+             url: chatUrl,
           });
        }
     }
@@ -358,6 +366,10 @@ export const send = mutation({
           .first();
           
         if (mentionedUser && mentionedUser.clerkId !== userId) {
+           const mentionChatUrl =
+             channelId === "general"
+               ? await messagesDeepLinkForClerkId(ctx, "general")
+               : await messagesDeepLinkForClerkId(ctx, userId);
            // Create Notification
            await ctx.db.insert("notifications", {
              userId: mentionedUser.clerkId || mentionedUser._id,
@@ -367,7 +379,7 @@ export const send = mutation({
              data: { 
                channelId, 
                senderId: userId,
-               link: `/messages?userId=${channelId === 'general' ? 'general' : userId}`
+               link: mentionChatUrl,
              },
              read: false,
              createdAt: Date.now()
@@ -378,7 +390,7 @@ export const send = mutation({
              userId: mentionedUser.clerkId || mentionedUser._id,
              title: "Sizi etiketlədilər",
              body: `${channelId === 'general' ? 'Söhbətgahda' : 'Bir mesajda'} adınız çəkildi.`,
-             url: `/messages?userId=${channelId === 'general' ? 'general' : userId}`
+             url: mentionChatUrl,
            });
         }
       }

@@ -16,6 +16,7 @@ import { calculateCompatibility } from "@/lib/compatibility";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@clerk/nextjs";
+import { messagesChatHref } from "@/lib/messagesUrl";
 
 
 export default function DiscoveryPage() {
@@ -713,7 +714,12 @@ export default function DiscoveryPage() {
                 <Button 
                   onClick={() => {
                     setShowMatchModal(false);
-                    router.push(`/messages?chat=${matchedProfile.id}`);
+                    router.push(
+                      messagesChatHref({
+                        clerkId: matchedProfile.id,
+                        username: matchedProfile.username,
+                      }),
+                    );
                   }}
                   className="w-full gradient-brand text-white rounded-full py-6 text-lg font-semibold"
                 >

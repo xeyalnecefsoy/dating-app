@@ -13,7 +13,9 @@ export default defineSchema({
     bio: v.optional(v.string()),
     interests: v.optional(v.array(v.string())),
     gender: v.optional(v.string()),
-    status: v.optional(v.string()), // 'active', 'waitlist', 'banned', 'rejected'
+    status: v.optional(v.string()), // 'active', 'waitlist', 'banned', 'rejected', 'needs_revision'
+    profileModerationNote: v.optional(v.string()),
+    profileModerationAt: v.optional(v.number()),
     role: v.optional(v.string()), // 'user', 'moderator', 'admin', 'superadmin'
     createdAt: v.optional(v.number()),
     // Extended profile fields
@@ -27,6 +29,9 @@ export default defineSchema({
     loveLanguage: v.optional(v.string()),
     communicationStyle: v.optional(v.string()),
     avatar: v.optional(v.string()),
+    /** Optional Sightengine / similar automated checks (e.g. tobacco) for moderator review */
+    avatarModerationHints: v.optional(v.array(v.string())),
+    avatarModerationCheckedAt: v.optional(v.number()),
     lookingFor: v.optional(v.string()), // 'male' or 'female'
     // Privacy
     blockedUsers: v.optional(v.array(v.string())), // Clerk IDs of blocked users
@@ -132,6 +137,21 @@ export default defineSchema({
   }).index("by_status", ["status"])
     .index("by_reported", ["reportedId"])
     .index("by_reporter", ["reporterId"]),
+
+  /** Tətbiq nasazlığı / lag — istifadəçi-şikayətindən (reports) ayrı */
+  appFeedback: defineTable({
+    clerkId: v.string(),
+    category: v.string(), // bug | lag | crash | ui | other
+    message: v.string(),
+    status: v.string(), // pending | reviewed | dismissed
+    createdAt: v.number(),
+    appVersion: v.optional(v.string()),
+    platform: v.optional(v.string()),
+    reviewedBy: v.optional(v.string()),
+    reviewedAt: v.optional(v.number()),
+  })
+    .index("by_status", ["status"])
+    .index("by_clerk", ["clerkId"]),
 
   stories: defineTable({
     userId: v.string(), // Clerk ID of the creator

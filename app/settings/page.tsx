@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { 
   ArrowLeft, Moon, Sun, Globe, Bell, Shield, 
   HelpCircle, LogOut, ChevronRight, User, Trash2, Check, AlertTriangle, X,
-  EyeOff, Ban
+  EyeOff, Ban, Bug,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -153,6 +153,7 @@ export default function SettingsPage() {
     support: language === 'az' ? 'Dəstək' : 'Support',
     privacy: language === 'az' ? 'Məxfilik Siyasəti' : 'Privacy Policy',
     help: language === 'az' ? 'Kömək Mərkəzi' : 'Help Center',
+    reportProblem: language === 'az' ? 'Problem / nasazlıq bildir' : 'Report a problem',
     logout: language === 'az' ? 'Çıxış' : 'Log Out',
     deleteAccount: language === 'az' ? 'Hesabı Sil' : 'Delete Account',
     saved: language === 'az' ? 'Saxlanıldı!' : 'Saved!',
@@ -350,10 +351,20 @@ export default function SettingsPage() {
           </section>
         )}
 
-        {/* Support */}
+        {/* Support — problem bildirişi: isSignedIn bəzən gecikəndə gizlənirdi; parametrlərə daxil olan istifadəçi görməlidir */}
         <section>
           <h2 className="text-sm text-muted-foreground mb-3 px-1">{texts.support}</h2>
           <div className="bg-card rounded-2xl border border-border overflow-hidden">
+            <Link href="/feedback">
+              <div className="w-full flex items-center justify-between p-4 active:bg-muted">
+                <div className="flex items-center gap-3">
+                  <Bug className="w-5 h-5 text-muted-foreground" />
+                  <span className="text-foreground">{texts.reportProblem}</span>
+                </div>
+                <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              </div>
+            </Link>
+            <div className="h-px bg-border mx-4" />
             <button 
               onClick={() => showToast({ type: "info", title: texts.info, message: texts.soonDesc })}
               className="w-full flex items-center justify-between p-4 active:bg-muted"

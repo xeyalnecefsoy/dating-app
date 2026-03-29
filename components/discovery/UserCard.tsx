@@ -11,6 +11,7 @@ import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { calculateCompatibility, getCompatibilityLabel } from "@/lib/compatibility";
 import { useRouter } from "next/navigation";
+import { messagesChatHref } from "@/lib/messagesUrl";
 import Image from "next/image";
 
 interface UserCardProps {
@@ -71,7 +72,12 @@ export function UserCard({ user }: UserCardProps) {
     if ((currentUser as any)?.role === 'superadmin') {
        const result = await sendMessageRequest(user.id);
        if (result) {
-         router.push(`/messages?userId=${user.id}`);
+         router.push(
+           messagesChatHref({
+             clerkId: user.id,
+             username: user.username,
+           }),
+         );
          return;
        }
     }
@@ -80,7 +86,12 @@ export function UserCard({ user }: UserCardProps) {
     if (!currentUser?.matches.includes(user.id)) {
       handleLike();
     } else {
-      router.push(`/messages?userId=${user.id}`);
+      router.push(
+        messagesChatHref({
+          clerkId: user.id,
+          username: user.username,
+        }),
+      );
     }
   };
 

@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { messagesDeepLinkForClerkId } from "./messageUrls";
 
 const STAFF_ROLES = new Set(["moderator", "admin", "superadmin"]);
 
@@ -108,13 +109,16 @@ export const like = mutation({
         status: "accepted",
       });
 
+      const urlToLiker = await messagesDeepLinkForClerkId(ctx, likerId);
+      const urlToLiked = await messagesDeepLinkForClerkId(ctx, args.likedId);
+
       // Notify the other user (who liked first)
       await ctx.db.insert("notifications", {
         userId: args.likedId,
         type: "match",
         title: "Yeni Uyğunluq! 🎉",
         body: "Kimsə səni bəyəndi və uyğunluq yarandı!",
-        data: { matchId: matchId.toString(), partnerId: likerId, url: `/messages?userId=${likerId}` },
+        data: { matchId: matchId.toString(), partnerId: likerId, url: urlToLiker },
         read: false,
         createdAt: Date.now(),
       });
@@ -125,7 +129,7 @@ export const like = mutation({
         type: "match",
         title: "Təbriklər! Uyğunluq var! 💖",
         body: "Sən də onu bəyəndin. İndi mesaj yaza bilərsən.",
-        data: { matchId: matchId.toString(), partnerId: args.likedId, url: `/messages?userId=${args.likedId}` },
+        data: { matchId: matchId.toString(), partnerId: args.likedId, url: urlToLiked },
         read: false,
         createdAt: Date.now(),
       });

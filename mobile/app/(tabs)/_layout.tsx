@@ -4,6 +4,7 @@ import { useAuth } from "@clerk/clerk-expo";
 import { useQuery } from "convex/react";
 import { Redirect } from "expo-router";
 import { View, ActivityIndicator } from "react-native";
+import { useMemo } from "react";
 import { api } from "../../lib/api";
 import { Colors } from "../../lib/colors";
 
@@ -13,6 +14,21 @@ export default function TabLayout() {
     api.users.getUser,
     userId ? { clerkId: userId } : "skip",
   );
+  const convData = useQuery(
+    api.messages.listConversations,
+    userId ? {} : "skip",
+  );
+
+  const messagesTabBadge = useMemo(() => {
+    if (convData === undefined) return undefined;
+    const n =
+      (convData.general?.unread ? 1 : 0) +
+      convData.acceptedMatches.filter((m: { unread: boolean }) => m.unread)
+        .length +
+      (convData.incomingRequests?.length ?? 0);
+    if (n <= 0) return undefined;
+    return n > 99 ? "99+" : String(n);
+  }, [convData]);
 
   if (!isLoaded) {
     return (
@@ -49,6 +65,14 @@ export default function TabLayout() {
   }
 
   if (!dbUser) {
+    return <Redirect href="/onboarding" />;
+  }
+
+  if (dbUser.status === "rejected") {
+    return <Redirect href="/rejected" />;
+  }
+
+  if (dbUser.status === "needs_revision") {
     return <Redirect href="/onboarding" />;
   }
 
@@ -109,6 +133,7 @@ export default function TabLayout() {
         options={{
           title: "Mesaj",
           headerShown: false,
+          tabBarBadge: messagesTabBadge,
           tabBarIcon: ({ color, size }) => (
             <MessageCircle size={size} color={color} />
           ),

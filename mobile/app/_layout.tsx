@@ -90,6 +90,7 @@ export default function RootLayout() {
             <Stack.Screen name="welcome" options={{ headerShown: false }} />
             <Stack.Screen name="onboarding" options={{ headerShown: false }} />
             <Stack.Screen name="waitlist" options={{ headerShown: false }} />
+            <Stack.Screen name="rejected" options={{ headerShown: false }} />
           </Stack>
         </ConvexProviderWithClerk>
       </ClerkLoaded>

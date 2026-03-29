@@ -76,6 +76,14 @@ export default function Index() {
       return <Redirect href="/onboarding" />;
     }
 
+    if (dbUser.status === "rejected") {
+      return <Redirect href="/rejected" />;
+    }
+
+    if (dbUser.status === "needs_revision") {
+      return <Redirect href="/onboarding" />;
+    }
+
     if (dbUser.status === "waitlist") {
       return <Redirect href="/waitlist" />;
     }

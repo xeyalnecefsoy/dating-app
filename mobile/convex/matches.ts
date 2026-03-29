@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { messagesDeepLinkForClerkId } from "./messageUrls";
 
 const STAFF_ROLES = new Set(["moderator", "admin", "superadmin"]);
 
@@ -128,6 +129,7 @@ export const sendRequest = mutation({
     });
 
     if (isSuperAdmin) {
+       const chatUrl = await messagesDeepLinkForClerkId(ctx, senderId);
        await ctx.db.insert("notifications", {
          userId: receiverId,
          type: "match",
@@ -136,7 +138,7 @@ export const sendRequest = mutation({
          read: false,
          data: { 
              matchId: matchId, 
-             url: `/messages?userId=${senderId}`,
+             url: chatUrl,
              partnerId: senderId
          },
          createdAt: Date.now()

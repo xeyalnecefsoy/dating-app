@@ -61,22 +61,33 @@ export function ReportModal({ reportedId, reportedName, onClose }: ReportModalPr
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
+      onClick={onClose}
+      role="presentation"
+    >
       <motion.div
-        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+        initial={{ scale: 0.96, opacity: 0, y: 12 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.9, opacity: 0, y: 20 }}
+        exit={{ scale: 0.96, opacity: 0, y: 12 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm bg-card border border-border rounded-2xl shadow-xl overflow-hidden"
+        className="w-full max-w-sm overflow-hidden rounded-3xl border border-border/80 bg-card shadow-2xl shadow-primary/10"
       >
-        <div className="p-4 border-b border-border flex items-center justify-between bg-muted/30">
-          <div className="flex items-center gap-2 text-foreground">
-            <AlertTriangle className="w-5 h-5 text-red-500" />
+        <div className="flex items-center justify-between border-b border-border/60 bg-gradient-to-r from-primary/10 via-transparent to-transparent px-5 py-4">
+          <div className="flex items-center gap-3 text-foreground">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
             <h2 className="font-bold text-lg">
-              {language === 'az' ? 'Şikayət Et' : 'Report'}
+              {language === "az" ? "Şikayət et" : "Report user"}
             </h2>
           </div>
-          <button onClick={onClose} className="p-2 -mr-2 text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-muted">
+          <button
+            type="button"
+            onClick={onClose}
+            className="-mr-1 rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label={language === "az" ? "Bağla" : "Close"}
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -92,14 +103,15 @@ export function ReportModal({ reportedId, reportedName, onClose }: ReportModalPr
             {REPORT_REASONS.map((r) => (
               <button
                 key={r.id}
+                type="button"
                 onClick={() => setReason(r.id)}
-                className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-medium transition-all ${
-                  reason === r.id 
-                    ? "border-red-500 bg-red-500/10 text-red-500" 
-                    : "border-border hover:border-muted-foreground/30 text-foreground"
+                className={`w-full rounded-2xl border px-4 py-3 text-left text-sm font-medium transition-all ${
+                  reason === r.id
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-foreground hover:border-primary/40"
                 }`}
               >
-                {r.label[language as 'az' | 'en']}
+                {r.label[language as "az" | "en"]}
               </button>
             ))}
           </div>
@@ -113,7 +125,7 @@ export function ReportModal({ reportedId, reportedName, onClose }: ReportModalPr
                 className="overflow-hidden mb-5"
               >
                 <textarea
-                  className="w-full h-24 p-3 bg-muted border border-border rounded-xl text-sm placeholder:text-muted-foreground/50 resize-none focus:outline-none focus:border-red-500/50"
+                  className="h-24 w-full resize-none rounded-2xl border border-border bg-muted p-3 text-sm placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none"
                   placeholder={language === 'az' ? 'Əlavə məlumat verin...' : 'Provide additional details...'}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -122,18 +134,19 @@ export function ReportModal({ reportedId, reportedName, onClose }: ReportModalPr
             )}
           </AnimatePresence>
 
-          <Button 
-            onClick={handleSubmit} 
+          <Button
+            type="button"
+            onClick={handleSubmit}
             disabled={!reason || isSubmitting}
-            className="w-full rounded-xl bg-red-500 hover:bg-red-600 text-white h-12 text-md shadow-lg shadow-red-500/20 transition-all font-bold"
+            className="h-12 w-full rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:bg-primary/90 font-bold"
           >
             {isSubmitting ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
             ) : (
-               <>
-                 <Send className="w-4 h-4 mr-2" />
-                 {language === 'az' ? 'Şikayəti Göndər' : 'Submit Report'}
-               </>
+              <>
+                <Send className="mr-2 h-4 w-4" />
+                {language === "az" ? "Şikayəti göndər" : "Submit report"}
+              </>
             )}
           </Button>
         </div>

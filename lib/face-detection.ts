@@ -1,16 +1,21 @@
 "use client";
 
-const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+import {
+  averageBrightnessPercent,
+  MAX_FACES_FOR_PROFILE,
+  MIN_FACE_AREA_RATIO,
+} from "./face-detection-rules";
+
+const MODEL_URL = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model";
 let modelsLoaded = false;
 let faceapi: any = null;
 
 export async function loadFaceDetectionModels() {
   if (modelsLoaded && faceapi) return true;
-  
+
   try {
-    // Dynamic import to prevent ChunkLoadError on initial load
     if (!faceapi) {
-        faceapi = await import('face-api.js');
+      faceapi = await import("face-api.js");
     }
 
     await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
@@ -30,52 +35,55 @@ export interface FaceValidationResult {
   errorMessage?: string;
 }
 
+const VALIDATION_TIMEOUT_MS = 20000;
+
 /**
- * Validates an image file for face detection and brightness.
- * @param file - The image file to validate
- * @returns A FaceValidationResult object
+ * Validates an image file for face detection, face size, single face, and brightness.
  */
-export async function validateProfilePhoto(file: File): Promise<FaceValidationResult> {
-  // Create a timeout promise (15 seconds max)
+export async function validateProfilePhoto(
+  file: File
+): Promise<FaceValidationResult> {
   const timeoutPromise = new Promise<FaceValidationResult>((resolve) => {
     setTimeout(() => {
       resolve({
-        isValid: true, // Accept photo if timeout
-        hasFace: true,
-        isBright: true,
-        errorMessage: undefined
+        isValid: false,
+        hasFace: false,
+        isBright: false,
+        errorMessage:
+          "Şəkil yoxlanması çox uzun sürdü. Zəhmət olmasa daha kiçik şəkil seçin və ya yenidən cəhd edin.",
       });
-    }, 15000);
+    }, VALIDATION_TIMEOUT_MS);
   });
 
-  // Create the actual validation promise
   const validationPromise = performValidation(file);
-
-  // Race between validation and timeout
   return Promise.race([validationPromise, timeoutPromise]);
 }
 
 async function performValidation(file: File): Promise<FaceValidationResult> {
-  // Load models if not already loaded (with its own timeout)
   try {
     const loadPromise = loadFaceDetectionModels();
-    const loadTimeout = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 10000));
+    const loadTimeout = new Promise<boolean>((resolve) =>
+      setTimeout(() => resolve(false), 12000)
+    );
     const loaded = await Promise.race([loadPromise, loadTimeout]);
-    
+
     if (!loaded) {
-      // Model load failed/timed out - accept photo anyway
-      console.warn("Face models failed to load, accepting photo without validation");
+      console.warn("Face models failed to load or timed out");
       return {
-        isValid: true,
-        hasFace: true,
-        isBright: true
+        isValid: false,
+        hasFace: false,
+        isBright: false,
+        errorMessage:
+          "Üz tanıma yüklənmədi. İnternet bağlantınızı yoxlayıb yenidən cəhd edin.",
       };
     }
   } catch {
     return {
-      isValid: true,
-      hasFace: true,
-      isBright: true
+      isValid: false,
+      hasFace: false,
+      isBright: false,
+      errorMessage:
+        "Üz tanıma başlatıla bilmədi. Səhifəni yeniləyib yenidən cəhd edin.",
     };
   }
 
@@ -85,21 +93,29 @@ async function performValidation(file: File): Promise<FaceValidationResult> {
 
     reader.onload = async (e) => {
       img.src = e.target?.result as string;
-      
+
       img.onload = async () => {
         try {
-          // Ensure faceapi is loaded
           if (!faceapi) {
-             console.warn("FaceAPI not loaded during validation, skipping check");
-             resolve({ isValid: true, hasFace: true, isBright: true });
-             return;
+            resolve({
+              isValid: false,
+              hasFace: false,
+              isBright: false,
+              errorMessage:
+                "Üz yoxlaması hazır deyil. Səhifəni yeniləyib yenidən cəhd edin.",
+            });
+            return;
           }
 
-          // 1. Check for face
-          const detections = await faceapi.detectAllFaces(img, new faceapi.TinyFaceDetectorOptions());
+          const w = img.naturalWidth || img.width;
+          const h = img.naturalHeight || img.height;
+
+          const detections = await faceapi.detectAllFaces(
+            img,
+            new faceapi.TinyFaceDetectorOptions()
+          );
           const hasFace = detections.length > 0;
 
-          // 2. Check brightness
           const isBright = checkBrightness(img);
 
           if (!hasFace) {
@@ -107,7 +123,33 @@ async function performValidation(file: File): Promise<FaceValidationResult> {
               isValid: false,
               hasFace: false,
               isBright,
-              errorMessage: "Şəkildə üz aşkarlanmadı. Zəhmət olmasa üzünüz aydın görünən bir şəkil seçin."
+              errorMessage:
+                "Şəkildə üz aşkarlanmadı. Zəhmət olmasa üzünüz aydın görünən bir şəkil seçin.",
+            });
+            return;
+          }
+
+          if (detections.length > MAX_FACES_FOR_PROFILE) {
+            resolve({
+              isValid: false,
+              hasFace: true,
+              isBright,
+              errorMessage:
+                "Yalnız özünüzün olduğu bir şəkil seçin (qrup şəkilləri qəbul edilmir).",
+            });
+            return;
+          }
+
+          const box = detections[0].box;
+          const faceArea = box.width * box.height;
+          const imageArea = w * h;
+          if (faceArea / imageArea < MIN_FACE_AREA_RATIO) {
+            resolve({
+              isValid: false,
+              hasFace: true,
+              isBright,
+              errorMessage:
+                "Üz çox kiçik görünür və ya kadr keyfiyyətsizdir. Üzünüz daha yaxın və aydın olan selfie seçin (ekran/TV şəkli olmasın).",
             });
             return;
           }
@@ -117,7 +159,8 @@ async function performValidation(file: File): Promise<FaceValidationResult> {
               isValid: false,
               hasFace: true,
               isBright: false,
-              errorMessage: "Şəkil çox qaranlıqdır. Zəhmət olmasa daha işıqlı bir şəkil seçin."
+              errorMessage:
+                "Şəkil çox qaranlıqdır. Zəhmət olmasa daha işıqlı bir şəkil seçin.",
             });
             return;
           }
@@ -125,16 +168,16 @@ async function performValidation(file: File): Promise<FaceValidationResult> {
           resolve({
             isValid: true,
             hasFace: true,
-            isBright: true
+            isBright: true,
           });
-
         } catch (error) {
           console.error("Face detection error:", error);
-          // On error, accept photo
           resolve({
-            isValid: true,
-            hasFace: true,
-            isBright: true
+            isValid: false,
+            hasFace: false,
+            isBright: false,
+            errorMessage:
+              "Şəkil yoxlanıla bilmədi. Başqa bir şəkil seçin və ya yenidən cəhd edin.",
           });
         }
       };
@@ -144,7 +187,8 @@ async function performValidation(file: File): Promise<FaceValidationResult> {
           isValid: false,
           hasFace: false,
           isBright: false,
-          errorMessage: "Şəkil yüklənə bilmədi. Başqa bir şəkil seçin."
+          errorMessage:
+            "Şəkil yüklənə bilmədi. Başqa bir şəkil seçin.",
         });
       };
     };
@@ -154,7 +198,7 @@ async function performValidation(file: File): Promise<FaceValidationResult> {
         isValid: false,
         hasFace: false,
         isBright: false,
-        errorMessage: "Fayl oxunarkən xəta baş verdi."
+        errorMessage: "Fayl oxunarkən xəta baş verdi.",
       });
     };
 
@@ -162,42 +206,23 @@ async function performValidation(file: File): Promise<FaceValidationResult> {
   });
 }
 
-/**
- * Checks if an image is too dark by calculating average brightness.
- * Returns true if the image is bright enough.
- */
 function checkBrightness(img: HTMLImageElement): boolean {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return true; // Fallback: assume bright
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return false;
 
-  // Use smaller canvas for performance
   const maxSize = 100;
   const scale = Math.min(maxSize / img.width, maxSize / img.height);
   canvas.width = img.width * scale;
   canvas.height = img.height * scale;
 
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-  
+
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const data = imageData.data;
-  
-  let totalBrightness = 0;
-  const pixelCount = data.length / 4;
-
-  for (let i = 0; i < data.length; i += 4) {
-    // Calculate perceived brightness using weighted RGB
-    const r = data[i];
-    const g = data[i + 1];
-    const b = data[i + 2];
-    // Human eye is more sensitive to green
-    const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
-    totalBrightness += brightness;
-  }
-
-  const avgBrightness = totalBrightness / pixelCount;
-  const brightnessPercent = (avgBrightness / 255) * 100;
-
-  // Threshold: 25% minimum brightness
-  return brightnessPercent >= 25;
+  const pct = averageBrightnessPercent(
+    imageData.data,
+    canvas.width,
+    canvas.height
+  );
+  return pct >= 25;
 }

@@ -9,6 +9,7 @@ export {
   BadgeCheck,
   Ban,
   Bell,
+  Bug,
   Calendar,
   Camera,
   Check,

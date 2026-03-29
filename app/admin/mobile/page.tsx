@@ -8,7 +8,10 @@ import { api } from "@/convex/_generated/api";
 import { useUser } from "@/contexts/UserContext";
 import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Check, Clock, RefreshCw, ShieldAlert, UserCheck, UserX, X } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { MODERATION_PRESET_REASONS_AZ } from "@/lib/moderationTemplates";
+import { formatAzDateTime, reportReasonLabelAz } from "@/lib/formatAz";
+import { ArrowLeft, Check, Clock, PencilLine, RefreshCw, ShieldAlert, UserCheck, UserX, X } from "lucide-react";
 
 type TabType = "waitlist" | "reports";
 const FOUNDER_EMAIL = "xeyalnecefsoy@gmail.com";
@@ -30,6 +33,11 @@ export default function AdminMobilePage() {
 
   const [activeTab, setActiveTab] = useState<TabType>("waitlist");
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [moderationSheet, setModerationSheet] = useState<{
+    u: Record<string, unknown>;
+    mode: "reject" | "revision";
+  } | null>(null);
+  const [moderationDraft, setModerationDraft] = useState("");
 
   React.useEffect(() => {
     if (!isLoading && !isAdmin) router.replace("/");
@@ -47,6 +55,7 @@ export default function AdminMobilePage() {
   const snapshot = useQuery(api.ops.getMobileAdminSnapshot, canLoadAdminData ? {} : "skip");
   const approveWaitlist = useMutation(api.ops.quickApproveWaitlist);
   const rejectWaitlist = useMutation(api.ops.quickRejectWaitlist);
+  const requestRevision = useMutation(api.ops.quickRequestRevision);
   const resolveReport = useMutation(api.ops.quickResolveReport);
   const dismissReport = useMutation(api.ops.quickDismissReport);
   const runAutomationNow = useMutation(api.ops.runAutomationNow);
@@ -181,9 +190,13 @@ export default function AdminMobilePage() {
                     </div>
                     <Clock className="w-4 h-4 text-muted-foreground mt-1" />
                   </div>
-                  <div className="grid grid-cols-2 gap-2 mt-3">
+                  <p className="text-[11px] text-muted-foreground mt-2 leading-snug">
+                    Şəkil/bio üçün əvvəl <span className="text-foreground font-medium">Düzəliş</span>; rədd
+                    yalnız ciddi pozuntu üçündür.
+                  </p>
+                  <div className="flex flex-col gap-2 mt-3">
                     <Button
-                      className="gap-1"
+                      className="gap-1 w-full"
                       disabled={!!busyKey}
                       onClick={() =>
                         onAction(
@@ -193,22 +206,32 @@ export default function AdminMobilePage() {
                         )
                       }
                     >
-                      <UserCheck className="w-4 h-4" /> Approve
+                      <UserCheck className="w-4 h-4" /> Təsdiqlə
                     </Button>
-                    <Button
-                      variant="destructive"
-                      className="gap-1"
-                      disabled={!!busyKey}
-                      onClick={() =>
-                        onAction(
-                          `reject-${u._id}`,
-                          () => rejectWaitlist({ targetUserId: u._id, reason: "Admin qərarı" }),
-                          "İstifadəçi rədd edildi"
-                        )
-                      }
-                    >
-                      <UserX className="w-4 h-4" /> Reject
-                    </Button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        variant="secondary"
+                        className="gap-1"
+                        disabled={!!busyKey}
+                        onClick={() => {
+                          setModerationDraft(MODERATION_PRESET_REASONS_AZ[0] ?? "");
+                          setModerationSheet({ u, mode: "revision" });
+                        }}
+                      >
+                        <PencilLine className="w-4 h-4" /> Düzəliş
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        className="gap-1"
+                        disabled={!!busyKey}
+                        onClick={() => {
+                          setModerationDraft(MODERATION_PRESET_REASONS_AZ[0] ?? "");
+                          setModerationSheet({ u, mode: "reject" });
+                        }}
+                      >
+                        <UserX className="w-4 h-4" /> Rədd
+                      </Button>
+                    </div>
                   </div>
                 </article>
               ))
@@ -225,9 +248,12 @@ export default function AdminMobilePage() {
                 <article key={r._id} className="rounded-2xl border bg-card p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-semibold capitalize">{r.reason}</p>
+                      <p className="font-semibold">{reportReasonLabelAz(String(r.reason))}</p>
                       <p className="text-xs text-muted-foreground mt-1">
                         {r.reporterName} → {r.reportedName}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1 tabular-nums">
+                        {formatAzDateTime(r.createdAt)}
                       </p>
                       {r.description && (
                         <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{r.description}</p>
@@ -247,7 +273,7 @@ export default function AdminMobilePage() {
                         )
                       }
                     >
-                      <Check className="w-4 h-4" /> Resolve
+                      <Check className="w-4 h-4" /> Həll Et
                     </Button>
                     <Button
                       variant="outline"
@@ -261,7 +287,7 @@ export default function AdminMobilePage() {
                         )
                       }
                     >
-                      <X className="w-4 h-4" /> Dismiss
+                      <X className="w-4 h-4" /> Rədd Et
                     </Button>
                   </div>
                 </article>
@@ -270,6 +296,87 @@ export default function AdminMobilePage() {
           </section>
         )}
       </main>
+
+      {moderationSheet && (
+        <div className="fixed inset-0 z-[100] flex flex-col justify-end bg-black/50">
+          <div className="bg-card border-t border-border rounded-t-2xl p-4 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-3">
+              <p className="font-semibold text-sm">
+                {moderationSheet.mode === "revision" ? "Düzəliş tələb et" : "Rədd et — səbəb"}
+              </p>
+              <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setModerationSheet(null)}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+              {moderationSheet.mode === "revision"
+                ? "İstifadəçi onboardingə gedir; düzəldəndən sonra yenidən növbəyə düşür."
+                : "Rədd profili bloklayır. Şəkil/bio üçün Düzəliş daha uyğundur."}
+            </p>
+            <p className="text-xs font-medium text-foreground mb-2">Hazır səbəblər</p>
+            <div className="flex flex-col gap-2 max-h-[40vh] overflow-y-auto mb-3">
+              {MODERATION_PRESET_REASONS_AZ.map((r) => {
+                const selected = moderationDraft === r;
+                return (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setModerationDraft(r)}
+                    className={`text-left rounded-xl border px-3 py-2 text-xs leading-snug ${
+                      selected
+                        ? "border-primary bg-primary/10 ring-2 ring-primary/40"
+                        : "border-border bg-background"
+                    }`}
+                  >
+                    {r}
+                  </button>
+                );
+              })}
+            </div>
+            <Textarea
+              value={moderationDraft}
+              onChange={(e) => setModerationDraft(e.target.value)}
+              rows={4}
+              className="resize-none mb-3"
+              placeholder="Mesaj (bildiriş)..."
+            />
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setModerationSheet(null)}>
+                Ləğv
+              </Button>
+              <Button
+                className="flex-1"
+                variant={moderationSheet.mode === "reject" ? "destructive" : "default"}
+                disabled={!moderationDraft.trim() || !!busyKey}
+                onClick={() => {
+                  const text = moderationDraft.trim();
+                  if (!text) return;
+                  const key =
+                    moderationSheet.mode === "reject"
+                      ? `reject-${moderationSheet.u._id}`
+                      : `revision-${moderationSheet.u._id}`;
+                  onAction(
+                    key,
+                    () =>
+                      moderationSheet.mode === "reject"
+                        ? rejectWaitlist({
+                            targetUserId: moderationSheet.u._id as any,
+                            reason: text,
+                          })
+                        : requestRevision({
+                            targetUserId: moderationSheet.u._id as any,
+                            reason: text,
+                          }),
+                    moderationSheet.mode === "reject" ? "Rədd edildi" : "Düzəliş tələb olundu"
+                  ).then(() => setModerationSheet(null));
+                }}
+              >
+                {moderationSheet.mode === "reject" ? "Rədd et" : "Düzəliş tələb et"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

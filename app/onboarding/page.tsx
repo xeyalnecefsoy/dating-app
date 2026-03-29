@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Heart, User, Users, Calendar, Search, ChevronDown, Camera, Loader2, AlertCircle, CheckCircle2, LogOut } from "lucide-react";
@@ -23,6 +24,18 @@ import {
 } from "@/lib/constants";
 import { AZERBAIJAN_REGIONS } from "@/lib/locations";
 import { processProfileImage } from "@/lib/image-utils";
+import {
+  validateFullName,
+  validateBio,
+  BIO_MIN_LENGTH,
+  BIO_MIN_WORDS,
+} from "@/lib/profileValidation";
+import {
+  communityStandardsSummaryAz,
+  communityStandardsSummaryEn,
+  photoRulesAz,
+  photoRulesEn,
+} from "@/lib/onboardingStandards";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -54,6 +67,7 @@ export default function OnboardingPage() {
     communicationStyle: "" as "Direct" | "Empathetic" | "Analytical" | "Playful" | "",
     profilePhoto: null as File | null,
     profilePhotoPreview: "" as string,
+    acceptedCommunityGuidelines: false,
   });
 
   const [photoValidation, setPhotoValidation] = useState<{
@@ -135,7 +149,7 @@ export default function OnboardingPage() {
     }
   }, [convexUser, clerkUser, formData.firstName]);
 
-  const totalSteps = 6;
+  const totalSteps = 7;
 
   // Calculate age from birthdate
   const calculateAge = () => {
@@ -221,14 +235,35 @@ export default function OnboardingPage() {
   };
 
   const canProceed = () => {
+    const fullName = `${formData.firstName} ${formData.lastName}`.trim();
     switch (step) {
-      case 1: return formData.gender;
-      case 2: return formData.firstName && formData.lastName && isValidBirthDate() && calculateAge() >= 18;
-      case 3: return formData.location && formData.bio;
-      case 4: return formData.values.length >= 1 && formData.loveLanguage;
-      case 5: return formData.interests.length >= 1 && formData.communicationStyle;
-      case 6: return formData.profilePhoto && photoValidation.isValid;
-      default: return false;
+      case 1:
+        return formData.acceptedCommunityGuidelines;
+      case 2:
+        return !!formData.gender;
+      case 3:
+        return (
+          !!formData.firstName &&
+          !!formData.lastName &&
+          isValidBirthDate() &&
+          calculateAge() >= 18 &&
+          !validateFullName(fullName)
+        );
+      case 4:
+        return (
+          !!formData.location &&
+          !!formData.bio?.trim() &&
+          !validateBio(formData.bio.trim()) &&
+          formData.bio.trim().length >= BIO_MIN_LENGTH
+        );
+      case 5:
+        return formData.values.length >= 1 && formData.loveLanguage;
+      case 6:
+        return formData.interests.length >= 1 && formData.communicationStyle;
+      case 7:
+        return formData.profilePhoto && photoValidation.isValid === true;
+      default:
+        return false;
     }
   };
 
@@ -276,7 +311,7 @@ export default function OnboardingPage() {
       
       const fullName = `${formData.firstName} ${formData.lastName}`.trim();
 
-      await completeOnboarding({
+      const res = await completeOnboarding({
         name: fullName,
         age: calculateAge(),
         birthDay: formData.birthDay,
@@ -292,14 +327,33 @@ export default function OnboardingPage() {
         communicationStyle: formData.communicationStyle as "Direct" | "Empathetic" | "Analytical" | "Playful",
         avatar: avatarUrl,
       });
-      
-      // Clear onboarding session data
-      sessionStorage.removeItem('onboarding-step');
-      sessionStorage.removeItem('onboarding-formData');
-      
-      router.push("/discovery");
+
+      if (!res.ok) {
+        const msg =
+          res.error instanceof Error
+            ? res.error.message
+            : String(res.error ?? "Xəta baş verdi");
+        throw new Error(msg);
+      }
+
+      sessionStorage.removeItem("onboarding-step");
+      sessionStorage.removeItem("onboarding-formData");
+
+      if (res.status === "waitlist") {
+        router.push("/");
+      } else if (res.status === "rejected") {
+        router.push("/account-rejected");
+      } else {
+        router.push("/discovery");
+      }
     } catch (error) {
       console.error("Onboarding error:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Profil saxlanmadı. Məlumatları yoxlayın."
+      );
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -375,9 +429,80 @@ export default function OnboardingPage() {
 
       {/* Content */}
       <main className="flex-1 px-6 overflow-y-auto">
+        {convexUser?.status === "needs_revision" && convexUser?.profileModerationNote && (
+            <div className="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
+              <p className="font-semibold text-amber-800 dark:text-amber-300">
+                {language === "az" ? "Profilinizi yeniləyin" : "Please update your profile"}
+              </p>
+              <p className="text-muted-foreground mt-1">{convexUser.profileModerationNote}</p>
+            </div>
+          )}
         <AnimatePresence mode="wait">
-          {/* Step 1: Gender Selection */}
+          {/* Step 1: Community standards acknowledgment */}
           {step === 1 && (
+            <StepContainer key="step-guidelines">
+              <h1 className="text-2xl font-bold mb-2">
+                {language === "az" ? "İcma standartları" : "Community standards"}
+              </h1>
+              <p className="text-muted-foreground mb-4">
+                {language === "az"
+                  ? "Davam etməzdən əvvəl qısa şəkildə tanış olun. Tam mətn üçün icma qaydalarına keçin."
+                  : "Please read this summary before continuing. Open the full guidelines for the complete text."}
+              </p>
+              <ul className="list-disc pl-5 space-y-2 text-sm text-foreground/90 mb-6">
+                {(language === "az"
+                  ? communityStandardsSummaryAz(BIO_MIN_LENGTH, BIO_MIN_WORDS)
+                  : communityStandardsSummaryEn(BIO_MIN_LENGTH, BIO_MIN_WORDS)
+                ).map((line, i) => (
+                  <li key={i}>{line}</li>
+                ))}
+              </ul>
+              <label className="flex items-start gap-3 cursor-pointer rounded-xl border border-border bg-card/60 p-4">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4 rounded border-border"
+                  checked={formData.acceptedCommunityGuidelines}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      acceptedCommunityGuidelines: e.target.checked,
+                    }))
+                  }
+                />
+                <span className="text-sm leading-relaxed">
+                  {language === "az" ? (
+                    <>
+                      <Link
+                        href="/icma-qaydalari"
+                        className="text-primary font-medium underline underline-offset-2"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        İcma qaydalarını
+                      </Link>{" "}
+                      oxudum və qəbul edirəm.
+                    </>
+                  ) : (
+                    <>
+                      I have read and accept the{" "}
+                      <Link
+                        href="/icma-qaydalari"
+                        className="text-primary font-medium underline underline-offset-2"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        community guidelines
+                      </Link>
+                      .
+                    </>
+                  )}
+                </span>
+              </label>
+            </StepContainer>
+          )}
+
+          {/* Step 2: Gender Selection */}
+          {step === 2 && (
             <StepContainer key="step1">
               <h1 className="text-2xl font-bold mb-2">{txt.step1Title}</h1>
               <p className="text-muted-foreground mb-8">{txt.step1Desc}</p>
@@ -430,8 +555,8 @@ export default function OnboardingPage() {
             </StepContainer>
           )}
 
-          {/* Step 2: Name & Birth Date */}
-          {step === 2 && (
+          {/* Step 3: Name & Birth Date */}
+          {step === 3 && (
             <StepContainer key="step2">
               <h1 className="text-2xl font-bold mb-2">{txt.step2Title}</h1>
               <p className="text-muted-foreground mb-6">{txt.step2Desc}</p>
@@ -508,8 +633,8 @@ export default function OnboardingPage() {
             </StepContainer>
           )}
 
-          {/* Step 3: Location & Bio */}
-          {step === 3 && (
+          {/* Step 4: Location & Bio */}
+          {step === 4 && (
             <StepContainer key="step3">
               <h1 className="text-2xl font-bold mb-2">{txt.step3Title}</h1>
               <p className="text-muted-foreground mb-6">{txt.step3Desc}</p>
@@ -587,16 +712,23 @@ export default function OnboardingPage() {
                     onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                     placeholder={txt.bioPlaceholder}
                     className="min-h-[120px] bg-card border-border resize-none"
-                    maxLength={200}
+                    maxLength={500}
                   />
-                  <p className="text-xs text-muted-foreground mt-1 text-right">{formData.bio.length}/200</p>
+                  <p className="text-xs text-muted-foreground mt-1 text-right">
+                    {formData.bio.length}/500 · {language === "az" ? `ən azı ${BIO_MIN_LENGTH} simvol` : `min. ${BIO_MIN_LENGTH} chars`}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    <Link href="/icma-qaydalari" className="text-primary underline underline-offset-2">
+                      {language === "az" ? "İcma qaydaları" : "Community guidelines"}
+                    </Link>
+                  </p>
                 </div>
               </div>
             </StepContainer>
           )}
 
-          {/* Step 4: Values & Love Language */}
-          {step === 4 && (
+          {/* Step 5: Values & Love Language */}
+          {step === 5 && (
             <StepContainer key="step4">
               <h1 className="text-2xl font-bold mb-2">{txt.step4Title}</h1>
               <p className="text-muted-foreground mb-4">{txt.step4Desc}</p>
@@ -639,8 +771,8 @@ export default function OnboardingPage() {
             </StepContainer>
           )}
 
-          {/* Step 5: Interests & Communication */}
-          {step === 5 && (
+          {/* Step 6: Interests & Communication */}
+          {step === 6 && (
             <StepContainer key="step5">
               <h1 className="text-2xl font-bold mb-2">{txt.step5Title}</h1>
               <p className="text-muted-foreground mb-4">{txt.step5Desc}</p>
@@ -683,17 +815,27 @@ export default function OnboardingPage() {
             </StepContainer>
           )}
 
-          {/* Step 6: Profile Photo Upload */}
-          {step === 6 && (
+          {/* Step 7: Profile Photo Upload */}
+          {step === 7 && (
             <StepContainer key="step6">
               <h1 className="text-2xl font-bold mb-2">
                 {language === 'az' ? 'Profil Şəkliniz' : 'Your Profile Photo'}
               </h1>
-              <p className="text-muted-foreground mb-6">
+              <p className="text-muted-foreground mb-4">
                 {language === 'az' 
                   ? 'Üzünüz aydın görünən bir şəkil yükləyin. Bu, digər istifadəçilərə sizi tanımağa kömək edəcək.' 
                   : 'Upload a clear photo showing your face. This helps others recognize you.'}
               </p>
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 mb-6">
+                <p className="text-sm font-medium text-amber-200/90 mb-2">
+                  {language === "az" ? "Qısa qaydalar" : "Quick rules"}
+                </p>
+                <ul className="list-disc pl-5 space-y-1.5 text-sm text-muted-foreground">
+                  {(language === "az" ? photoRulesAz : photoRulesEn).map((line, i) => (
+                    <li key={i}>{line}</li>
+                  ))}
+                </ul>
+              </div>
               
               <PhotoUploader 
                 onPhotoChange={async (file, preview) => {

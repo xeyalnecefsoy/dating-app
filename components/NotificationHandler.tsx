@@ -22,6 +22,12 @@ export function NotificationHandler() {
   const { language } = useLanguage();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const uParamLower =
+    searchParams?.get("u")?.trim().toLowerCase() ?? "";
+  const userFromU = useQuery(
+    api.users.getUserByUsername,
+    uParamLower && uParamLower !== "general" ? { username: uParamLower } : "skip",
+  );
   const previousMessagesRef = useRef<Map<string, string[]>>(new Map());
   const hasPermissionRef = useRef(false);
   const isInitializedRef = useRef(false);
@@ -80,9 +86,17 @@ export function NotificationHandler() {
   ) => {
     if (!messages || !user) return;
     
+    const legacyOpen =
+      searchParams?.get("userId") ?? searchParams?.get("chat");
+    const fromUsername =
+      uParamLower === "general"
+        ? "general"
+        : userFromU?.clerkId;
+    const effectiveOpen = legacyOpen ?? fromUsername;
+
     // Skip if we're viewing this specific chat
-    const isViewingThisChat = pathname === "/messages" && 
-      searchParams?.get("userId") === matchUserId;
+    const isViewingThisChat =
+      pathname === "/messages" && effectiveOpen === matchUserId;
     
     if (isViewingThisChat) return;
     
@@ -142,8 +156,12 @@ export function NotificationHandler() {
       return;
     }
     
-    // Skip if on messages page viewing messages list
-    const isOnMessagesPage = pathname === "/messages" && !searchParams?.get("userId");
+    // Skip if on messages page viewing messages list (no chat query)
+    const isOnMessagesPage =
+      pathname === "/messages" &&
+      !searchParams?.get("userId") &&
+      !searchParams?.get("u") &&
+      !searchParams?.get("chat");
     if (isOnMessagesPage) return;
     
     // Check each channel
@@ -154,7 +172,19 @@ export function NotificationHandler() {
     if (channel4 && channelIds[3]) checkAndNotify(channel4 as MessageData[], channelIds[3], user?.matches?.[3]);
     if (channel5 && channelIds[4]) checkAndNotify(channel5 as MessageData[], channelIds[4], user?.matches?.[4]);
     
-  }, [generalMessages, channel1, channel2, channel3, channel4, channel5, channelIds, user, pathname, searchParams, checkAndNotify]);
+  }, [
+    generalMessages,
+    channel1,
+    channel2,
+    channel3,
+    channel4,
+    channel5,
+    channelIds,
+    user,
+    pathname,
+    searchParams,
+    checkAndNotify,
+  ]);
 
   return null; // This component doesn't render anything
 }

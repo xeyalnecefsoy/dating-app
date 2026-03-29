@@ -32,6 +32,7 @@ import {
   HelpCircle,
   FileText,
   Lock,
+  Bug,
 } from "../lib/icons";
 import Constants from "expo-constants";
 import { api } from "../lib/api";
@@ -219,6 +220,11 @@ export default function SettingsScreen() {
         {/* Support Section */}
         <Text style={styles.sectionTitle}>Dəstək</Text>
         <View style={styles.section}>
+          <SettingsRow
+            icon={<Bug size={20} color={Colors.mutedForeground} />}
+            label="Problem / nasazlıq bildir"
+            onPress={() => router.push("/feedback" as any)}
+          />
           <SettingsRow
             icon={<HelpCircle size={20} color={Colors.mutedForeground} />}
             label="Kömək"

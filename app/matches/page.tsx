@@ -13,6 +13,7 @@ import { api } from "@/convex/_generated/api";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
+import { messagesChatHref } from "@/lib/messagesUrl";
 
 export default function MatchesPage() {
   const router = useRouter();
@@ -115,7 +116,13 @@ export default function MatchesPage() {
                 </div>
 
                 <div className="relative z-20 px-4 pb-4">
-                  <Link href={`/messages?userId=${match.id}`} className="block w-full">
+                  <Link
+                    href={messagesChatHref({
+                      clerkId: match.id,
+                      username: match.username,
+                    })}
+                    className="block w-full"
+                  >
                     <Button className="w-full rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 text-white gap-2 h-10 font-medium">
                       <MessageCircle className="w-4 h-4" />
                       {txt.message}

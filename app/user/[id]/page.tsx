@@ -19,6 +19,7 @@ import { api } from "@/convex/_generated/api";
 
 import { useToast } from "@/components/ui/toast";
 import { ReportModal } from "@/components/ReportModal";
+import { messagesChatHref } from "@/lib/messagesUrl";
 import { AlertTriangle } from "lucide-react";
 
 export default function UserProfilePage() {
@@ -185,7 +186,12 @@ export default function UserProfilePage() {
   const handleMessage = async () => {
     // If already matched, go to messages
     if (currentUser?.matches.includes(profile.id)) {
-      router.push(`/messages?userId=${profile.id}`);
+      router.push(
+        messagesChatHref({
+          clerkId: profile.id,
+          username: profile.username,
+        }),
+      );
     } else if (currentUser?.sentMessageRequests?.includes(profile.id)) {
       // Already sent a request
       showToast({
@@ -199,7 +205,12 @@ export default function UserProfilePage() {
       
       // If Superadmin, redirect immediately (as it's auto-accepted)
       if (result && (currentUser as any).role === "superadmin") {
-         router.push(`/messages?userId=${profile.id}`);
+         router.push(
+        messagesChatHref({
+          clerkId: profile.id,
+          username: profile.username,
+        }),
+      );
          return;
       }
 

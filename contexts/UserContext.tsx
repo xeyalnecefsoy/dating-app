@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { useUser as useClerkUser, useAuth } from "@clerk/nextjs";
 import { usePathname, useRouter } from "next/navigation";
 import { getAvatarByGender } from "@/lib/mock-users";
-import { useQuery, useMutation, useConvexAuth } from "convex/react";
+import { useQuery, useMutation, useAction, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
 // Superadmin email - bypasses onboarding
@@ -38,7 +38,8 @@ export type UserProfile = {
   sentMessageRequests: string[]; // Sent message requests to other users
   seenMessageRequests: string[]; // Track seen message requests
   generalLastSeenAt?: number;
-  status?: "active" | "waitlist" | "banned"; // Waitlist status
+  status?: "active" | "waitlist" | "banned" | "rejected" | "needs_revision";
+  profileModerationNote?: string;
   role?: "user" | "moderator" | "admin" | "superadmin"; // Admin role
   isPremium?: boolean;
 };
@@ -49,7 +50,10 @@ type UserContextType = {
   isOnboarded: boolean;
   isLoading: boolean;
   isAuthenticated: boolean;
-  completeOnboarding: (profile: Partial<UserProfile>) => void;
+  completeOnboarding: (profile: Partial<UserProfile>) => Promise<
+    | { ok: true; status: UserProfile["status"] }
+    | { ok: false; error: unknown }
+  >;
   addBadge: (badge: string) => void;
   incrementStreak: () => void;
   likeUser: (userId: string) => void;
@@ -93,6 +97,7 @@ const defaultUser: UserProfile = {
   seenMessageRequests: [],
   status: "active",
   generalLastSeenAt: 0,
+  profileModerationNote: undefined,
 };
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -118,6 +123,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const acceptRequestMutation = useMutation(api.matches.acceptRequest);
   const declineRequestMutation = useMutation(api.matches.declineRequest);
   const createOrUpdateUserMutation = useMutation(api.users.createOrUpdateUser);
+  const checkAvatarModerationAction = useAction(
+    api.imageModeration.checkAndStoreAvatarModeration
+  );
   const pingPresence = useMutation(api.presence.ping);
   const setOfflinePresence = useMutation(api.presence.setOffline);
 
@@ -333,6 +341,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         email: clerkEmail || parsed.email,
         role: convexUser.role || parsed.role,
         status: convexUser.status || parsed.status,
+        profileModerationNote: (convexUser as any)?.profileModerationNote,
         isPremium: (convexUser as any)?.isPremium || false,
         matches: [], // Sync effect Convex-dan dolduracaq
         messageRequests: [], // Sync effect Convex-dan dolduracaq
@@ -418,6 +427,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           seenMessageRequests: convexUser.seenMessageRequests || [],
           generalLastSeenAt: (convexUser as any).generalLastSeenAt ?? 0,
           status: (convexUser.status as any) || "active",
+          profileModerationNote: (convexUser as any)?.profileModerationNote,
           role: (convexUser.role as any) || (isSuperadmin ? 'superadmin' : 'user'),
           isPremium: (convexUser as any).isPremium || false,
         };
@@ -512,6 +522,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
     });
   }, [convexUser, user, updateUser]);
 
+  // Status / moderator note from Convex (waitlist, needs_revision, etc.)
+  useEffect(() => {
+    if (!user || !convexUser) return;
+    const remoteStatus = (convexUser as any).status as string | undefined;
+    const remoteNote = (convexUser as any).profileModerationNote as string | undefined;
+    if (remoteStatus === user.status && remoteNote === user.profileModerationNote) return;
+    updateUser({
+      ...user,
+      status: (remoteStatus as UserProfile["status"]) || user.status,
+      profileModerationNote: remoteNote,
+    });
+  }, [convexUser, user, updateUser]);
+
   // If avatar is missing in DB/local state, hydrate from Clerk profile image.
   useEffect(() => {
     if (!isSignedIn || !clerkUser || !user) return;
@@ -550,36 +573,50 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    // List of paths allowed for waitlisted users
-    const allowedPaths = ["/", "/profile", "/settings", "/premium", "/sign-in", "/sign-up", "/onboarding"]; // onboarding is handled separately but good to include
+    const allowedPaths = [
+      "/",
+      "/profile",
+      "/settings",
+      "/premium",
+      "/sign-in",
+      "/sign-up",
+      "/onboarding",
+      "/icma-qaydalari",
+      "/account-rejected",
+    ];
     const isStaffUser =
       ["moderator", "admin", "superadmin"].includes((user?.role || "").toLowerCase()) ||
       (user?.email || "").toLowerCase() === SUPERADMIN_EMAIL.toLowerCase();
-    
-    // Check if user is fully loaded and has waitlist status
-    if (!isLoading && isOnboarded && user?.status === "waitlist" && !isStaffUser) {
-      // If current path is not allowed, redirect to home
-      if (!allowedPaths.includes(pathname)) {
-        router.replace("/");
-      }
+
+    if (isLoading || !isOnboarded || !user || isStaffUser) return;
+
+    if (user.status === "rejected" && pathname !== "/account-rejected") {
+      router.replace("/account-rejected");
+      return;
+    }
+
+    if (user.status === "needs_revision" && pathname !== "/onboarding") {
+      router.replace("/onboarding");
+      return;
+    }
+
+    if (user.status === "waitlist" && !allowedPaths.includes(pathname)) {
+      router.replace("/");
     }
   }, [user, pathname, isLoading, isOnboarded, router]);
 
 
   const completeOnboarding = useCallback(async (profile: Partial<UserProfile>) => {
-    if (!clerkUser) return;
-    
+    if (!clerkUser) return { ok: false as const, error: new Error("No clerk user") };
+
     const storageKey = getStorageKey(clerkUser.id);
-    
-    // Generate appropriate avatar based on gender
+
     const gender = profile.gender || "male";
     const avatar = profile.avatar || getAvatarByGender(gender, Math.floor(Math.random() * 5));
-    
-    // Use Clerk ID as unique identifier
+
     const id = clerkUser.id;
     const email = clerkUser.emailAddresses?.[0]?.emailAddress;
 
-    // Save to Convex DB first - it handles waitlist logic including staff bypass
     try {
       const result = await createOrUpdateUserMutation({
         clerkId: clerkUser.id,
@@ -599,10 +636,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
         avatar: avatar,
         lookingFor: gender === "male" ? "female" : "male",
       });
-      
-      // Use the status returned from Convex (handles staff bypass)
-      const status = result.status as "active" | "waitlist" | "banned";
-      
+
+      const status = result.status as UserProfile["status"];
+
+      if (typeof avatar === "string" && /^https?:\/\//i.test(avatar)) {
+        void checkAvatarModerationAction({ imageUrl: avatar }).catch(() => {});
+      }
+
       const newUser: UserProfile = {
         ...defaultUser,
         ...profile,
@@ -616,29 +656,21 @@ export function UserProvider({ children }: { children: ReactNode }) {
         badges: ["Early Adopter"],
         status: status,
       };
-      
+
       updateUserInternal(newUser, storageKey);
       setIsOnboarded(true);
+      return { ok: true as const, status };
     } catch (error) {
       console.error("Failed to save user to Convex:", error);
-      // Fall back to local-only (old behavior)
-      const status = gender === "female" ? "active" : "waitlist";
-      const newUser: UserProfile = {
-        ...defaultUser,
-        ...profile,
-        avatar,
-        id,
-        clerkId: clerkUser.id,
-        name: profile.name || clerkUser.firstName || clerkUser.username || "",
-        streak: 1,
-        lastActiveDate: new Date().toDateString(),
-        badges: ["Early Adopter"],
-        status: status as "active" | "waitlist",
-      };
-      updateUserInternal(newUser, storageKey);
-      setIsOnboarded(true);
+      return { ok: false as const, error };
     }
-  }, [clerkUser, getStorageKey, updateUserInternal, createOrUpdateUserMutation]);
+  }, [
+    clerkUser,
+    getStorageKey,
+    updateUserInternal,
+    createOrUpdateUserMutation,
+    checkAvatarModerationAction,
+  ]);
 
 
   // NOTE: Auto-heal removed. The main loading effect (above) now validates

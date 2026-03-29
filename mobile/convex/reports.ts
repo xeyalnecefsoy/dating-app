@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { reportReasonLabelAz } from "../lib/formatAz";
 
 const REPORT_REASONS = ["fake", "harassment", "spam", "inappropriate", "other"] as const;
 
@@ -30,6 +31,7 @@ async function notifyAdminsAboutNewReport(
 
   const reporterName = reporter?.name || "Unknown";
   const reportedName = reported?.name || "Unknown";
+  const reasonAz = reportReasonLabelAz(reason);
 
   await Promise.all(
     adminRecipients.map((admin: any) =>
@@ -37,7 +39,7 @@ async function notifyAdminsAboutNewReport(
         userId: admin.clerkId,
         type: "system",
         title: "Yeni şikayət daxil oldu",
-        body: `${reporterName} istifadəçisi ${reportedName} barədə '${reason}' səbəbi ilə şikayət etdi.`,
+        body: `${reporterName} istifadəçisi ${reportedName} barədə «${reasonAz}» səbəbi ilə şikayət etdi.`,
         data: { url: "/admin/mobile?tab=reports" },
         read: false,
         createdAt: Date.now(),
@@ -147,6 +149,8 @@ export const getReports = query({
           ...report,
           reporterName: reporter?.name || "Unknown",
           reportedName: reported?.name || "Unknown",
+          reporterUsername: reporter?.username,
+          reportedUsername: reported?.username,
           reporterAvatar: reporter?.avatar,
           reportedAvatar: reported?.avatar,
         };
@@ -215,6 +219,8 @@ export const getReportsPaginated = query({
           ...report,
           reporterName: reporter?.name || "Unknown",
           reportedName: reported?.name || "Unknown",
+          reporterUsername: reporter?.username,
+          reportedUsername: reported?.username,
           reporterAvatar: reporter?.avatar,
           reportedAvatar: reported?.avatar,
         };

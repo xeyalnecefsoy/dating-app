@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   View,
   Text,
@@ -92,11 +93,28 @@ export default function ChatScreen() {
     return map;
   }, [generalSenderProfiles]);
 
+  const markGeneralSeenForChannel = useCallback(() => {
+    if (!isGeneral || !userId || messages === undefined) return;
+    const lastTime =
+      messages.length > 0
+        ? Math.max(...messages.map((m: any) => m._creationTime))
+        : undefined;
+    markGeneralSeenMutation(
+      lastTime !== undefined ? { lastMessageCreationTime: lastTime } : {},
+    ).catch(() => {});
+  }, [isGeneral, userId, messages, markGeneralSeenMutation]);
+
+  // After messages load (Convex ready) and when the thread updates — avoids marking before auth/subscription is ready.
   useEffect(() => {
-    if (isGeneral && userId) {
-      markGeneralSeenMutation().catch(() => {});
-    }
-  }, [isGeneral, userId, markGeneralSeenMutation]);
+    markGeneralSeenForChannel();
+  }, [markGeneralSeenForChannel]);
+
+  // Re-mark when returning to this screen so badge clears after tab switches / refresh.
+  useFocusEffect(
+    useCallback(() => {
+      markGeneralSeenForChannel();
+    }, [markGeneralSeenForChannel]),
+  );
 
   useEffect(() => {
     if (!isGeneral && effectiveChannelId && userId && matchStatus?.status === "accepted") {

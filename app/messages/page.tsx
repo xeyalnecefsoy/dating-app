@@ -41,6 +41,7 @@ import { ICEBREAKERS, GLOBAL_ICEBREAKERS } from "@/lib/icebreakers";
 import { useToast } from "@/components/ui/toast";
 import { Sparkles, Calendar, MapPin, AlertTriangle } from "lucide-react";
 import { ReportModal } from "@/components/ReportModal";
+import { messagesChatHref, messagesGeneralHref } from "@/lib/messagesUrl";
 
 type ChatMessage = {
   id: string;
@@ -55,9 +56,16 @@ type Conversation = {
   messages: ChatMessage[];
 };
 
+const GENERAL_CHAT_CONV: Conversation = {
+  id: "general",
+  participantId: "community",
+  messages: [],
+};
+
 function MessagesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const uParamLower = searchParams.get("u")?.trim().toLowerCase() ?? "";
   const {
     user,
     isOnboarded,
@@ -89,6 +97,9 @@ function MessagesContent() {
   const [showIcebreakerModal, setShowIcebreakerModal] = useState(false);
   const [showVenueModal, setShowVenueModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showClearConversationModal, setShowClearConversationModal] =
+    useState(false);
+  const [isClearingConversation, setIsClearingConversation] = useState(false);
   const [expandedTimestamps, setExpandedTimestamps] = useState<string[]>([]);
 
   // Mentions State
@@ -102,6 +113,11 @@ function MessagesContent() {
     mentionQuery !== null
       ? { query: mentionQuery, currentUserId: user?.id || "" }
       : "skip",
+  );
+
+  const userByUsername = useQuery(
+    api.users.getUserByUsername,
+    uParamLower && uParamLower !== "general" ? { username: uParamLower } : "skip",
   );
 
   const markReadMutation = useMutation(api.messages.markRead);
@@ -156,6 +172,8 @@ function MessagesContent() {
       language === "az"
         ? "Bu söhbət yalnız sizdən silinəcək. Davam edək?"
         : "This will remove the chat only for you. Continue?",
+    clearConversationModalTitle:
+      language === "az" ? "Söhbəti sil" : "Remove chat",
     conversationCleared:
       language === "az"
         ? "Söhbət sizdən silindi"
@@ -175,31 +193,54 @@ function MessagesContent() {
     // Let's keep it but populate it correctly if needed, or rely on Convex `messages.list`.
   }, [isOnboarded, user, router, language]);
 
-  // Handle deep link to specific user
+  // Deep link: ?u=<username> (preferred), ?userId= / ?chat= (legacy), Söhbətgah ?u=general
   useEffect(() => {
-    const userIdParam = searchParams.get("userId");
-    if (userIdParam) {
-      if (userIdParam === "general") {
-        if (!selectedConv || selectedConv.id !== "general") {
-          // Fetch general chat history from Convex directly, don't rely on local state
-          setSelectedConv(generalChatConv);
-        }
-      } else {
-        // If we have a userId param, we want to open a chat with this user.
-        if (!selectedConv || selectedConv.participantId !== userIdParam) {
-          setSelectedConv({
-            id: `conv-${userIdParam}`,
-            participantId: userIdParam,
-            messages: [],
-          });
-        }
-      }
-    } else {
-      // If URL has no userId, clear selectedConv (handle browser back button)
-      if (selectedConv) setSelectedConv(null);
+    const u = searchParams.get("u")?.trim().toLowerCase() ?? "";
+    const legacy = searchParams.get("userId") ?? searchParams.get("chat");
+
+    if (u === "general" || legacy === "general") {
+      setSelectedConv(GENERAL_CHAT_CONV);
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+
+    if (u && u !== "general") {
+      if (userByUsername === undefined) return;
+      if (userByUsername === null) {
+        showToast({
+          title: language === "az" ? "Tapılmadı" : "Not found",
+          message:
+            language === "az"
+              ? "Bu istifadəçi adı ilə profil tapılmadı."
+              : "No profile for this username.",
+          type: "error",
+        });
+        router.replace("/messages");
+        return;
+      }
+      const cid = userByUsername.clerkId;
+      if (!cid) {
+        router.replace("/messages");
+        return;
+      }
+      setSelectedConv({
+        id: `conv-${cid}`,
+        participantId: cid,
+        messages: [],
+      });
+      return;
+    }
+
+    if (legacy) {
+      setSelectedConv({
+        id: `conv-${legacy}`,
+        participantId: legacy,
+        messages: [],
+      });
+      return;
+    }
+
+    setSelectedConv(null);
+  }, [searchParams, userByUsername, router, showToast, language]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -320,7 +361,7 @@ function MessagesContent() {
     }).catch(console.error);
   }, [activeChannelId, markReadMutation, selectedConv, user]);
 
-  // Mark private conversation as read when open
+  // Mark Söhbətgah seen + private conversations read when open (single effect = stable deps for Fast Refresh)
   useEffect(() => {
     if (!selectedConv || !user) return;
 
@@ -331,15 +372,26 @@ function MessagesContent() {
       markMatchAsRead(selectedConv.participantId);
     }
 
-    if (!activeChannelId || selectedConv.id === "general") {
+    if (selectedConv.id === "general") {
+      if (convexMessages === undefined) return;
+      const lastTime =
+        convexMessages.length > 0
+          ? Math.max(...convexMessages.map((m: any) => m._creationTime))
+          : undefined;
+      markGeneralSeenMutation(
+        lastTime !== undefined ? { lastMessageCreationTime: lastTime } : {},
+      ).catch(() => {});
       return;
     }
+
+    if (!activeChannelId) return;
 
     markCurrentConversationRead();
   }, [
     activeChannelId,
     convexMessages,
     markCurrentConversationRead,
+    markGeneralSeenMutation,
     markMatchAsRead,
     selectedConv,
     user,
@@ -419,6 +471,19 @@ function MessagesContent() {
   const matchProfiles = useQuery(api.users.getUsersByIds, {
     ids: allIdsToFetch,
   });
+
+  useEffect(() => {
+    const legacy = searchParams.get("userId") ?? searchParams.get("chat");
+    if (!legacy || legacy === "general" || searchParams.get("u")) return;
+    if (!matchProfiles) return;
+    const prof = matchProfiles.find(
+      (p: any) => String(p.clerkId || p._id) === legacy,
+    );
+    const un = prof?.username as string | undefined;
+    if (un) {
+      router.replace(`/messages?u=${encodeURIComponent(un)}`);
+    }
+  }, [searchParams, matchProfiles, router]);
 
   // Last message in general chat (for unread indicator)
   const generalLastMessage = useQuery(
@@ -563,16 +628,16 @@ function MessagesContent() {
     }
   };
 
-  const handleClearConversation = async () => {
+  const executeClearConversation = async () => {
     if (!selectedConv || selectedConv.id === "general") return;
-    if (!window.confirm(txt.clearConversationConfirm)) return;
-
+    setIsClearingConversation(true);
     try {
       await hideConversationMutation({
         partnerId: selectedConv.participantId,
         userId: user?.id || "",
       });
 
+      setShowClearConversationModal(false);
       setSelectedConv(null);
       router.push("/messages");
       showToast({
@@ -590,14 +655,9 @@ function MessagesContent() {
             : "Failed to clear conversation",
         type: "error",
       });
+    } finally {
+      setIsClearingConversation(false);
     }
-  };
-
-  // Add a "Söhbətgah" option to the conversation list
-  const generalChatConv: Conversation = {
-    id: "general",
-    participantId: "community",
-    messages: [],
   };
 
   // Logic for participant:
@@ -621,13 +681,6 @@ function MessagesContent() {
         }
       : null;
   }, [dbUser, isSelectedGeneral, selectedConv]);
-
-  // When user opens Söhbətgah, mark it as seen for unread indicator (must be top-level hook)
-  useEffect(() => {
-    if (!user) return;
-    if (selectedConv?.id !== "general") return;
-    markGeneralSeenMutation().catch(() => {});
-  }, [selectedConv?.id, user, markGeneralSeenMutation]);
 
   // Chat View
   if (selectedConv) {
@@ -706,7 +759,7 @@ function MessagesContent() {
                     variant="ghost"
                     size="icon"
                     className="rounded-full text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10 transition-colors"
-                    onClick={handleClearConversation}
+                    onClick={() => setShowClearConversationModal(true)}
                     title={txt.clearConversation}
                   >
                     <Trash2 className="w-5 h-5" />
@@ -1602,6 +1655,75 @@ function MessagesContent() {
             )}
           </AnimatePresence>
 
+          {/* Clear conversation (match) — custom modal, brauzer confirm yox */}
+          <AnimatePresence>
+            {showClearConversationModal && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
+                onClick={() =>
+                  !isClearingConversation && setShowClearConversationModal(false)
+                }
+              >
+                <motion.div
+                  initial={{ scale: 0.96, opacity: 0, y: 8 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  exit={{ scale: 0.96, opacity: 0, y: 8 }}
+                  className="w-full max-w-sm rounded-3xl border border-border/80 bg-card p-6 shadow-2xl shadow-primary/5"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-500">
+                      <Trash2 className="w-5 h-5" />
+                    </div>
+                    <h3 className="text-lg font-bold leading-tight">
+                      {txt.clearConversationModalTitle}
+                    </h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+                    {txt.clearConversationConfirm}
+                  </p>
+                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <Button
+                      variant="outline"
+                      className="rounded-2xl border-border"
+                      disabled={isClearingConversation}
+                      onClick={() => setShowClearConversationModal(false)}
+                    >
+                      {language === "az" ? "Ləğv et" : "Cancel"}
+                    </Button>
+                    <Button
+                      className="rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/25"
+                      disabled={isClearingConversation}
+                      onClick={() => void executeClearConversation()}
+                    >
+                      {isClearingConversation ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : language === "az" ? (
+                        "Bəli, sil"
+                      ) : (
+                        "Remove"
+                      )}
+                    </Button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {showReportModal &&
+            selectedConv &&
+            selectedConv.id !== "general" &&
+            participant && (
+              <ReportModal
+                reportedId={selectedConv.participantId}
+                reportedName={participant.name}
+                onClose={() => setShowReportModal(false)}
+              />
+            )}
+
           <BottomNav />
         </div>
       </div>
@@ -1673,8 +1795,8 @@ function MessagesContent() {
           {/* General Chat Item */}
           <button
             onClick={() => {
-              setSelectedConv(generalChatConv);
-              router.push("/messages?userId=general");
+              setSelectedConv(GENERAL_CHAT_CONV);
+              router.push(messagesGeneralHref());
             }}
             className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-card transition-colors bg-gradient-to-r from-pink-500/5 to-rose-500/5 border border-pink-500/10 mb-2 group"
           >
@@ -1748,7 +1870,10 @@ function MessagesContent() {
                     };
                     setSelectedConv(fakeConv);
                     router.push(
-                      `/messages?userId=${match.clerkId || match._id}`,
+                      messagesChatHref({
+                        clerkId: match.clerkId || match._id,
+                        username: match.username,
+                      }),
                     );
                   }}
                 />
@@ -1863,7 +1988,12 @@ function MessagesContent() {
                                   });
                                   // Optionally close and redirect to chat:
                                   setShowRequestsModal(false);
-                                  router.push(`/messages?userId=${reqId}`);
+                                  router.push(
+                                    messagesChatHref({
+                                      clerkId: reqId,
+                                      username: profile?.username,
+                                    }),
+                                  );
                                 }}
                               >
                                 <Check className="w-4 h-4 text-white" />

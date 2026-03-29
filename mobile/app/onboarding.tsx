@@ -18,7 +18,7 @@ import { Image as ExpoImage } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import { useAuth, useUser } from "@clerk/clerk-expo";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { Redirect, useRouter } from "expo-router";
 import { api } from "../lib/api";
 import {
@@ -53,9 +53,21 @@ import {
   translateInterest,
 } from "../lib/translations";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Linking from "expo-linking";
+import {
+  validateFullName,
+  validateBio,
+  BIO_MIN_LENGTH,
+  BIO_MIN_WORDS,
+} from "../../lib/profileValidation";
+import {
+  communityStandardsSummaryAz,
+  photoRulesAz,
+} from "../../lib/onboardingStandards";
+import { validateProfilePhotoRemote } from "../lib/validateProfilePhoto";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 7;
 const lang: "az" | "en" = "az";
 const STORAGE_KEY_STEP = "onboarding-step";
 const STORAGE_KEY_DATA = "onboarding-formData";
@@ -84,6 +96,9 @@ export default function OnboardingScreen() {
   const createOrUpdateUser = useMutation(api.users.createOrUpdateUser);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const getUrlFromStorageId = useMutation(api.files.getUrlFromStorageId);
+  const checkAvatarModeration = useAction(
+    api.imageModeration.checkAndStoreAvatarModeration
+  );
 
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -101,6 +116,7 @@ export default function OnboardingScreen() {
     communicationStyle: "" as "Direct" | "Empathetic" | "Analytical" | "Playful" | "",
     profilePhotoUri: "" as string,
     profilePhotoStorageId: null as string | null,
+    acceptedCommunityGuidelines: false,
   });
   const [searchLocation, setSearchLocation] = useState("");
   const [showLocationModal, setShowLocationModal] = useState(false);
@@ -203,14 +219,35 @@ export default function OnboardingScreen() {
   };
 
   const canProceed = () => {
+    const fullName = `${formData.firstName.trim()} ${formData.lastName.trim()}`;
     switch (step) {
-      case 1: return !!formData.gender;
-      case 2: return !!formData.firstName.trim() && !!formData.lastName.trim() && isValidBirthDate() && calculateAge() >= 18;
-      case 3: return !!formData.location && !!formData.bio.trim();
-      case 4: return formData.values.length >= 1 && !!formData.loveLanguage;
-      case 5: return formData.interests.length >= 1 && !!formData.communicationStyle;
-      case 6: return !!formData.profilePhotoUri;
-      default: return false;
+      case 1:
+        return formData.acceptedCommunityGuidelines;
+      case 2:
+        return !!formData.gender;
+      case 3:
+        return (
+          !!formData.firstName.trim() &&
+          !!formData.lastName.trim() &&
+          isValidBirthDate() &&
+          calculateAge() >= 18 &&
+          !validateFullName(fullName)
+        );
+      case 4:
+        return (
+          !!formData.location &&
+          !!formData.bio.trim() &&
+          !validateBio(formData.bio.trim()) &&
+          formData.bio.trim().length >= BIO_MIN_LENGTH
+        );
+      case 5:
+        return formData.values.length >= 1 && !!formData.loveLanguage;
+      case 6:
+        return formData.interests.length >= 1 && !!formData.communicationStyle;
+      case 7:
+        return !!formData.profilePhotoUri && uploadSuccess;
+      default:
+        return false;
     }
   };
 
@@ -243,6 +280,9 @@ export default function OnboardingScreen() {
         avatar: avatarUrl || undefined,
         lookingFor: formData.gender === "male" ? "female" : "male",
       });
+      if (typeof avatarUrl === "string" && /^https?:\/\//i.test(avatarUrl)) {
+        void checkAvatarModeration({ imageUrl: avatarUrl }).catch(() => {});
+      }
       // Clear saved onboarding data
       AsyncStorage.multiRemove([STORAGE_KEY_STEP, STORAGE_KEY_DATA]).catch(() => {});
       if ((result as any)?.status === "waitlist") {
@@ -282,6 +322,14 @@ export default function OnboardingScreen() {
         { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
       );
       const uri = manipulated.uri;
+
+      const faceCheck = await validateProfilePhotoRemote(uri);
+      if (!faceCheck.isValid) {
+        setError(faceCheck.errorMessage || "Şəkil qəbul edilmədi");
+        setIsUploading(false);
+        return;
+      }
+
       setFormData((prev) => ({ ...prev, profilePhotoUri: uri }));
       const uploadUrl = await generateUploadUrl();
       const response = await fetch(uri);
@@ -335,8 +383,9 @@ export default function OnboardingScreen() {
     );
   }
   const isProfileComplete = !!(dbUser?.name && dbUser?.gender && dbUser?.age && dbUser?.location && dbUser?.bio);
+  if (dbUser?.status === "rejected") return <Redirect href="/rejected" />;
   if (dbUser && isProfileComplete && dbUser.status === "waitlist") return <Redirect href="/waitlist" />;
-  if (dbUser && isProfileComplete) return <Redirect href="/(tabs)/home" />;
+  if (dbUser && isProfileComplete && dbUser.status === "active") return <Redirect href="/(tabs)/home" />;
 
   const getMonthLabel = (v: string) => MONTHS.find((m) => m.value === v)?.label || "";
 
@@ -382,8 +431,63 @@ export default function OnboardingScreen() {
             </View>
           ) : null}
 
-          {/* ===== Step 1: Gender ===== */}
+          {dbUser?.status === "needs_revision" && dbUser.profileModerationNote ? (
+            <View style={styles.moderationBanner}>
+              <Text style={styles.moderationBannerTitle}>Profilinizi yeniləyin</Text>
+              <Text style={styles.moderationBannerText}>{dbUser.profileModerationNote}</Text>
+            </View>
+          ) : null}
+
+          {/* ===== Step 1: Community standards ===== */}
           {step === 1 && (
+            <>
+              <Text style={styles.stepTitle}>İcma standartları</Text>
+              <Text style={styles.stepDesc}>
+                Davam etməzdən əvvəl qısa şəkildə tanış olun. Tam mətn üçün icma qaydalarına keçin.
+              </Text>
+              {communityStandardsSummaryAz(BIO_MIN_LENGTH, BIO_MIN_WORDS).map((line: string, i: number) => (
+                <Text key={i} style={styles.guidelineBullet}>
+                  {"\u2022 "}
+                  {line}
+                </Text>
+              ))}
+              <TouchableOpacity
+                style={styles.checkboxRow}
+                onPress={() =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    acceptedCommunityGuidelines: !prev.acceptedCommunityGuidelines,
+                  }))
+                }
+                activeOpacity={0.8}
+              >
+                <View
+                  style={[
+                    styles.checkboxBox,
+                    formData.acceptedCommunityGuidelines && styles.checkboxBoxChecked,
+                  ]}
+                >
+                  {formData.acceptedCommunityGuidelines ? (
+                    <Check size={14} color={Colors.foreground} />
+                  ) : null}
+                </View>
+                <Text style={styles.checkboxLabel}>
+                  İcma qaydalarını oxudum və qəbul edirəm.{" "}
+                  <Text
+                    style={styles.linkInline}
+                    onPress={() =>
+                      Linking.openURL("https://www.danyeri.az/icma-qaydalari")
+                    }
+                  >
+                    Tam mətn
+                  </Text>
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {/* ===== Step 2: Gender ===== */}
+          {step === 2 && (
             <>
               <Text style={styles.stepTitle}>Mən...</Text>
               <Text style={styles.stepDesc}>Cinsinizi seçin</Text>
@@ -413,8 +517,8 @@ export default function OnboardingScreen() {
             </>
           )}
 
-          {/* ===== Step 2: Name & Birth ===== */}
-          {step === 2 && (
+          {/* ===== Step 3: Name & Birth ===== */}
+          {step === 3 && (
             <>
               <Text style={styles.stepTitle}>Şəxsi məlumatlarınız</Text>
               <Text style={styles.stepDesc}>Profil təsdiqləmə üçün düzgün məlumat daxil edin</Text>
@@ -474,8 +578,8 @@ export default function OnboardingScreen() {
             </>
           )}
 
-          {/* ===== Step 3: Location & Bio ===== */}
-          {step === 3 && (
+          {/* ===== Step 4: Location & Bio ===== */}
+          {step === 4 && (
             <>
               <Text style={styles.stepTitle}>Özünüz haqqında danışın</Text>
               <Text style={styles.stepDesc}>Başqalarına sizi tanımağa kömək edin</Text>
@@ -495,14 +599,22 @@ export default function OnboardingScreen() {
                 placeholderTextColor={Colors.mutedForeground}
                 multiline
                 numberOfLines={4}
-                maxLength={200}
+                maxLength={500}
               />
-              <Text style={styles.charCount}>{formData.bio.length}/200</Text>
+              <Text style={styles.charCount}>
+                {formData.bio.length}/500 · ən azı {BIO_MIN_LENGTH} simvol
+              </Text>
+              <TouchableOpacity
+                onPress={() => Linking.openURL("https://www.danyeri.az/icma-qaydalari")}
+                style={styles.guidelinesLinkWrap}
+              >
+                <Text style={styles.guidelinesLink}>İcma qaydaları</Text>
+              </TouchableOpacity>
             </>
           )}
 
-          {/* ===== Step 4: Values & Love Language ===== */}
-          {step === 4 && (
+          {/* ===== Step 5: Values & Love Language ===== */}
+          {step === 5 && (
             <>
               <Text style={styles.stepTitle}>Sizin üçün nə önəmlidir?</Text>
               <Text style={styles.stepDesc}>5-ə qədər dəyər seçin</Text>
@@ -540,8 +652,8 @@ export default function OnboardingScreen() {
             </>
           )}
 
-          {/* ===== Step 5: Interests & Communication ===== */}
-          {step === 5 && (
+          {/* ===== Step 6: Interests & Communication ===== */}
+          {step === 6 && (
             <>
               <Text style={styles.stepTitle}>Demək olar hazırdır!</Text>
               <Text style={styles.stepDesc}>7-ə qədər maraq dairəsi seçin</Text>
@@ -583,13 +695,23 @@ export default function OnboardingScreen() {
             </>
           )}
 
-          {/* ===== Step 6: Photo ===== */}
-          {step === 6 && (
+          {/* ===== Step 7: Photo ===== */}
+          {step === 7 && (
             <>
               <Text style={styles.stepTitle}>Profil Şəkliniz</Text>
               <Text style={styles.stepDesc}>
                 Üzünüz aydın görünən bir şəkil yükləyin. Bu, digər istifadəçilərə sizi tanımağa kömək edəcək.
               </Text>
+
+              <View style={styles.photoRulesBox}>
+                <Text style={styles.photoRulesTitle}>Qısa qaydalar</Text>
+                {photoRulesAz.map((line: string, i: number) => (
+                  <Text key={i} style={styles.photoRulesLine}>
+                    {"\u2022 "}
+                    {line}
+                  </Text>
+                ))}
+              </View>
 
               <TouchableOpacity style={styles.photoBox} onPress={pickImage} disabled={isUploading}>
                 {isUploading ? (
@@ -793,8 +915,65 @@ const styles = StyleSheet.create({
     borderColor: "rgba(233,66,162,0.25)",
   },
   errorText: { color: Colors.destructiveLight, fontSize: 13, flex: 1 },
+  moderationBanner: {
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "rgba(245,158,11,0.35)",
+    backgroundColor: "rgba(245,158,11,0.1)",
+  },
+  moderationBannerTitle: { fontSize: 15, fontWeight: "800", color: "#fbbf24", marginBottom: 6 },
+  moderationBannerText: { fontSize: 14, color: Colors.mutedForeground, lineHeight: 20 },
+  guidelinesLinkWrap: { marginTop: 10 },
+  guidelinesLink: { fontSize: 14, fontWeight: "700", color: Colors.primary },
   stepTitle: { fontSize: 28, fontWeight: "800", color: Colors.foreground, marginBottom: 10 },
   stepDesc: { fontSize: 15, color: Colors.mutedForeground, marginBottom: 24, lineHeight: 22 },
+  guidelineBullet: {
+    fontSize: 14,
+    color: Colors.foreground,
+    opacity: 0.92,
+    lineHeight: 22,
+    marginBottom: 10,
+    paddingRight: 4,
+  },
+  checkboxRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    marginTop: 8,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  checkboxBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.25)",
+    marginTop: 2,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkboxBoxChecked: {
+    borderColor: Colors.primary,
+    backgroundColor: "rgba(233,66,162,0.2)",
+  },
+  checkboxLabel: { flex: 1, fontSize: 14, color: Colors.foreground, lineHeight: 22 },
+  linkInline: { color: Colors.primary, fontWeight: "700" },
+  photoRulesBox: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(245,158,11,0.35)",
+    backgroundColor: "rgba(245,158,11,0.08)",
+    padding: 14,
+    marginBottom: 16,
+  },
+  photoRulesTitle: { fontSize: 14, fontWeight: "800", color: "#fbbf24", marginBottom: 8 },
+  photoRulesLine: { fontSize: 13, color: Colors.mutedForeground, lineHeight: 20, marginBottom: 6 },
   label: { fontSize: 13, fontWeight: "600", color: Colors.mutedForeground, marginBottom: 8, marginTop: 14 },
   input: {
     backgroundColor: "rgba(255,255,255,0.06)",

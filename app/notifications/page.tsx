@@ -59,22 +59,19 @@ export default function NotificationsPage() {
     await markAsRead();
   };
 
-  // Helper to format time
+  /** Saat + gün/ay/il — Chrome-da az-AZ üçün toLocaleDateString bəzən "M03" kimi səhv verir. */
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp);
-    const timeOptions: Intl.DateTimeFormatOptions = { 
-        hour: '2-digit', minute: '2-digit' 
-    };
-    const dateOptions: Intl.DateTimeFormatOptions = { 
-        day: 'numeric', month: 'long', year: 'numeric' 
-    };
-    
-    // Fallbacks just in case language is not set
-    const locale = language === 'az' ? 'az-AZ' : 'en-US';
-    const timeStr = date.toLocaleTimeString(locale, timeOptions);
-    const dateStr = date.toLocaleDateString(locale, dateOptions);
-    
-    return `${timeStr}, ${dateStr}`;
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    const day = pad(date.getDate());
+    const month = pad(date.getMonth() + 1);
+    const year = date.getFullYear();
+    const locale = language === "az" ? "az-AZ" : "en-US";
+    const timeStr = date.toLocaleTimeString(locale, {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    return `${timeStr}, ${day}/${month}/${year}`;
   };
 
   // Combine real notifications with system ones if needed

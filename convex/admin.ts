@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { localizeNotificationBodyForDisplay } from "../lib/formatAz";
 
 // SUPERADMIN email - hardcoded for security
 // Only this email has full platform control
@@ -685,15 +686,20 @@ export const getPlatformStats = query({
     await requireAdmin(ctx);
 
     // Fetch all aggregates in parallel
-    const [users, matches, messages, pendingReportsList] = await Promise.all([
-      ctx.db.query("users").collect(),
-      ctx.db.query("matches").collect(),
-      ctx.db.query("messages").collect(),
-      ctx.db
-        .query("reports")
-        .withIndex("by_status", (q) => q.eq("status", "pending"))
-        .collect(),
-    ]);
+    const [users, matches, messages, pendingReportsList, pendingAppFeedbackList] =
+      await Promise.all([
+        ctx.db.query("users").collect(),
+        ctx.db.query("matches").collect(),
+        ctx.db.query("messages").collect(),
+        ctx.db
+          .query("reports")
+          .withIndex("by_status", (q) => q.eq("status", "pending"))
+          .collect(),
+        ctx.db
+          .query("appFeedback")
+          .withIndex("by_status", (q) => q.eq("status", "pending"))
+          .collect(),
+      ]);
     
     const maleUsers = users.filter(u => u.gender === "male").length;
     const femaleUsers = users.filter(u => u.gender === "female").length;
@@ -716,6 +722,7 @@ export const getPlatformStats = query({
     
     // Pending reports — real count from reports table
     const pendingReports = pendingReportsList.length;
+    const pendingAppFeedback = pendingAppFeedbackList.length;
     
     // Growth metrics (this week vs last week)
     const newUsersThisWeek = users.filter(u => (u.createdAt || u._creationTime) > weekAgo).length;
@@ -757,6 +764,7 @@ export const getPlatformStats = query({
       todayMessages,
       genderRatio: femaleUsers > 0 ? (maleUsers / femaleUsers).toFixed(2) : "N/A",
       pendingReports,
+      pendingAppFeedback,
       pendingVerifications: waitlistUsers, 
       premiumUsers,
       // Growth percentages (week over week)
@@ -870,6 +878,8 @@ export const getWaitlistUsers = query({
       username: u.username,
       avatar: u.avatar,
       createdAt: u.createdAt,
+      avatarModerationHints: u.avatarModerationHints,
+      avatarModerationCheckedAt: u.avatarModerationCheckedAt,
     }));
   },
 });
@@ -884,8 +894,31 @@ export const approveUser = mutation({
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    
-    await ctx.db.patch(args.targetUserId, { status: "active" });
+
+    const target = await ctx.db.get(args.targetUserId);
+    if (!target) throw new Error("User not found");
+    if (target.status !== "waitlist") {
+      throw new Error("İstifadəçi gözləmə növbəsində deyil");
+    }
+
+    await ctx.db.patch(args.targetUserId, {
+      status: "active",
+      profileModerationNote: undefined,
+      profileModerationAt: undefined,
+    });
+
+    if (target.clerkId) {
+      await ctx.db.insert("notifications", {
+        userId: target.clerkId,
+        type: "system",
+        title: "Profiliniz təsdiqləndi",
+        body: "Danyeri-yə xoş gəlmisiniz. Artıq platformadan tam istifadə edə bilərsiniz.",
+        read: false,
+        createdAt: Date.now(),
+        data: { url: "/" },
+      });
+    }
+
     return { success: true, message: "User approved and activated" };
   },
 });
@@ -901,9 +934,82 @@ export const rejectUser = mutation({
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    
-    await ctx.db.patch(args.targetUserId, { status: "rejected" });
-    return { success: true, message: `User rejected. Reason: ${args.reason || "No reason provided"}` };
+
+    const target = await ctx.db.get(args.targetUserId);
+    if (!target) throw new Error("User not found");
+
+    const note = args.reason?.trim() || "Profil icma qaydalarına uyğun deyil.";
+    await ctx.db.patch(args.targetUserId, {
+      status: "rejected",
+      profileModerationNote: note,
+      profileModerationAt: Date.now(),
+    });
+
+    if (target.clerkId) {
+      await ctx.db.insert("notifications", {
+        userId: target.clerkId,
+        type: "system",
+        title: "Müraciətiniz təsdiqlənmədi",
+        body: note,
+        read: false,
+        createdAt: Date.now(),
+        data: { url: "/profile" },
+      });
+    }
+
+    return { success: true, message: `User rejected. Reason: ${note}` };
+  },
+});
+
+/**
+ * Ask user to fix profile; status becomes needs_revision. They complete onboarding again
+ * and (for males) return to the verification queue.
+ * Allowed from waitlist or from rejected (second chance after a mistaken/stricter reject).
+ */
+export const requestProfileRevision = mutation({
+  args: {
+    adminEmail: v.string(),
+    targetUserId: v.id("users"),
+    reason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
+    const target = await ctx.db.get(args.targetUserId);
+    if (!target) throw new Error("User not found");
+    if (target.status !== "waitlist" && target.status !== "rejected") {
+      throw new Error(
+        "Yalnız gözləmə növbəsində və ya əvvəl rədd edilmiş hesablar üçün mövcuddur"
+      );
+    }
+
+    const note = args.reason.trim();
+    if (!note) throw new Error("Səbəb boş ola bilməz");
+    const wasRejected = target.status === "rejected";
+
+    await ctx.db.patch(args.targetUserId, {
+      status: "needs_revision",
+      profileModerationNote: note,
+      profileModerationAt: Date.now(),
+    });
+
+    if (target.clerkId) {
+      await ctx.db.insert("notifications", {
+        userId: target.clerkId,
+        type: "system",
+        title: wasRejected
+          ? "Profilinizi yeniləyin — yenidən nəzərdən keçiriləcək"
+          : "Profilinizi yeniləyin",
+        body: wasRejected
+          ? `${note}\n\nProfilinizi düzəldib təkrar tamamladıqdan sonra təsdiq növbəsinə düşəcəksiniz.`
+          : note,
+        read: false,
+        createdAt: Date.now(),
+        data: { url: "/onboarding" },
+      });
+    }
+
+    return { success: true };
   },
 });
 
@@ -1070,6 +1176,125 @@ export const getRecentActivity = query({
     });
     
     return activities;
+  },
+});
+
+/**
+ * Admin panel başlığı: DB bildirişləri, gözləyən şikayət/təsdiq, son fəaliyyət
+ */
+export const getAdminNotificationFeed = query({
+  args: {
+    adminEmail: v.string(),
+    /** Dropdown üçün ~25, tam səhifə üçün daha böyük (maks. 150) */
+    notificationLimit: v.optional(v.number()),
+    /** Yalnız bu günlük pəncərədən olan bildirişlər (sonsuz siyahı yox) */
+    notificationMaxAgeDays: v.optional(v.number()),
+    reportPreviewLimit: v.optional(v.number()),
+    recentActivityLimit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+
+    const userId = identity.subject;
+
+    const nLimit = Math.min(150, Math.max(1, args.notificationLimit ?? 25));
+    const maxAgeDays = Math.min(90, Math.max(7, args.notificationMaxAgeDays ?? 30));
+    const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
+    const previewLimit = Math.min(30, Math.max(1, args.reportPreviewLimit ?? 5));
+    const activityLimit = Math.min(30, Math.max(1, args.recentActivityLimit ?? 5));
+
+    const fetchCap = Math.min(400, Math.max(nLimit * 3, 80));
+    const notificationsRaw = await ctx.db
+      .query("notifications")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .order("desc")
+      .take(fetchCap);
+
+    const notificationsFiltered = notificationsRaw
+      .filter((n: any) => (n.createdAt ?? n._creationTime) >= cutoff)
+      .slice(0, nLimit);
+
+    const notifications = notificationsFiltered.map((n: any) => ({
+      ...n,
+      body: localizeNotificationBodyForDisplay(String(n.body ?? "")),
+    }));
+
+    const unreadNotifications = notifications.filter((n: any) => !n.read).length;
+
+    const pendingReportsAll = await ctx.db
+      .query("reports")
+      .withIndex("by_status", (q) => q.eq("status", "pending"))
+      .collect();
+
+    const pendingReportsCount = pendingReportsAll.length;
+    const topPending = pendingReportsAll
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, previewLimit);
+
+    const pendingReportsPreview = await Promise.all(
+      topPending.map(async (report: any) => {
+        const reporter = await ctx.db
+          .query("users")
+          .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", report.reporterId))
+          .first();
+        const reported = await ctx.db
+          .query("users")
+          .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", report.reportedId))
+          .first();
+        return {
+          _id: report._id,
+          reason: report.reason,
+          reporterName: reporter?.name || "Naməlum",
+          reportedName: reported?.name || "Naməlum",
+          createdAt: report.createdAt,
+        };
+      })
+    );
+
+    const waitlistUsers = await ctx.db
+      .query("users")
+      .filter((q: any) => q.eq(q.field("status"), "waitlist"))
+      .collect();
+    const pendingVerificationsCount = waitlistUsers.length;
+
+    const recentUsers = await ctx.db.query("users").order("desc").take(activityLimit);
+    const now = Date.now();
+    const recentActivity = recentUsers.map((user: any) => {
+      const createdAt = user._creationTime;
+      const diffMs = now - createdAt;
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMins / 60);
+      const diffDays = Math.floor(diffHours / 24);
+      let timeAgo = "";
+      if (diffDays > 0) timeAgo = `${diffDays} gün əvvəl`;
+      else if (diffHours > 0) timeAgo = `${diffHours} saat əvvəl`;
+      else if (diffMins > 0) timeAgo = `${diffMins} dəq əvvəl`;
+      else timeAgo = "İndicə";
+
+      let actionText = "Yeni qeydiyyat";
+      if (user.status === "waitlist") actionText = "Təsdiq gözləyir";
+      else if (user.status === "banned") actionText = "Ban edilmiş hesab";
+
+      return {
+        id: user._id,
+        userName: user.name || "Adsız",
+        actionText,
+        timeAgo,
+        createdAt,
+      };
+    });
+
+    return {
+      notifications,
+      unreadNotifications,
+      notificationMaxAgeDays: maxAgeDays,
+      pendingReportsCount,
+      pendingReportsPreview,
+      pendingVerificationsCount,
+      recentActivity,
+    };
   },
 });
 

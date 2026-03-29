@@ -9,6 +9,7 @@ import { useUser } from "@/contexts/UserContext";
 import { useUser as useClerkUser } from "@clerk/nextjs";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
+import { isMessagesChatOpen } from "@/lib/messagesUrl";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -20,8 +21,8 @@ export function BottomNav() {
   const { user: clerkUser } = useClerkUser();
   const { language } = useLanguage();
   
-  // Hide if in a chat (userId param exists)
-  if (searchParams.get("userId")) return null;
+  // Hide if in an embedded chat (?u= / ?userId= / ?chat=)
+  if (isMessagesChatOpen(searchParams)) return null;
 
   
   // Use Clerk avatar as fallback when user context is not yet loaded

@@ -297,7 +297,11 @@ export const quickApproveWaitlist = mutation({
       throw new Error("User is not in waitlist");
     }
 
-    await ctx.db.patch(args.targetUserId, { status: "active" });
+    await ctx.db.patch(args.targetUserId, {
+      status: "active",
+      profileModerationNote: undefined,
+      profileModerationAt: undefined,
+    });
 
     if (target.clerkId) {
       await ctx.db.insert("notifications", {
@@ -322,19 +326,59 @@ export const quickRejectWaitlist = mutation({
     const target = await ctx.db.get(args.targetUserId);
     if (!target) throw new Error("User not found");
 
-    await ctx.db.patch(args.targetUserId, { status: "rejected" });
+    const note =
+      args.reason?.trim() ||
+      "Hazırda hesabınız aktivləşdirilmədi. Dəstək üçün əlaqə saxlayın.";
+
+    await ctx.db.patch(args.targetUserId, {
+      status: "rejected",
+      profileModerationNote: note,
+      profileModerationAt: Date.now(),
+    });
 
     if (target.clerkId) {
       await ctx.db.insert("notifications", {
         userId: target.clerkId,
         type: "system",
-        title: "Müraciətiniz hazırda təsdiqlənmədi",
-        body:
-          args.reason ||
-          "Hazırda hesabınız aktivləşdirilmədi. Profil məlumatlarınızı yeniləyib yenidən cəhd edə bilərsiniz.",
+        title: "Müraciətiniz təsdiqlənmədi",
+        body: note,
         read: false,
         createdAt: Date.now(),
         data: { url: "/profile" },
+      });
+    }
+
+    return { success: true };
+  },
+});
+
+export const quickRequestRevision = mutation({
+  args: { targetUserId: v.id("users"), reason: v.string() },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const target = await ctx.db.get(args.targetUserId);
+    if (!target) throw new Error("User not found");
+    if (target.status !== "waitlist") {
+      throw new Error("Yalnız gözləmə növbəsindəki istifadəçilər üçün");
+    }
+    const note = args.reason.trim();
+    if (!note) throw new Error("Səbəb boş ola bilməz");
+
+    await ctx.db.patch(args.targetUserId, {
+      status: "needs_revision",
+      profileModerationNote: note,
+      profileModerationAt: Date.now(),
+    });
+
+    if (target.clerkId) {
+      await ctx.db.insert("notifications", {
+        userId: target.clerkId,
+        type: "system",
+        title: "Profilinizi yeniləyin",
+        body: note,
+        read: false,
+        createdAt: Date.now(),
+        data: { url: "/onboarding" },
       });
     }
 

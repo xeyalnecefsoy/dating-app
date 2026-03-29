@@ -8,6 +8,7 @@ export {
   Award,
   BadgeCheck,
   Bell,
+  Bug,
   Calendar,
   Camera,
   Check,

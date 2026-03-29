@@ -1,5 +1,8 @@
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import {
+  validateProfileForSave,
+} from "./profileValidation";
 
 // Staff emails that bypass waitlist
 const STAFF_EMAILS = ["xeyalnecefsoy@gmail.com"];
@@ -59,6 +62,26 @@ async function hasWelcomeNotification(
   return recent.some(
     (n: any) => n.type === "system" && n?.data?.welcomeKey === welcomeKey
   );
+}
+
+function computeStatusAfterProfileUpdate(
+  existingStatus: string | undefined,
+  normalizedGender: string | undefined,
+  isStaff: boolean,
+  hasStaffRole: boolean
+): string {
+  const isMale = normalizedGender === "male";
+  const defaultGenderStatus =
+    isMale && !isStaff && !hasStaffRole ? "waitlist" : "active";
+
+  if (existingStatus === "needs_revision") {
+    return defaultGenderStatus;
+  }
+  if (existingStatus === "waitlist") return "waitlist";
+  if (existingStatus === "active") return "active";
+  if (existingStatus === "banned") return "banned";
+  if (existingStatus === "rejected") return "rejected";
+  return defaultGenderStatus;
 }
 
 async function sendWelcomeNotificationIfMissing(
@@ -196,6 +219,33 @@ export const createOrUpdateUser = mutation({
     // Determine role: give superadmin to known staff emails
     const role = isStaff ? "superadmin" : (existingRole || "user");
 
+    const canBypassRejectedLock =
+      isStaff || hasStaffRole || existingRole === "superadmin";
+
+    if (existingUser?.status === "rejected" && !canBypassRejectedLock) {
+      throw new Error(
+        "Hesabınız təsdiqlənmədi. Dəstək üçün əlaqə saxlayın və ya yeni hesab yaradın."
+      );
+    }
+
+    // Yeni istifadəçi: bio həmişə yoxlanır. Mövcud: yalnız bio real dəyişəndə (sinxron + köhnə qısa bio)
+    let bioToValidate: string | undefined;
+    if (!existingUser) {
+      bioToValidate = args.bio ?? "";
+    } else if (args.bio === undefined) {
+      bioToValidate = undefined;
+    } else {
+      const trimmedNew = args.bio.trim();
+      const trimmedOld = (existingUser.bio || "").trim();
+      bioToValidate =
+        trimmedNew === trimmedOld ? undefined : args.bio;
+    }
+
+    const validationError = validateProfileForSave(args.name, bioToValidate);
+    if (validationError) {
+      throw new Error(validationError);
+    }
+
     if (existingUser) {
       // Generate username if not exists
       let username = existingUser.username;
@@ -203,12 +253,25 @@ export const createOrUpdateUser = mutation({
         username = await generateUniqueUsername(ctx, args.name);
       }
       
+      const newStatus = computeStatusAfterProfileUpdate(
+        existingUser.status,
+        normalizedGender,
+        !!isStaff,
+        !!hasStaffRole
+      );
+
+      const leftNeedsRevision = existingUser.status === "needs_revision";
+      const clearModeration = leftNeedsRevision;
+
       const patchData: any = {
         name: args.name,
         createdAt: existingUser.createdAt || Date.now(),
-        status: existingUser.status || status,
+        status: newStatus,
         role,
         ...(existingUser.username ? {} : { username, usernameChangedAt: Date.now() }),
+        ...(clearModeration
+          ? { profileModerationNote: undefined, profileModerationAt: undefined }
+          : {}),
       };
 
       if (args.email !== undefined) patchData.email = args.email;
@@ -227,7 +290,17 @@ export const createOrUpdateUser = mutation({
       if (args.lookingFor !== undefined) patchData.lookingFor = args.lookingFor;
 
       await ctx.db.patch(existingUser._id, patchData);
-      return { userId: existingUser._id, status: existingUser.status || status, isNew: false, username };
+
+      if (leftNeedsRevision && newStatus === "waitlist") {
+        await notifyAdminsAboutWaitlist(ctx, {
+          name: args.name,
+          gender: normalizedGender,
+          userId: existingUser._id,
+          createdAt: existingUser.createdAt || Date.now(),
+        });
+      }
+
+      return { userId: existingUser._id, status: newStatus, isNew: false, username };
     } else {
       // Generate username for new user
       const username = await generateUniqueUsername(ctx, args.name);
@@ -814,10 +887,29 @@ export const getQueuePosition = query({
 });
 
 /**
+ * Optional Sightengine hints (internal — called from imageModeration action).
+ */
+export const setAvatarModerationHintsInternal = internalMutation({
+  args: {
+    clerkId: v.string(),
+    hints: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", args.clerkId))
+      .first();
+    if (!user) return;
+    await ctx.db.patch(user._id, {
+      avatarModerationHints: args.hints.length ? args.hints : undefined,
+      avatarModerationCheckedAt: Date.now(),
+    });
+  },
+});
+
+/**
  * Migration to backfill createdAt for all users
  */
-import { internalMutation } from "./_generated/server";
-
 export const backfillCreatedAt = internalMutation({
   args: {},
   handler: async (ctx) => {
@@ -911,7 +1003,7 @@ export const checkUsernameAvailable = query({
     }
     
     // Check reserved usernames
-    const reserved = ["admin", "superadmin", "moderator", "support", "help", "danyeri", "system"];
+    const reserved = ["admin", "superadmin", "moderator", "support", "help", "danyeri", "system", "general"];
     if (reserved.includes(normalizedUsername)) {
       return { available: false, error: "Bu username qorunur" };
     }
@@ -945,7 +1037,7 @@ export const setUsername = mutation({
     }
     
     // Check reserved
-    const reserved = ["admin", "superadmin", "moderator", "support", "help", "danyeri", "system"];
+    const reserved = ["admin", "superadmin", "moderator", "support", "help", "danyeri", "system", "general"];
     if (reserved.includes(normalizedUsername)) {
       return { success: false, error: "Bu username qorunur" };
     }

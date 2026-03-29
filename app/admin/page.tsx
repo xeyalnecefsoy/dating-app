@@ -29,7 +29,6 @@ import {
   RefreshCw,
   FilterIcon,
   Download,
-  Bell,
   Shield,
   Crown,
   ImageIcon,
@@ -39,18 +38,32 @@ import {
   ChevronRight,
   ChevronLeft,
   Menu,
-  CheckCircle2
+  CheckCircle2,
+  PencilLine,
+  ExternalLink,
+  Bug,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAction, useQuery, useMutation, usePaginatedQuery, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useUser } from "@/contexts/UserContext";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetFooter,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import { MODERATION_PRESET_REASONS_AZ } from "@/lib/moderationTemplates";
+import { formatAzDateTime, reportReasonLabelAz, appFeedbackCategoryLabelAz } from "@/lib/formatAz";
 
 const Spinner = ({ className }: { className?: string }) => (
   <svg
@@ -72,12 +85,14 @@ const Spinner = ({ className }: { className?: string }) => (
 import { BannersAdmin } from "./BannersAdmin";
 import { SystemAlertsAdmin } from "./SystemAlertsAdmin";
 import { VenuesAdmin } from "./VenuesAdmin";
+import { AdminNotificationBell } from "@/components/admin/AdminNotificationBell";
 
 // Admin sidebar items
 const sidebarItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "users", label: "İstifadəçilər", icon: UsersIcon },
   { id: "reports", label: "Şikayətlər", icon: FlagIcon },
+  { id: "app-feedback", label: "Tətbiq problemləri", icon: Bug },
   { id: "verification", label: "Təsdiq Növbəsi", icon: ShieldCheck },
   { id: "banners", label: "Qalereya & Slaydlar", icon: ImageIcon },
   { id: "venues", label: "Məkanlar", icon: MapPin },
@@ -112,6 +127,7 @@ export default function AdminPage() {
   const { user, isLoading: isUserLoading } = useUser();
   const { isLoading: isConvexAuthLoading, isAuthenticated: isConvexAuthenticated } = useConvexAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   const normalizedRole = (user?.role || "").toLowerCase();
   const normalizedUserEmail = (user?.email || "").toLowerCase();
@@ -128,6 +144,18 @@ export default function AdminPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [verificationModal, setVerificationModal] = useState<{
+    mode: "reject" | "revision";
+    item: Record<string, unknown>;
+  } | null>(null);
+  const [moderationReasonDraft, setModerationReasonDraft] = useState("");
+  const [reportStatusFilter, setReportStatusFilter] = useState<
+    "all" | "pending" | "resolved" | "dismissed"
+  >("all");
+  const [appFeedbackStatusFilter, setAppFeedbackStatusFilter] = useState<
+    "all" | "pending" | "reviewed" | "dismissed"
+  >("all");
+  const [appFeedbackDetail, setAppFeedbackDetail] = useState<any | null>(null);
 
   // Redirect if not admin
   React.useEffect(() => {
@@ -147,6 +175,37 @@ export default function AdminPage() {
     }
   }, [isSuperadmin, activeSection]);
 
+  /** `/admin?section=reports&reportsFilter=pending` kimi keçidlər (məs. admin bildirişlər səhifəsindən) */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (pathname !== "/admin") return;
+    const q = new URLSearchParams(window.location.search);
+    const section = q.get("section");
+    const rf = q.get("reportsFilter");
+    const ff = q.get("feedbackFilter");
+    if (!section && !rf && !ff) return;
+    const allowed = new Set(visibleSidebarItems.map((i) => i.id));
+    if (section && allowed.has(section)) {
+      setActiveSection(section);
+    }
+    if (
+      rf === "all" ||
+      rf === "pending" ||
+      rf === "resolved" ||
+      rf === "dismissed"
+    ) {
+      setReportStatusFilter(rf);
+    }
+    if (
+      ff === "all" ||
+      ff === "pending" ||
+      ff === "reviewed" ||
+      ff === "dismissed"
+    ) {
+      setAppFeedbackStatusFilter(ff);
+    }
+  }, [pathname, visibleSidebarItems]);
+
   // Convex Queries — only load data needed for active section
   const adminEmail = normalizedUserEmail || FOUNDER_EMAIL;
   const canLoadAdminData =
@@ -156,6 +215,7 @@ export default function AdminPage() {
     isAdminUser;
   const shouldLoadUsers = canLoadAdminData && activeSection === "users";
   const shouldLoadReports = canLoadAdminData && activeSection === "reports";
+  const shouldLoadAppFeedback = canLoadAdminData && activeSection === "app-feedback";
   const shouldLoadVerification = canLoadAdminData && activeSection === "verification";
   const shouldLoadSettings = canLoadAdminData && isSuperadmin && activeSection === "settings";
   const shouldLoadRecentActivity = canLoadAdminData && activeSection === "dashboard";
@@ -192,10 +252,18 @@ export default function AdminPage() {
   // Reports
   const { results: reportsResults, status: reportsStatus, loadMore: loadMoreReports } = usePaginatedQuery(
     api.reports.getReportsPaginated,
-    shouldLoadReports ? { statusFilter: "all" } : "skip",
+    shouldLoadReports ? { statusFilter: reportStatusFilter } : "skip",
     { initialNumItems: 10 }
   );
   const updateReportStatusMut = useMutation(api.reports.updateReportStatus);
+
+  const { results: appFeedbackResults, status: appFeedbackStatus, loadMore: loadMoreAppFeedback } =
+    usePaginatedQuery(
+      api.appFeedback.getAppFeedbackPaginated,
+      shouldLoadAppFeedback ? { statusFilter: appFeedbackStatusFilter } : "skip",
+      { initialNumItems: 10 }
+    );
+  const updateAppFeedbackStatusMut = useMutation(api.appFeedback.updateAppFeedbackStatus);
 
   const paywallEnabled = platformSettings?.PREMIUM_PAYWALL_ENABLED === "true";
 
@@ -218,6 +286,7 @@ export default function AdminPage() {
     todayMessages: 0,
     genderRatio: "N/A",
     pendingReports: 0,
+    pendingAppFeedback: 0,
     pendingVerifications: 0,
     premiumUsers: 0,
     userGrowth: 0,
@@ -294,6 +363,7 @@ export default function AdminPage() {
   const setRoleMutation = useMutation(api.admin.setUserRole);
   const approveUserMutation = useMutation(api.admin.approveUser);
   const rejectUserMutation = useMutation(api.admin.rejectUser);
+  const requestProfileRevisionMutation = useMutation(api.admin.requestProfileRevision);
   const deleteUserMutation = useMutation(api.admin.deleteUserPermanently);
   const hardDeleteUserAction = useAction((api as any).admin.hardDeleteUserWithClerk);
 
@@ -563,14 +633,26 @@ export default function AdminPage() {
                   {displayStats.pendingReports}
                 </span>
               )}
+              {!isCollapsed && item.id === "app-feedback" && (displayStats.pendingAppFeedback || 0) > 0 && (
+                <span className="ml-auto bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full">
+                  {displayStats.pendingAppFeedback}
+                </span>
+              )}
               {!isCollapsed && item.id === "verification" && (displayStats.pendingVerifications || 0) > 0 && (
                 <span className="ml-auto bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full">
                   {displayStats.pendingVerifications}
                 </span>
               )}
-              {isCollapsed && (item.id === "reports" || item.id === "verification") && (
-                 <div className="w-2 h-2 rounded-full bg-red-500 absolute top-2 right-2" />
-              )}
+              {isCollapsed &&
+                (item.id === "reports" ||
+                  item.id === "app-feedback" ||
+                  item.id === "verification") && (
+                  <div
+                    className={`w-2 h-2 rounded-full absolute top-2 right-2 ${
+                      item.id === "app-feedback" ? "bg-amber-500" : "bg-red-500"
+                    }`}
+                  />
+                )}
             </button>
           ))}
         </nav>
@@ -599,12 +681,13 @@ export default function AdminPage() {
             </h2>
             </div>
             <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="w-5 h-5" />
-                {displayStats.pendingReports > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-                )}
-              </Button>
+              <AdminNotificationBell
+                adminEmail={adminEmail}
+                canLoad={canLoadAdminData}
+                setActiveSection={setActiveSection}
+                setReportStatusFilter={setReportStatusFilter}
+                setIsSidebarOpen={setIsSidebarOpen}
+              />
               <Link href="/admin/mobile" className="md:hidden">
                 <Button variant="outline" size="sm" className="h-8 px-3 rounded-full text-xs">
                   Mobil
@@ -709,7 +792,7 @@ export default function AdminPage() {
                 )}
 
                 {/* Quick Actions */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                   <div className="bg-card border border-border rounded-2xl p-5">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="font-semibold">Gözləyən Şikayətlər</h3>
@@ -725,6 +808,29 @@ export default function AdminPage() {
                       onClick={() => setActiveSection("reports")}
                     >
                       Baxış Et
+                    </Button>
+                  </div>
+
+                  <div className="bg-card border border-amber-500/25 rounded-2xl p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-semibold">Tətbiq problemləri</h3>
+                      {isDataLoading ? (
+                        <div className="w-10 h-8 bg-muted/60 rounded animate-pulse" />
+                      ) : (
+                        <span className="text-2xl font-bold text-amber-400">
+                          {displayStats.pendingAppFeedback || 0}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Nasazlıq / bug bildirişləri (/feedback)
+                    </p>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => setActiveSection("app-feedback")}
+                    >
+                      Aç
                     </Button>
                   </div>
 
@@ -793,15 +899,21 @@ export default function AdminPage() {
                         };
                         const { icon: Icon, color } = getIcon();
                         return (
-                          <div key={activity.id} className="flex items-center gap-3 py-2">
-                            <div className={`w-9 h-9 rounded-full bg-muted flex items-center justify-center ${color}`}>
+                          <div key={activity.id} className="flex items-start gap-3 py-2">
+                            <div className={`w-9 h-9 shrink-0 rounded-full bg-muted flex items-center justify-center ${color}`}>
                               <Icon className="w-4 h-4" />
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm">{activity.actionText}</p>
-                              <p className="text-xs text-muted-foreground">{activity.userName}</p>
+                            <div className="flex-1 min-w-0 space-y-0.5">
+                              <p className="text-sm font-medium leading-snug break-words">
+                                {activity.userName}
+                              </p>
+                              <p className="text-xs text-muted-foreground leading-snug break-words">
+                                {activity.actionText}
+                              </p>
                             </div>
-                            <span className="text-xs text-muted-foreground">{activity.timeAgo}</span>
+                            <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap pt-0.5 tabular-nums">
+                              {activity.timeAgo}
+                            </span>
                           </div>
                         );
                       })
@@ -1052,10 +1164,31 @@ export default function AdminPage() {
                 exit={{ opacity: 0, y: -20 }}
                 className="space-y-6"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-muted-foreground">
                     {displayStats.pendingReports || 0} gözləyən şikayət
                   </p>
+                  <div className="flex flex-wrap gap-2">
+                    {(
+                      [
+                        { id: "all" as const, label: "Hamısı" },
+                        { id: "pending" as const, label: "Gözləyən" },
+                        { id: "resolved" as const, label: "Həll edilib" },
+                        { id: "dismissed" as const, label: "Rədd edilib" },
+                      ] as const
+                    ).map((tab) => (
+                      <Button
+                        key={tab.id}
+                        type="button"
+                        size="sm"
+                        variant={reportStatusFilter === tab.id ? "default" : "outline"}
+                        className="rounded-full h-8"
+                        onClick={() => setReportStatusFilter(tab.id)}
+                      >
+                        {tab.label}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
 
                 {reportsStatus === "LoadingFirstPage" ? (
@@ -1073,35 +1206,65 @@ export default function AdminPage() {
                     {reportsResults.map((report: any) => (
                       <div
                         key={report._id}
-                        className="bg-card border border-border rounded-2xl p-5"
+                        className="bg-card/80 border border-border rounded-2xl p-5 shadow-sm"
                       >
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-start gap-4">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                              report.status === "pending" ? "bg-red-500/10" : 
-                              report.status === "resolved" ? "bg-green-500/10" : "bg-muted"
-                            }`}>
-                              <AlertTriangle className={`w-5 h-5 ${
-                                report.status === "pending" ? "text-red-500" : 
-                                report.status === "resolved" ? "text-green-500" : "text-muted-foreground"
-                              }`} />
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="flex items-start gap-4 min-w-0">
+                            <div
+                              className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center ${
+                                report.status === "pending"
+                                  ? "bg-red-500/15"
+                                  : report.status === "resolved"
+                                    ? "bg-green-500/15"
+                                    : "bg-muted"
+                              }`}
+                            >
+                              <AlertTriangle
+                                className={`w-5 h-5 ${
+                                  report.status === "pending"
+                                    ? "text-red-500"
+                                    : report.status === "resolved"
+                                      ? "text-green-500"
+                                      : "text-muted-foreground"
+                                }`}
+                              />
                             </div>
-                            <div>
-                              <h4 className="font-semibold capitalize">{report.reason}</h4>
+                            <div className="min-w-0">
+                              <h4 className="font-semibold text-foreground">
+                                {reportReasonLabelAz(String(report.reason))}
+                              </h4>
                               {report.description && (
-                                <p className="text-sm text-muted-foreground mt-0.5">{report.description}</p>
+                                <p className="text-sm text-muted-foreground mt-0.5 break-words">
+                                  {report.description}
+                                </p>
                               )}
-                              <p className="text-sm text-muted-foreground mt-1">
-                                {report.reporterName} → {report.reportedName}
+                              <p className="text-sm text-muted-foreground mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                                <Link
+                                  href={`/user/${report.reporterUsername || report.reporterId}`}
+                                  className="inline-flex items-center gap-1 hover:text-foreground hover:underline"
+                                >
+                                  {report.reporterName}
+                                  <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+                                </Link>
+                                <span className="text-muted-foreground/80" aria-hidden>
+                                  →
+                                </span>
+                                <Link
+                                  href={`/user/${report.reportedUsername || report.reportedId}`}
+                                  className="inline-flex items-center gap-1 hover:text-foreground hover:underline"
+                                >
+                                  {report.reportedName}
+                                  <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+                                </Link>
                               </p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {new Date(report.createdAt).toLocaleDateString('az-AZ')}
+                              <p className="text-xs text-muted-foreground mt-1.5 tabular-nums">
+                                {formatAzDateTime(report.createdAt)}
                               </p>
                             </div>
                           </div>
 
                           {report.status === "pending" && (
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2 sm:justify-end shrink-0">
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -1157,6 +1320,242 @@ export default function AdminPage() {
               </motion.div>
             )}
 
+            {activeSection === "app-feedback" && (
+              <motion.div
+                key="app-feedback"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-6"
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-muted-foreground">
+                    {displayStats.pendingAppFeedback || 0} gözləyən tətbiq bildirişi
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {(
+                      [
+                        { id: "all" as const, label: "Hamısı" },
+                        { id: "pending" as const, label: "Gözləyən" },
+                        { id: "reviewed" as const, label: "Baxılıb" },
+                        { id: "dismissed" as const, label: "Rədd" },
+                      ] as const
+                    ).map((tab) => (
+                      <Button
+                        key={tab.id}
+                        type="button"
+                        size="sm"
+                        variant={appFeedbackStatusFilter === tab.id ? "default" : "outline"}
+                        className="rounded-full h-8"
+                        onClick={() => setAppFeedbackStatusFilter(tab.id)}
+                      >
+                        {tab.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {appFeedbackStatus === "LoadingFirstPage" ? (
+                  <div className="text-center py-16 text-muted-foreground">
+                    <Spinner className="w-6 h-6 animate-spin mx-auto mb-3" />
+                    <p>Bildirişlər yüklənir...</p>
+                  </div>
+                ) : !appFeedbackResults || appFeedbackResults.length === 0 ? (
+                  <div className="text-center py-16 text-muted-foreground">
+                    <Bug className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                    <p>Bildiriş yoxdur</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {appFeedbackResults.map((row: any) => (
+                      <div
+                        key={row._id}
+                        className="bg-card/80 border border-border rounded-2xl p-5 shadow-sm"
+                      >
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="flex items-start gap-4 min-w-0">
+                            <div
+                              className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center ${
+                                row.status === "pending"
+                                  ? "bg-amber-500/15"
+                                  : row.status === "reviewed"
+                                    ? "bg-green-500/15"
+                                    : "bg-muted"
+                              }`}
+                            >
+                              <Bug
+                                className={`w-5 h-5 ${
+                                  row.status === "pending"
+                                    ? "text-amber-500"
+                                    : row.status === "reviewed"
+                                      ? "text-green-500"
+                                      : "text-muted-foreground"
+                                }`}
+                              />
+                            </div>
+                            <div className="min-w-0">
+                              <h4 className="font-semibold text-foreground">
+                                {appFeedbackCategoryLabelAz(String(row.category))}
+                              </h4>
+                              <p
+                                className={
+                                  String(row.message || "").length > 220
+                                    ? "text-sm text-muted-foreground mt-0.5 break-words whitespace-pre-wrap line-clamp-4"
+                                    : "text-sm text-muted-foreground mt-0.5 break-words whitespace-pre-wrap"
+                                }
+                              >
+                                {row.message}
+                              </p>
+                              <button
+                                type="button"
+                                className="text-xs font-medium text-primary hover:underline mt-1.5"
+                                onClick={() => setAppFeedbackDetail(row)}
+                              >
+                                {String(row.message || "").length > 220
+                                  ? "Ətraflı bax — tam mətn"
+                                  : "Tam paneldə aç"}
+                              </button>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {row.platform || "?"} · {row.appVersion || "—"}
+                              </p>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                <Link
+                                  href={`/user/${row.userUsername || row.clerkId}`}
+                                  className="inline-flex items-center gap-1 hover:text-foreground hover:underline"
+                                >
+                                  {row.userName}
+                                  <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+                                </Link>
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1.5 tabular-nums">
+                                {formatAzDateTime(row.createdAt)}
+                              </p>
+                            </div>
+                          </div>
+
+                          {row.status === "pending" && (
+                            <div className="flex flex-wrap items-center gap-2 sm:justify-end shrink-0">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1 text-green-500 hover:text-green-600"
+                                onClick={() => {
+                                  updateAppFeedbackStatusMut({
+                                    feedbackId: row._id,
+                                    status: "reviewed",
+                                  })
+                                    .then(() =>
+                                      showToast({ type: "success", title: "Baxıldı kimi işarələndi" })
+                                    )
+                                    .catch(() => showToast({ type: "error", title: "Xəta baş verdi" }));
+                                }}
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                                Baxıldı
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1 text-yellow-500 hover:text-yellow-600"
+                                onClick={() => {
+                                  updateAppFeedbackStatusMut({
+                                    feedbackId: row._id,
+                                    status: "dismissed",
+                                  })
+                                    .then(() => showToast({ type: "success", title: "Arxivləndi" }))
+                                    .catch(() => showToast({ type: "error", title: "Xəta baş verdi" }));
+                                }}
+                              >
+                                <XIcon className="w-4 h-4" />
+                                Rədd
+                              </Button>
+                            </div>
+                          )}
+
+                          {row.status === "reviewed" && (
+                            <span className="text-xs text-green-500 font-medium">Baxılıb</span>
+                          )}
+                          {row.status === "dismissed" && (
+                            <span className="text-xs text-yellow-500 font-medium">Rədd edilib</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+
+                    {(appFeedbackStatus === "CanLoadMore" || appFeedbackStatus === "LoadingMore") && (
+                      <div className="pt-4 flex justify-center">
+                        <Button
+                          variant="outline"
+                          onClick={() => loadMoreAppFeedback(10)}
+                          disabled={appFeedbackStatus === "LoadingMore"}
+                        >
+                          {appFeedbackStatus === "LoadingMore" ? "Yüklənir..." : "Daha çox yüklə"}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <Sheet
+                  open={!!appFeedbackDetail}
+                  onOpenChange={(open) => {
+                    if (!open) setAppFeedbackDetail(null);
+                  }}
+                >
+                  <SheetContent
+                    side="right"
+                    className="w-full sm:max-w-lg flex flex-col gap-0 overflow-hidden"
+                  >
+                    {appFeedbackDetail && (
+                      <>
+                        <SheetHeader className="pr-8">
+                          <SheetTitle>
+                            {appFeedbackCategoryLabelAz(
+                              String(appFeedbackDetail.category),
+                            )}
+                          </SheetTitle>
+                          <SheetDescription className="space-y-1">
+                            <span className="block">
+                              {formatAzDateTime(appFeedbackDetail.createdAt)}
+                            </span>
+                            <Link
+                              href={`/user/${appFeedbackDetail.userUsername || appFeedbackDetail.clerkId}`}
+                              className="inline-flex items-center gap-1 text-primary hover:underline"
+                            >
+                              {appFeedbackDetail.userName}
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </Link>
+                          </SheetDescription>
+                        </SheetHeader>
+                        <div className="flex-1 min-h-0 overflow-y-auto mt-4 px-1">
+                          <div className="rounded-xl bg-muted/50 border border-border p-4 text-sm text-foreground whitespace-pre-wrap break-words">
+                            {appFeedbackDetail.message}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-3 break-all">
+                            {appFeedbackDetail.platform || "—"} ·{" "}
+                            {appFeedbackDetail.appVersion || "—"}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1 font-mono">
+                            {appFeedbackDetail.clerkId}
+                          </p>
+                        </div>
+                        <SheetFooter className="border-t border-border pt-4 mt-4">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full sm:w-auto"
+                            onClick={() => setAppFeedbackDetail(null)}
+                          >
+                            Bağla
+                          </Button>
+                        </SheetFooter>
+                      </>
+                    )}
+                  </SheetContent>
+                </Sheet>
+              </motion.div>
+            )}
+
             {/* Verification Queue */}
             {activeSection === "verification" && (
               <motion.div
@@ -1166,9 +1565,16 @@ export default function AdminPage() {
                 exit={{ opacity: 0, y: -20 }}
                 className="space-y-6"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-muted-foreground">
                     {waitlistUsers?.length || 0} gözləyən təsdiq
+                  </p>
+                  <p className="text-xs text-muted-foreground max-w-xl leading-relaxed">
+                    Siqaret/ekran şəkli, bio və ya ad üçün əksər hallarda{" "}
+                    <span className="text-foreground font-medium">Düzəliş tələb et</span>{" "}
+                    seçin — istifadəçi düzəldəndən sonra yenidən növbəyə düşür.{" "}
+                    <span className="text-foreground font-medium">Rədd et</span> yalnız ciddi və ya təkrar
+                    pozuntu üçündür.
                   </p>
                 </div>
 
@@ -1192,7 +1598,7 @@ export default function AdminPage() {
                       <div className="aspect-square bg-muted relative">
                         <img
                           src={item.avatar || '/placeholder-avatar.svg'}
-                          alt={item.userName}
+                          alt={String(item.name || "Profil")}
                           className="w-full h-full object-cover"
                         />
                         <div className="absolute top-3 right-3">
@@ -1214,53 +1620,74 @@ export default function AdminPage() {
                         {item.bio && (
                           <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{item.bio}</p>
                         )}
-                        <div className="flex flex-col sm:flex-row gap-2 mt-4">
+                        {item.avatarModerationHints &&
+                          item.avatarModerationHints.length > 0 && (
+                            <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                              Avtomatik işarə: {item.avatarModerationHints.join(", ")}
+                            </p>
+                          )}
+                        <div className="flex flex-col gap-2 mt-4">
                           <Button
                             size="sm"
-                            className="flex-1 gap-1 bg-green-500 hover:bg-green-600"
+                            className="w-full gap-1 bg-green-500 hover:bg-green-600"
                             onClick={async () => {
                               setIsLoading(true);
                               try {
-                                await approveUserMutation({ 
-                                  targetUserId: item._id, 
-                                  adminEmail: user?.email || "" 
+                                await approveUserMutation({
+                                  targetUserId: item._id,
+                                  adminEmail: user?.email || "",
+                                });
+                                showToast({
+                                  type: "success",
+                                  title: "Profil təsdiqləndi",
                                 });
                               } catch (e) {
                                 console.error("Approve failed:", e);
-                                alert("Təsdiq uğursuz oldu");
+                                showToast({
+                                  type: "error",
+                                  title: "Təsdiq uğursuz oldu",
+                                });
                               } finally {
                                 setIsLoading(false);
                               }
                             }}
                             disabled={isLoading}
                           >
-                            {isLoading ? <Spinner className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                            {isLoading ? (
+                              <Spinner className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <CheckCircle className="w-4 h-4" />
+                            )}
                             Təsdiqlə
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="flex-1 gap-1 text-red-500 hover:text-red-600"
-                            onClick={async () => {
-                              setIsLoading(true);
-                              try {
-                                await rejectUserMutation({ 
-                                  targetUserId: item._id, 
-                                  adminEmail: user?.email || "",
-                                  reason: "Admin rədd etdi"
-                                });
-                              } catch (e) {
-                                console.error("Reject failed:", e);
-                                alert("Rədd uğursuz oldu");
-                              } finally {
-                                setIsLoading(false);
-                              }
-                            }}
-                            disabled={isLoading}
-                          >
-                            <XCircle className="w-4 h-4" />
-                            Rədd Et
-                          </Button>
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="flex-1 gap-1"
+                              onClick={() => {
+                                setModerationReasonDraft(MODERATION_PRESET_REASONS_AZ[0] ?? "");
+                                setVerificationModal({ mode: "revision", item });
+                              }}
+                              disabled={isLoading}
+                            >
+                              <PencilLine className="w-4 h-4" />
+                              Düzəliş tələb et
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 gap-1 text-red-500 hover:text-red-600"
+                              onClick={() => {
+                                setModerationReasonDraft(MODERATION_PRESET_REASONS_AZ[0] ?? "");
+                                setVerificationModal({ mode: "reject", item });
+                              }}
+                              disabled={isLoading}
+                            >
+                              <XCircle className="w-4 h-4" />
+                              Rədd et
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1588,6 +2015,23 @@ export default function AdminPage() {
                     )}
                   </div>
 
+                  {selectedUser.status === "rejected" && (
+                    <Button
+                      variant="secondary"
+                      className="w-full gap-2"
+                      onClick={() => {
+                        setModerationReasonDraft(MODERATION_PRESET_REASONS_AZ[0] ?? "");
+                        setVerificationModal({
+                          mode: "revision",
+                          item: selectedUser as unknown as Record<string, unknown>,
+                        });
+                      }}
+                    >
+                      <PencilLine className="w-4 h-4" />
+                      İkinci şans: düzəliş tələb et (növbəyə qayıtmaq üçün)
+                    </Button>
+                  )}
+
                   {isSuperadmin && (
                     <p className="text-xs text-muted-foreground">
                       {getDeleteGuardReason(selectedUser) || "Tam silmə əməliyyatı uyğunluq, mesaj, hekayə və şikayət datasını geri qaytarılmayan şəkildə təmizləyir."}
@@ -1632,6 +2076,124 @@ export default function AdminPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <Sheet
+        open={!!verificationModal}
+        onOpenChange={(open) => {
+          if (!open) setVerificationModal(null);
+        }}
+      >
+        <SheetContent side="right" className="sm:max-w-md flex flex-col">
+          <SheetHeader>
+            <SheetTitle>
+              {verificationModal?.mode === "revision"
+                ? "Düzəliş tələb et"
+                : "Rədd et — səbəb"}
+            </SheetTitle>
+            <SheetDescription className="space-y-2 text-left">
+              {verificationModal?.mode === "revision" ? (
+                <span>
+                  İstifadəçi statusu{" "}
+                  <strong className="text-foreground">düzəliş tələb olunur</strong> olacaq: onboardingə
+                  yönləndirilir, profili düzəldib təkrar tamamladıqdan sonra (kişilər üçün) yenidən təsdiq
+                  növbəsinə düşəcək. Aşağıdan hazır səbəbdən birini seçin və ya mətni redaktə edin.
+                </span>
+              ) : (
+                <span>
+                  <strong className="text-foreground">Rədd</strong> hesabı platformadan çıxır; profil
+                  yeniləmə bloklanır. Yalnız ciddi pozuntu və ya təkrar pozuntu üçündür. Düzəldilə bilən
+                  profillər üçün pəncərəni bağlayıb kartda <strong className="text-foreground">Düzəliş tələb et</strong>{" "}
+                  istifadə edin.
+                </span>
+              )}
+            </SheetDescription>
+          </SheetHeader>
+          <div className="px-4 space-y-3 flex-1 overflow-y-auto pb-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Hazır səbəblər (bir toxunuşla seçin)</label>
+              <div className="flex flex-col gap-2 max-h-[min(40vh,280px)] overflow-y-auto pr-1">
+                {MODERATION_PRESET_REASONS_AZ.map((r) => {
+                  const selected = moderationReasonDraft === r;
+                  return (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setModerationReasonDraft(r)}
+                      className={`text-left rounded-xl border px-3 py-2.5 text-sm leading-snug transition-colors ${
+                        selected
+                          ? "border-primary bg-primary/10 text-foreground ring-2 ring-primary/40"
+                          : "border-border bg-card hover:bg-muted/50 text-muted-foreground"
+                      }`}
+                    >
+                      {r}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Mesaj (bildirişdə gedəcək)</label>
+              <Textarea
+                value={moderationReasonDraft}
+                onChange={(e) => setModerationReasonDraft(e.target.value)}
+                rows={5}
+                placeholder="Şablondan seçin və ya öz mətninizi yazın..."
+                className="resize-none"
+              />
+            </div>
+          </div>
+          <SheetFooter className="gap-2 sm:flex-row flex-col">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setVerificationModal(null)}
+              disabled={isLoading}
+            >
+              Ləğv et
+            </Button>
+            <Button
+              className="flex-1"
+              variant={verificationModal?.mode === "reject" ? "destructive" : "default"}
+              disabled={isLoading || !moderationReasonDraft.trim()}
+              onClick={async () => {
+                const text = moderationReasonDraft.trim();
+                if (!text || !verificationModal) {
+                  showToast({ type: "error", title: "Səbəb daxil edin" });
+                  return;
+                }
+                setIsLoading(true);
+                try {
+                  const id = verificationModal.item._id as any;
+                  if (verificationModal.mode === "reject") {
+                    await rejectUserMutation({
+                      targetUserId: id,
+                      adminEmail: user?.email || "",
+                      reason: text,
+                    });
+                    showToast({ type: "success", title: "Rədd edildi" });
+                  } else {
+                    await requestProfileRevisionMutation({
+                      targetUserId: id,
+                      adminEmail: user?.email || "",
+                      reason: text,
+                    });
+                    showToast({ type: "success", title: "Düzəliş tələb olundu" });
+                  }
+                  setVerificationModal(null);
+                } catch (e) {
+                  console.error(e);
+                  showToast({ type: "error", title: "Əməliyyat alınmadı" });
+                } finally {
+                  setIsLoading(false);
+                }
+              }}
+            >
+              {isLoading ? <Spinner className="w-4 h-4 animate-spin" /> : null}
+              {verificationModal?.mode === "reject" ? "Rədd et və göndər" : "Düzəliş tələb et"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
